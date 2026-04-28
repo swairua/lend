@@ -164,7 +164,6 @@ export default function Login() {
         
         {/* Custom Alert */}
         {AlertComponent}
-      </div>
-    </div>
+      </div>   
   );
 }
