@@ -170,3 +170,18 @@ export interface DashboardStats {
     collected: number;
   };
 }
+
+// Re-export API functions from utils for backwards compatibility
+export {
+  authApi,
+  productsApi,
+  loansApi,
+  repaymentsApi,
+  adminApi,
+  messagesApi,
+  formatKES,
+  formatDate,
+  getStatusColor,
+  getStatusLabel,
+  ApiError
+} from '../utils/api';

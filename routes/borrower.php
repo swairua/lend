@@ -147,7 +147,7 @@ if ($method === 'POST' && strpos($uri, 'loans') !== false && !preg_match('#loans
         INSERT INTO loans (borrower_id, product_id, principal_amount, interest_amount, processing_fee,
                         asset_transfer_fee, tracking_system_fee, late_fee_rate, total_amount, term_months, status,
                         security_details, guarantor_details, due_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
     ");
     $stmt->execute([
         $bid, $productId, $amount, $interest, $processingFee,

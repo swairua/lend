@@ -144,7 +144,7 @@ if (preg_match('#^(admin/)?loans/(\d+)$#', $uri, $m)) {
         LEFT JOIN users u ON b.user_id = u.id
         LEFT JOIN loan_products lp ON l.product_id = lp.id
         WHERE l.id = ?
-    ", [$m[1]]);
+    ", [$m[2]]);
     
     if (!$loan) {
         http_response_code(404);
@@ -348,7 +348,7 @@ if (strpos($uri, 'products') !== false) {
             INSERT INTO loan_products (category_id, name, description, min_amount, max_amount, min_term_months, max_term_months,
                                 interest_rate, interest_type, processing_fee_percent, asset_transfer_fee, tracking_system_fee,
                                 late_fee_percent, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $data['category_id'], $data['name'], $data['description'], $data['min_amount'], $data['max_amount'],
