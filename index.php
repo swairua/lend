@@ -21,7 +21,7 @@ $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim($uri, '/');
 
 // Strip base path if running under subdirectory
-$basePaths = ['lending/server', 'server'];
+$basePaths = ['lending', 'api', 'server'];
 foreach ($basePaths as $base) {
     if (strpos($uri, $base . '/') === 0 || $uri === $base) {
         $uri = substr($uri, strlen($base) + 1);

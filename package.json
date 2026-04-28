@@ -1,5 +1,7 @@
 {
-  "name": "lending-app-frontend",
+  "name": "lending-app",
+  "version": "1.0.0",
+  "description": "Lending platform with React frontend and PHP backend",
   "private": true,
   "type": "module",
   "scripts": {

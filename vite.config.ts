@@ -11,12 +11,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8082',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '/lending/server'),
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },
   build: {
-    outDir: "dist/spa",
+    outDir: "dist",
   },
   plugins: [
     react(),
