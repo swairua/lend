@@ -149,8 +149,6 @@ export default function AdminLoans() {
       return;
     }
   };
-
-  const { showAlert, confirm, AlertComponent } = useAlert();
   
   const handleReject = async () => {
     if (!selectedLoan) return;
