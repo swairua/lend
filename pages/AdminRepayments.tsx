@@ -33,6 +33,7 @@ export default function AdminRepayments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [totalRepayments, setTotalRepayments] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const { showAlert, confirm, AlertComponent } = useAlert();
 
   useEffect(() => {
@@ -41,14 +42,26 @@ export default function AdminRepayments() {
 
   const loadRepayments = async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await adminApi.getRepayments();
-      const data = response.data?.data || [];
+      const data = response.data || [];
       setRepayments(data);
       setTotalRepayments(data.length);
       setTotalAmount(data.reduce((sum: number, r: Repayment) => sum + r.amount, 0));
-    } catch (error) {
-      console.error('Failed to load repayments:', error);
+    } catch (error: any) {
+      const errorMsg = error?.message || 'Failed to connect to the repayments API';
+      console.error('Failed to load repayments:', errorMsg);
+      setError(errorMsg);
+      setRepayments([]);
+
+      // For demo purposes, show a message about the backend
+      if (errorMsg.includes('Empty response') || errorMsg.includes('fetch')) {
+        showAlert({
+          type: 'error',
+          message: 'Unable to reach the backend API. Please ensure:\n1. The PHP backend is running on http://localhost:8082\n2. The /admin/repayments endpoint is properly configured'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -98,6 +111,14 @@ export default function AdminRepayments() {
           Refresh
         </Button>
       </div>
+
+      {error && (
+        <Card className="mb-6 border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-red-700">{error}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mb-6">

@@ -12,14 +12,14 @@ class ApiError extends Error {
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
-  
+
   const token = localStorage.getItem('token');
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...options.headers as Record<string, string>,
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -31,10 +31,18 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    const data = await response.json();
+
+    // Handle empty responses
+    const text = await response.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : { success: false, error: 'Empty response from server' };
+    } catch (e) {
+      throw new ApiError(response.status, `Invalid JSON response: ${text}`);
+    }
 
     if (!response.ok) {
-      throw new ApiError(response.status, data.error || 'Request failed');
+      throw new ApiError(response.status, data.error || data.message || 'Request failed');
     }
 
     return data;
