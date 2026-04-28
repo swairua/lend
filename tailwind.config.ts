@@ -4,8 +4,9 @@ import defaultTheme from "tailwindcss/defaultTheme";
 const config: Config = {
   content: [
     "./index.html",
-    "./App.{js,jsx,ts,tsx}",
-    "./**/*.{js,jsx,ts,tsx}",
+    "./App.tsx",
+    "./pages/**/*.tsx",
+    "./components/**/*.tsx",
   ],
   theme: {
     extend: {
