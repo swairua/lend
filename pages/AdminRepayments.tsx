@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ChevronLeft, ChevronRight, RefreshCw, DollarSign, Eye, Plus, Trash2 } 
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, DollarSign, Eye, Plus, Trash2 } from 'lucide-react';
 import { adminApi, formatKES, formatDate } from '../types/api';
 import { useAlert } from '@/hooks/use-alert';
 
