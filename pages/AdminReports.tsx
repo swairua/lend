@@ -286,35 +286,35 @@ export default function AdminReports() {
                   <Table className="text-xs md:text-sm">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs md:text-sm">ID</TableHead>
-                        <TableHead className="hidden sm:table-cell text-xs md:text-sm">Borrower</TableHead>
-                        <TableHead className="hidden md:table-cell text-xs md:text-sm">Product</TableHead>
-                        <TableHead className="text-right text-xs md:text-sm">Principal</TableHead>
-                        <TableHead className="hidden sm:table-cell text-right text-xs md:text-sm">Balance</TableHead>
-                        <TableHead className="hidden lg:table-cell text-right text-xs md:text-sm">Paid</TableHead>
-                        <TableHead className="text-center text-xs md:text-sm">Status</TableHead>
-                        <TableHead className="hidden md:table-cell text-right text-xs md:text-sm">Due Date</TableHead>
+                        <TableHead className="text-xs md:text-sm whitespace-nowrap min-w-[60px]">ID</TableHead>
+                        <TableHead className="hidden sm:table-cell text-xs md:text-sm whitespace-nowrap min-w-[130px]">Borrower</TableHead>
+                        <TableHead className="hidden md:table-cell text-xs md:text-sm whitespace-nowrap min-w-[120px]">Product</TableHead>
+                        <TableHead className="text-right text-xs md:text-sm whitespace-nowrap min-w-[110px]">Principal</TableHead>
+                        <TableHead className="hidden sm:table-cell text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">Balance</TableHead>
+                        <TableHead className="hidden lg:table-cell text-right text-xs md:text-sm whitespace-nowrap min-w-[90px]">Paid</TableHead>
+                        <TableHead className="text-center text-xs md:text-sm whitespace-nowrap min-w-[80px]">Status</TableHead>
+                        <TableHead className="hidden md:table-cell text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">Due Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loans.map((loan) => (
                         <TableRow key={loan.id}>
-                          <TableCell className="text-xs md:text-sm">#{loan.id}</TableCell>
-                          <TableCell className="hidden sm:table-cell text-xs md:text-sm">
+                          <TableCell className="text-xs md:text-sm whitespace-nowrap min-w-[60px]">#{loan.id}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs md:text-sm min-w-[130px]">
                             <Link to={`/admin/borrowers/${loan.borrower_id}`} className="hover:underline truncate block">
                               {loan.borrower_name}
                             </Link>
                           </TableCell>
-                          <TableCell className="hidden md:table-cell text-xs md:text-sm">{loan.product_name}</TableCell>
-                          <TableCell className="text-right text-xs md:text-sm">{formatKES(loan.principal_amount)}</TableCell>
-                          <TableCell className="hidden sm:table-cell text-right font-medium text-xs md:text-sm">{formatKES(loan.balance || 0)}</TableCell>
-                          <TableCell className="hidden lg:table-cell text-right text-xs md:text-sm">{formatKES(loan.total_paid || 0)}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge className={`${getStatusColor(loan.status)} text-xs`}>
+                          <TableCell className="hidden md:table-cell text-xs md:text-sm whitespace-nowrap min-w-[120px]">{loan.product_name}</TableCell>
+                          <TableCell className="text-right text-xs md:text-sm whitespace-nowrap min-w-[110px]">{formatKES(loan.principal_amount)}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-right font-medium text-xs md:text-sm whitespace-nowrap min-w-[100px]">{formatKES(loan.balance || 0)}</TableCell>
+                          <TableCell className="hidden lg:table-cell text-right text-xs md:text-sm whitespace-nowrap min-w-[90px]">{formatKES(loan.total_paid || 0)}</TableCell>
+                          <TableCell className="text-center min-w-[80px]">
+                            <Badge className={`${getStatusColor(loan.status)} text-xs whitespace-nowrap`}>
                               {getStatusLabel(loan.status)}
                             </Badge>
                           </TableCell>
-                          <TableCell className="hidden md:table-cell text-right text-xs md:text-sm">{formatDate(loan.due_date)}</TableCell>
+                          <TableCell className="hidden md:table-cell text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">{formatDate(loan.due_date)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -335,12 +335,12 @@ export default function AdminReports() {
               <Table className="text-xs md:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs md:text-sm">Date</TableHead>
-                    <TableHead className="hidden sm:table-cell text-xs md:text-sm">Loan ID</TableHead>
-                    <TableHead className="text-xs md:text-sm">Borrower</TableHead>
-                    <TableHead className="text-right text-xs md:text-sm">Amount</TableHead>
-                    <TableHead className="hidden md:table-cell text-xs md:text-sm">Type</TableHead>
-                    <TableHead className="hidden sm:table-cell text-xs md:text-sm">Method</TableHead>
+                    <TableHead className="text-xs md:text-sm whitespace-nowrap min-w-[90px]">Date</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs md:text-sm whitespace-nowrap min-w-[80px]">Loan ID</TableHead>
+                    <TableHead className="text-xs md:text-sm whitespace-nowrap min-w-[120px]">Borrower</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">Amount</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs md:text-sm whitespace-nowrap min-w-[80px]">Type</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs md:text-sm whitespace-nowrap min-w-[100px]">Method</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -353,12 +353,12 @@ export default function AdminReports() {
                   ) : (
                     payments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell className="text-xs md:text-sm">{formatDate(payment.paid_at)}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-xs md:text-sm">#{payment.loan_id}</TableCell>
-                        <TableCell className="text-xs md:text-sm truncate">{payment.borrower_name}</TableCell>
-                        <TableCell className="font-medium text-right text-xs md:text-sm">{formatKES(payment.amount)}</TableCell>
-                        <TableCell className="hidden md:table-cell capitalize text-xs md:text-sm">{payment.type}</TableCell>
-                        <TableCell className="hidden sm:table-cell capitalize text-xs md:text-sm">{payment.method}</TableCell>
+                        <TableCell className="text-xs md:text-sm whitespace-nowrap min-w-[90px]">{formatDate(payment.paid_at)}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-xs md:text-sm whitespace-nowrap min-w-[80px]">#{payment.loan_id}</TableCell>
+                        <TableCell className="text-xs md:text-sm truncate min-w-[120px]">{payment.borrower_name}</TableCell>
+                        <TableCell className="font-medium text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">{formatKES(payment.amount)}</TableCell>
+                        <TableCell className="hidden md:table-cell capitalize text-xs md:text-sm whitespace-nowrap min-w-[80px]">{payment.type}</TableCell>
+                        <TableCell className="hidden sm:table-cell capitalize text-xs md:text-sm whitespace-nowrap min-w-[100px]">{payment.method}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -378,21 +378,21 @@ export default function AdminReports() {
               <Table className="text-xs md:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs md:text-sm">Name</TableHead>
-                    <TableHead className="hidden sm:table-cell text-xs md:text-sm">Email</TableHead>
-                    <TableHead className="hidden md:table-cell text-xs md:text-sm">Joined</TableHead>
-                    <TableHead className="text-right text-xs md:text-sm">Loans</TableHead>
-                    <TableHead className="text-right text-xs md:text-sm">Amount</TableHead>
+                    <TableHead className="text-xs md:text-sm whitespace-nowrap min-w-[130px]">Name</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs md:text-sm whitespace-nowrap min-w-[140px]">Email</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs md:text-sm whitespace-nowrap min-w-[90px]">Joined</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm whitespace-nowrap min-w-[70px]">Loans</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm whitespace-nowrap min-w-[110px]">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loans.map((loan, idx) => (
                     <TableRow key={`${loan.borrower_email}-${idx}`}>
-                      <TableCell className="text-xs md:text-sm">{loan.borrower_name}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-xs md:text-sm truncate">{loan.borrower_email}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs md:text-sm">{formatDate(loan.created_at)}</TableCell>
-                      <TableCell className="text-right text-xs md:text-sm">1</TableCell>
-                      <TableCell className="text-right text-xs md:text-sm">{formatKES(loan.principal_amount)}</TableCell>
+                      <TableCell className="text-xs md:text-sm whitespace-nowrap min-w-[130px]">{loan.borrower_name}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs md:text-sm truncate min-w-[140px]">{loan.borrower_email}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs md:text-sm whitespace-nowrap min-w-[90px]">{formatDate(loan.created_at)}</TableCell>
+                      <TableCell className="text-right text-xs md:text-sm whitespace-nowrap min-w-[70px]">1</TableCell>
+                      <TableCell className="text-right text-xs md:text-sm whitespace-nowrap min-w-[110px]">{formatKES(loan.principal_amount)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
