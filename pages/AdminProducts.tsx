@@ -217,7 +217,16 @@ export default function AdminProducts() {
         <CardContent className="p-0">
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full border-collapse">
+              <colgroup>
+                <col style={{ width: '30%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '5%' }} />
+              </colgroup>
               <thead className="border-b bg-muted/50">
                 <tr>
                   <th className="text-left p-3 font-medium">Product</th>
@@ -232,22 +241,22 @@ export default function AdminProducts() {
               <tbody className="divide-y">
                 {products.map((product) => (
                   <tr key={product.id} className="hover:bg-muted/50">
-                    <td className="p-3">
+                    <td className="p-3 align-top">
                       <p className="font-medium">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">{product.description?.slice(0, 50)}</p>
+                      <p className="text-xs text-muted-foreground truncate">{product.description?.slice(0, 50)}</p>
                     </td>
-                    <td className="p-3">{product.category_name}</td>
-                    <td className="p-3 text-right">
+                    <td className="p-3 align-top whitespace-nowrap">{product.category_name}</td>
+                    <td className="p-3 text-right align-top whitespace-nowrap">
                       {formatKES(product.min_amount)} - {formatKES(product.max_amount)}
                     </td>
-                    <td className="p-3 text-right">{product.min_term_months}-{product.max_term_months} mo</td>
-                    <td className="p-3 text-right">{product.interest_rate}% {product.interest_type}</td>
-                    <td className="p-3 text-center">
+                    <td className="p-3 text-right align-top whitespace-nowrap">{product.min_term_months}-{product.max_term_months} mo</td>
+                    <td className="p-3 text-right align-top whitespace-nowrap">{product.interest_rate}% {product.interest_type}</td>
+                    <td className="p-3 text-center align-top">
                       <Badge variant={product.is_active ? 'default' : 'secondary'}>
                         {product.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 align-top">
                       <div className="flex items-center justify-center gap-1">
                         <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}>
                           <Edit className="h-4 w-4" />
