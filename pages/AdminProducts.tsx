@@ -215,7 +215,8 @@ export default function AdminProducts() {
       {/* Products Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="border-b bg-muted/50">
                 <tr>
@@ -251,8 +252,8 @@ export default function AdminProducts() {
                         <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant={product.is_active ? 'destructive' : 'default'}
                           onClick={() => handleToggle(product)}
                         >
@@ -265,6 +266,62 @@ export default function AdminProducts() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3 p-3">
+            {products.map((product) => (
+              <Card key={product.id} className="border">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{product.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{product.description?.slice(0, 40)}</p>
+                    </div>
+                    <Badge variant={product.is_active ? 'default' : 'secondary'} className="whitespace-nowrap">
+                      {product.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-muted-foreground">Category</p>
+                      <p className="font-medium">{product.category_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Rate</p>
+                      <p className="font-medium">{product.interest_rate}% {product.interest_type}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Amount Range</p>
+                      <p className="font-medium text-xs">{formatKES(product.min_amount)}</p>
+                      <p className="font-medium text-xs">to {formatKES(product.max_amount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Term</p>
+                      <p className="font-medium">{product.min_term_months}-{product.max_term_months} mo</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEdit(product)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={product.is_active ? 'destructive' : 'default'}
+                      className="flex-1"
+                      onClick={() => handleToggle(product)}
+                    >
+                      {product.is_active ? <X className="h-4 w-4 mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                      {product.is_active ? 'Disable' : 'Enable'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           {products.length === 0 && (
             <div className="p-8 text-center text-muted-foreground">No products found. Add your first product.</div>
           )}
