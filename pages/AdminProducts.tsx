@@ -217,15 +217,15 @@ export default function AdminProducts() {
         <CardContent className="p-0">
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse table-fixed">
               <colgroup>
-                <col style={{ width: '30%' }} />
-                <col style={{ width: '15%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '12%' }} />
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '11%' }} />
                 <col style={{ width: '10%' }} />
-                <col style={{ width: '8%' }} />
-                <col style={{ width: '5%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '6%' }} />
               </colgroup>
               <thead className="border-b bg-muted/50">
                 <tr>
@@ -256,14 +256,15 @@ export default function AdminProducts() {
                         {product.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
-                    <td className="p-3 align-top">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}>
+                    <td className="p-2 align-top">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleEdit(product)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant={product.is_active ? 'destructive' : 'default'}
+                          className="h-8 w-8 p-0"
                           onClick={() => handleToggle(product)}
                         >
                           {product.is_active ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
