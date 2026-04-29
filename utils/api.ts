@@ -1,6 +1,6 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats } from '../types/api';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8082';
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -87,7 +87,7 @@ export const productsApi = {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch('/api/categories', { signal: controller.signal });
+      const res = await fetch(`${API_BASE}/categories`, { signal: controller.signal });
       clearTimeout(timeout);
       const data = await res.json();
       return data;
