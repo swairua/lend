@@ -13,7 +13,7 @@ class ApiError extends Error {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   const token = localStorage.getItem('token');
 
@@ -48,8 +48,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
 
     return data;
-  } catch (e) {
+  } catch (e: any) {
     clearTimeout(timeout);
+    if (e.name === 'AbortError') {
+      throw new Error(`Request timeout: API took too long to respond (>30s). Endpoint: ${endpoint}`);
+    }
     throw e;
   }
 }
@@ -85,24 +88,8 @@ export const authApi = {
 
 // ==================== Categories & Products ====================
 export const productsApi = {
-  getCategories: async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-      const res = await fetch(`${API_BASE}/categories`, {
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      clearTimeout(timeout);
-      const data = await res.json();
-      return data;
-    } catch (e) {
-      clearTimeout(timeout);
-      throw e;
-    }
-  },
+  getCategories: () =>
+    request<{ success: boolean; data: any[] }>('/categories'),
   
   getProducts: (categoryId?: number) => {
     const query = categoryId ? `?category_id=${categoryId}` : '';
