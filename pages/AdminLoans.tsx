@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { adminApi, formatKES, formatDate } from '../types/api';
 import { Loader2, Eye, Check, X, DollarSign, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
@@ -227,29 +228,31 @@ export default function AdminLoans() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 md:py-6 px-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">Loan Management</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Loan Management</h1>
         </div>
-        <div className="flex gap-2">
-          <span className="text-sm text-muted-foreground self-center">{totalLoans} loans</span>
-          <Button variant="outline" size="sm" onClick={handleRefresh}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <span className="text-xs md:text-sm text-muted-foreground self-start sm:self-center">{totalLoans} loans</span>
+          <Button variant="outline" size="sm" onClick={handleRefresh} className="w-full sm:w-auto">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
+            <span className="sm:hidden">Refresh</span>
           </Button>
-          <Button variant="outline" onClick={() => navigate('/admin/reports')}>
+          <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')} className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
-            Export
+            <span className="hidden sm:inline">Export</span>
+            <span className="sm:hidden">Export</span>
           </Button>
         </div>
       </div>
 
       {/* Status Filter Cards */}
-      <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 mb-4">
         <Card className={`cursor-pointer hover:border-primary ${statusFilter === 'all' ? 'border-primary bg-primary/5' : ''}`} onClick={() => { setStatusFilter('all'); setPage(1); }}>
           <CardContent className="p-2 text-center">
             <p className="text-lg font-bold">{counts.all}</p>
@@ -306,75 +309,73 @@ export default function AdminLoans() {
       {/* Loans Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b bg-muted/50">
-                <tr>
-                  <th className="text-left p-3 font-medium">ID</th>
-                  <th className="text-left p-3 font-medium">Borrower</th>
-                  <th className="text-left p-3 font-medium">Product</th>
-                  <th className="text-right p-3 font-medium">Amount</th>
-                  <th className="text-right p-3 font-medium">Balance</th>
-                  <th className="text-center p-3 font-medium">Status</th>
-                  <th className="text-left p-3 font-medium">Applied</th>
-                  <th className="text-center p-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredLoans.map((loan) => (
-                  <tr key={loan.id} className="hover:bg-muted/50">
-                    <td className="p-3 font-medium">#{loan.id}</td>
-                    <td className="p-3">
-                      <p className="font-medium">{loan.borrower_name}</p>
-                      <p className="text-xs text-muted-foreground">{loan.borrower_email}</p>
-                    </td>
-                    <td className="p-3">
-                      <p>{loan.product_name || 'N/A'}</p>
-                      <p className="text-xs text-muted-foreground">{loan.category_name || '-'}</p>
-                    </td>
-                    <td className="p-3 text-right font-medium">{formatKES(loan.principal_amount)}</td>
-                    <td className="p-3 text-right">{formatKES(loan.balance || loan.total_amount)}</td>
-                    <td className="p-3 text-center">
-                      <Badge className={getStatusColor(loan.status)}>{getStatusLabel(loan.status)}</Badge>
-                    </td>
-                    <td className="p-3 text-sm text-muted-foreground">{formatDate(loan.created_at)}</td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedLoan(loan); setDialogOpen(true); }} title="View">
-                          <Eye className="h-4 w-4" />
+          <ResponsiveTable>
+            <ResponsiveTableHeader className="bg-muted/50">
+              <tr>
+                <ResponsiveTableHead className="text-left">ID</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-left">Borrower</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden sm:table-cell text-left">Product</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-right">Amount</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden sm:table-cell text-right">Balance</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-center">Status</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden md:table-cell text-left">Applied</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-center">Actions</ResponsiveTableHead>
+              </tr>
+            </ResponsiveTableHeader>
+            <ResponsiveTableBody>
+              {filteredLoans.map((loan) => (
+                <ResponsiveTableRow key={loan.id}>
+                  <ResponsiveTableCell label="ID" className="font-medium md:p-3">#{loan.id}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Borrower" className="md:p-3">
+                    <p className="font-medium text-sm md:text-base">{loan.borrower_name}</p>
+                    <p className="text-xs text-muted-foreground">{loan.borrower_email}</p>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Product" className="hidden sm:table-cell md:p-3">
+                    <p className="text-sm">{loan.product_name || 'N/A'}</p>
+                    <p className="text-xs text-muted-foreground">{loan.category_name || '-'}</p>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Amount" className="text-right font-medium md:p-3">{formatKES(loan.principal_amount)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Balance" className="hidden sm:table-cell text-right md:p-3">{formatKES(loan.balance || loan.total_amount)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Status" className="text-center md:p-3">
+                    <Badge className={getStatusColor(loan.status)}>{getStatusLabel(loan.status)}</Badge>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Applied" className="hidden md:table-cell text-sm text-muted-foreground md:p-3">{formatDate(loan.created_at)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Actions" className="md:p-3">
+                    <div className="flex items-center justify-center gap-1 flex-wrap md:flex-nowrap">
+                      <Button size="sm" variant="ghost" onClick={() => { setSelectedLoan(loan); setDialogOpen(true); }} title="View">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {loan.status === 'pending' && (
+                        <>
+                          <Button size="sm" variant="ghost" className="text-green-600" onClick={() => handleApprove(loan.id, true)} title="Approve">
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleApprove(loan.id, false)} title="Reject">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      {loan.status === 'approved' && (
+                        <Button size="sm" variant="ghost" className="text-blue-600" onClick={() => handleDisburse(loan.id)} title="Disburse">
+                          <DollarSign className="h-4 w-4" />
                         </Button>
-                        {loan.status === 'pending' && (
-                          <>
-                            <Button size="sm" variant="ghost" className="text-green-600" onClick={() => handleApprove(loan.id, true)} title="Approve">
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleApprove(loan.id, false)} title="Reject">
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        {loan.status === 'approved' && (
-                          <Button size="sm" variant="ghost" className="text-blue-600" onClick={() => handleDisburse(loan.id)} title="Disburse">
-                            <DollarSign className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {loan.status === 'active' && (
-                          <Button size="sm" variant="ghost" className="text-orange-600" onClick={() => handleMarkDefaulted(loan.id)} title="Default">
-                            <AlertTriangle className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {(loan.status === 'rejected' || loan.status === 'defaulted') && (
-                          <Button size="sm" variant="ghost" className="text-purple-600" onClick={() => handleReactivate(loan.id)} title="Reactivate">
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      )}
+                      {loan.status === 'active' && (
+                        <Button size="sm" variant="ghost" className="text-orange-600" onClick={() => handleMarkDefaulted(loan.id)} title="Default">
+                          <AlertTriangle className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {(loan.status === 'rejected' || loan.status === 'defaulted') && (
+                        <Button size="sm" variant="ghost" className="text-purple-600" onClick={() => handleReactivate(loan.id)} title="Reactivate">
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </ResponsiveTableCell>
+                </ResponsiveTableRow>
+              ))}
+            </ResponsiveTableBody>
+          </ResponsiveTable>
           {filteredLoans.length === 0 && (
             <div className="p-8 text-center text-muted-foreground">
               {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No loans found'}
@@ -398,63 +399,63 @@ export default function AdminLoans() {
 
       {/* Loan Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
-            <DialogTitle>Loan #{selectedLoan?.id}</DialogTitle>
+            <DialogTitle className="text-lg md:text-2xl">Loan #{selectedLoan?.id}</DialogTitle>
           </DialogHeader>
           {selectedLoan && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Borrower</p>
-                  <p className="font-medium">{selectedLoan.borrower_name}</p>
-                  <p className="text-sm">{selectedLoan.borrower_email}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Borrower</p>
+                  <p className="font-medium text-sm md:text-base">{selectedLoan.borrower_name}</p>
+                  <p className="text-xs md:text-sm">{selectedLoan.borrower_email}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Product</p>
-                  <p className="font-medium">{selectedLoan.product_name || 'N/A'}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Product</p>
+                  <p className="font-medium text-sm md:text-base">{selectedLoan.product_name || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs md:text-sm text-muted-foreground">Principal</p>
+                  <p className="text-lg md:text-xl font-bold">{formatKES(selectedLoan.principal_amount)}</p>
+                </div>
+                <div>
+                  <p className="text-xs md:text-sm text-muted-foreground">Total Amount</p>
+                  <p className="text-lg md:text-xl font-bold">{formatKES(selectedLoan.total_amount)}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Principal</p>
-                  <p className="text-xl font-bold">{formatKES(selectedLoan.principal_amount)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="text-xl font-bold">{formatKES(selectedLoan.total_amount)}</p>
-                </div>
+                <div><p className="text-xs md:text-sm text-muted-foreground">Interest</p><p className="font-medium text-sm md:text-base">{formatKES(selectedLoan.interest_amount)}</p></div>
+                <div><p className="text-xs md:text-sm text-muted-foreground">Fee</p><p className="font-medium text-sm md:text-base">{formatKES(selectedLoan.processing_fee)}</p></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-sm text-muted-foreground">Interest</p><p className="font-medium">{formatKES(selectedLoan.interest_amount)}</p></div>
-                <div><p className="text-sm text-muted-foreground">Processing Fee</p><p className="font-medium">{formatKES(selectedLoan.processing_fee)}</p></div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-sm text-muted-foreground">Paid</p><p className="font-medium text-green-600">{formatKES(selectedLoan.total_paid)}</p></div>
-                <div><p className="text-sm text-muted-foreground">Balance</p><p className="font-medium text-orange-600">{formatKES(selectedLoan.balance)}</p></div>
+                <div><p className="text-xs md:text-sm text-muted-foreground">Paid</p><p className="font-medium text-sm md:text-base text-green-600">{formatKES(selectedLoan.total_paid)}</p></div>
+                <div><p className="text-xs md:text-sm text-muted-foreground">Balance</p><p className="font-medium text-sm md:text-base text-orange-600">{formatKES(selectedLoan.balance)}</p></div>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Status</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Status</p>
                 <Badge className={getStatusColor(selectedLoan.status)}>{getStatusLabel(selectedLoan.status)}</Badge>
               </div>
               {selectedLoan.rejection_reason && (
                 <div className="p-3 bg-red-50 rounded-lg">
-                  <p className="text-sm text-red-600 font-medium">Rejection Reason</p>
-                  <p className="text-sm">{selectedLoan.rejection_reason}</p>
+                  <p className="text-xs md:text-sm text-red-600 font-medium">Rejection Reason</p>
+                  <p className="text-xs md:text-sm">{selectedLoan.rejection_reason}</p>
                 </div>
               )}
             </div>
           )}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Close</Button>
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Close</Button>
             {selectedLoan?.status === 'pending' && (
               <>
-                <Button variant="destructive" onClick={() => { setDialogOpen(false); handleApprove(selectedLoan.id, false); }}>Reject</Button>
-                <Button onClick={() => { setDialogOpen(false); handleApprove(selectedLoan.id, true); }}>Approve</Button>
+                <Button variant="destructive" onClick={() => { setDialogOpen(false); handleApprove(selectedLoan.id, false); }} className="w-full sm:w-auto">Reject</Button>
+                <Button onClick={() => { setDialogOpen(false); handleApprove(selectedLoan.id, true); }} className="w-full sm:w-auto">Approve</Button>
               </>
             )}
-            {selectedLoan?.status === 'approved' && <Button onClick={() => { setDialogOpen(false); handleDisburse(selectedLoan.id); }}>Disburse</Button>}
-            {(selectedLoan?.status === 'rejected' || selectedLoan?.status === 'defaulted') && <Button onClick={() => { setDialogOpen(false); handleReactivate(selectedLoan.id); }}>Reactivate</Button>}
+            {selectedLoan?.status === 'approved' && <Button onClick={() => { setDialogOpen(false); handleDisburse(selectedLoan.id); }} className="w-full sm:w-auto">Disburse</Button>}
+            {(selectedLoan?.status === 'rejected' || selectedLoan?.status === 'defaulted') && <Button onClick={() => { setDialogOpen(false); handleReactivate(selectedLoan.id); }} className="w-full sm:w-auto">Reactivate</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>

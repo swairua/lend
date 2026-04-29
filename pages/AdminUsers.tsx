@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { adminApi, formatKES, formatDate } from '../types/api';
 import { Loader2, Plus, Edit, Trash2, ChevronLeft, Check, X, User, UserPlus, Mail, Phone } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
@@ -135,61 +136,61 @@ export default function AdminUsers() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 md:py-6 px-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">User Management</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Users</h1>
         </div>
-        <Button onClick={handleOpenNew}>
+        <Button onClick={handleOpenNew} className="w-full sm:w-auto">
           <UserPlus className="h-4 w-4 mr-2" />
           Add User
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4">
         <Card>
-          <CardContent className="p-3">
-            <p className="text-2xl font-bold">{counts.all}</p>
+          <CardContent className="p-2 md:p-3">
+            <p className="text-lg md:text-2xl font-bold">{counts.all}</p>
             <p className="text-xs text-muted-foreground">Total Users</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-2xl font-bold">{counts.admin}</p>
+          <CardContent className="p-2 md:p-3">
+            <p className="text-lg md:text-2xl font-bold">{counts.admin}</p>
             <p className="text-xs text-muted-foreground">Admins</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-2xl font-bold">{counts.borrower}</p>
+          <CardContent className="p-2 md:p-3">
+            <p className="text-lg md:text-2xl font-bold">{counts.borrower}</p>
             <p className="text-xs text-muted-foreground">Borrowers</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-2xl font-bold">{counts.active}</p>
+          <CardContent className="p-2 md:p-3">
+            <p className="text-lg md:text-2xl font-bold">{counts.active}</p>
             <p className="text-xs text-muted-foreground">Active</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search users..."
-            className="pl-9"
+            className="pl-9 text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -203,65 +204,63 @@ export default function AdminUsers() {
       {/* Users Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b bg-muted/50">
-                <tr>
-                  <th className="text-left p-3 font-medium">User</th>
-                  <th className="text-left p-3 font-medium">Role</th>
-                  <th className="text-left p-3 font-medium">Phone</th>
-                  <th className="text-left p-3 font-medium">Joined</th>
-                  <th className="text-center p-3 font-medium">Status</th>
-                  <th className="text-center p-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-muted/50">
-                    <td className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{user.name}</p>
-                          <p className="text-xs text-muted-foreground">{user.email}</p>
-                        </div>
+          <ResponsiveTable>
+            <ResponsiveTableHeader className="bg-muted/50">
+              <tr>
+                <ResponsiveTableHead className="text-left">User</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden sm:table-cell text-left">Role</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden md:table-cell text-left">Phone</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden lg:table-cell text-left">Joined</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-center">Status</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-center">Actions</ResponsiveTableHead>
+              </tr>
+            </ResponsiveTableHeader>
+            <ResponsiveTableBody>
+              {filteredUsers.map((user) => (
+                <ResponsiveTableRow key={user.id}>
+                  <ResponsiveTableCell label="User" className="md:p-3">
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary/10 flex-shrink-0 flex items-center justify-center">
+                        <User className="h-3 w-3 md:h-4 md:w-4" />
                       </div>
-                    </td>
-                    <td className="p-3">
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
-                        {user.role}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-sm">{user.phone || '-'}</td>
-                    <td className="p-3 text-sm text-muted-foreground">{formatDate(user.created_at)}</td>
-                    <td className="p-3 text-center">
-                      <Badge variant={user.is_active ? 'default' : 'destructive'}>
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(user)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant={user.is_active ? 'destructive' : 'default'}
-                          onClick={() => handleToggle(user)}
-                        >
-                          {user.is_active ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                        </Button>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm md:text-base truncate">{user.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Role" className="hidden sm:table-cell md:p-3">
+                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize text-xs">
+                      {user.role}
+                    </Badge>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Phone" className="hidden md:table-cell text-sm md:p-3">{user.phone || '-'}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Joined" className="hidden lg:table-cell text-sm text-muted-foreground md:p-3">{formatDate(user.created_at)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Status" className="text-center md:p-3">
+                    <Badge variant={user.is_active ? 'default' : 'destructive'} className="text-xs">
+                      {user.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Actions" className="md:p-3">
+                    <div className="flex items-center justify-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => handleEdit(user)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={user.is_active ? 'destructive' : 'default'}
+                        onClick={() => handleToggle(user)}
+                      >
+                        {user.is_active ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </ResponsiveTableCell>
+                </ResponsiveTableRow>
+              ))}
+            </ResponsiveTableBody>
+          </ResponsiveTable>
           {filteredUsers.length === 0 && (
-            <div className="p-8 text-center text-muted-foreground">No users found</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">No users found</div>
           )}
         </CardContent>
       </Card>
