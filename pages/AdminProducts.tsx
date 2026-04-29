@@ -220,41 +220,42 @@ export default function AdminProducts() {
             <table className="w-full">
               <thead className="border-b bg-muted/50">
                 <tr>
-                  <th className="text-left p-3 font-medium">Product</th>
-                  <th className="text-left p-3 font-medium">Category</th>
-                  <th className="text-right p-3 font-medium">Amount Range</th>
-                  <th className="text-right p-3 font-medium">Term</th>
-                  <th className="text-right p-3 font-medium">Rate</th>
-                  <th className="text-center p-3 font-medium">Status</th>
-                  <th className="text-center p-3 font-medium">Actions</th>
+                  <th className="text-left p-3 font-medium min-w-[250px]">Product</th>
+                  <th className="text-left p-3 font-medium min-w-[120px]">Category</th>
+                  <th className="text-right p-3 font-medium min-w-[180px]">Amount Range</th>
+                  <th className="text-right p-3 font-medium min-w-[100px]">Term</th>
+                  <th className="text-right p-3 font-medium min-w-[100px]">Rate</th>
+                  <th className="text-center p-3 font-medium min-w-[90px]">Status</th>
+                  <th className="text-center p-3 font-medium min-w-[80px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {products.map((product) => (
                   <tr key={product.id} className="hover:bg-muted/50">
-                    <td className="p-3">
+                    <td className="p-3 align-top min-w-[250px]">
                       <p className="font-medium">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">{product.description?.slice(0, 50)}</p>
+                      <p className="text-xs text-muted-foreground truncate">{product.description?.slice(0, 50)}</p>
                     </td>
-                    <td className="p-3">{product.category_name}</td>
-                    <td className="p-3 text-right">
+                    <td className="p-3 align-top whitespace-nowrap min-w-[120px]">{product.category_name}</td>
+                    <td className="p-3 text-right align-top whitespace-nowrap min-w-[180px]">
                       {formatKES(product.min_amount)} - {formatKES(product.max_amount)}
                     </td>
-                    <td className="p-3 text-right">{product.min_term_months}-{product.max_term_months} mo</td>
-                    <td className="p-3 text-right">{product.interest_rate}% {product.interest_type}</td>
-                    <td className="p-3 text-center">
+                    <td className="p-3 text-right align-top whitespace-nowrap min-w-[100px]">{product.min_term_months}-{product.max_term_months} mo</td>
+                    <td className="p-3 text-right align-top whitespace-nowrap min-w-[100px]">{product.interest_rate}% {product.interest_type}</td>
+                    <td className="p-3 text-center align-top min-w-[90px]">
                       <Badge variant={product.is_active ? 'default' : 'secondary'}>
                         {product.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 align-top min-w-[80px]">
                       <div className="flex items-center justify-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleEdit(product)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant={product.is_active ? 'destructive' : 'default'}
+                          className="h-8 w-8 p-0"
                           onClick={() => handleToggle(product)}
                         >
                           {product.is_active ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}

@@ -533,13 +533,13 @@ export default function AdminSettings() {
                   <table className="w-full text-xs md:text-sm">
                     <thead className="border-b bg-muted/50">
                       <tr>
-                        <th className="text-left p-2 md:p-3 text-xs md:text-sm">Product</th>
-                        <th className="hidden sm:table-cell text-left p-2 md:p-3 text-xs md:text-sm">Category</th>
-                        <th className="text-right p-2 md:p-3 text-xs md:text-sm">Amount</th>
-                        <th className="hidden md:table-cell text-center p-2 md:p-3 text-xs md:text-sm">Term</th>
-                        <th className="text-right p-2 md:p-3 text-xs md:text-sm">Interest</th>
-                        <th className="text-center p-2 md:p-3 text-xs md:text-sm">Status</th>
-                        <th className="text-center p-2 md:p-3 text-xs md:text-sm">Actions</th>
+                        <th className="text-left p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[140px]">Product</th>
+                        <th className="hidden sm:table-cell text-left p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[120px]">Category</th>
+                        <th className="text-right p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[100px]">Amount</th>
+                        <th className="hidden md:table-cell text-center p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[100px]">Term</th>
+                        <th className="text-right p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[80px]">Interest</th>
+                        <th className="text-center p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[80px]">Status</th>
+                        <th className="text-center p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[100px]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -547,26 +547,26 @@ export default function AdminSettings() {
                         const cat = categories.find(c => c.id === prod.category_id);
                         return (
                           <tr key={prod.id} className="hover:bg-muted/50">
-                            <td className="p-2 md:p-3">
+                            <td className="p-2 md:p-3 min-w-[140px]">
                               <p className="font-medium text-xs md:text-sm">{prod.name}</p>
-                              <p className="text-xs text-muted-foreground">{prod.code}</p>
+                              <p className="text-xs text-muted-foreground truncate">{prod.code}</p>
                             </td>
-                            <td className="hidden sm:table-cell p-2 md:p-3 text-xs md:text-sm">{cat?.name || '-'}</td>
-                            <td className="p-2 md:p-3 text-right text-xs md:text-sm">KSh {prod.min_amount.toLocaleString()}</td>
-                            <td className="hidden md:table-cell p-2 md:p-3 text-center text-xs md:text-sm">{prod.min_term_months}-{prod.max_term_months}mo</td>
-                            <td className="p-2 md:p-3 text-right text-xs md:text-sm">{prod.interest_rate}%</td>
-                            <td className="p-2 md:p-3 text-center">
-                              <span className={`px-2 py-1 rounded-full text-xs ${prod.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                            <td className="hidden sm:table-cell p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[120px]">{cat?.name || '-'}</td>
+                            <td className="p-2 md:p-3 text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">KSh {prod.min_amount.toLocaleString()}</td>
+                            <td className="hidden md:table-cell p-2 md:p-3 text-center text-xs md:text-sm whitespace-nowrap min-w-[100px]">{prod.min_term_months}-{prod.max_term_months}mo</td>
+                            <td className="p-2 md:p-3 text-right text-xs md:text-sm whitespace-nowrap min-w-[80px]">{prod.interest_rate}%</td>
+                            <td className="p-2 md:p-3 text-center min-w-[80px]">
+                              <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${prod.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                                 {prod.is_active ? 'Active' : 'Inactive'}
                               </span>
                             </td>
-                            <td className="p-2 md:p-3">
-                              <div className="flex items-center justify-center gap-0.5 flex-wrap">
-                                <Button size="sm" variant="ghost" className="text-xs h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleToggleProduct(prod.id, prod.is_active)} title={prod.is_active ? 'Deactivate' : 'Activate'}>
-                                  {prod.is_active ? <X className="h-3 w-3 md:h-4 md:w-4" /> : <Check className="h-3 w-3 md:h-4 md:w-4" />}
+                            <td className="p-2 md:p-3 min-w-[100px]">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleToggleProduct(prod.id, prod.is_active)} title={prod.is_active ? 'Deactivate' : 'Activate'}>
+                                  {prod.is_active ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
                                 </Button>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => openProductDialog(prod)}><Edit className="h-3 w-3 md:h-4 md:w-4" /></Button>
-                                <Button size="sm" variant="ghost" className="text-red-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleDeleteProduct(prod.id)}><Trash2 className="h-3 w-3 md:h-4 md:w-4" /></Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openProductDialog(prod)}><Edit className="h-3 w-3" /></Button>
+                                <Button size="sm" variant="ghost" className="text-red-600 h-7 w-7 p-0" onClick={() => handleDeleteProduct(prod.id)}><Trash2 className="h-3 w-3" /></Button>
                               </div>
                             </td>
                           </tr>

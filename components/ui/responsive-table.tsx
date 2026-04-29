@@ -51,7 +51,7 @@ const ResponsiveTableRow = React.forwardRef<
     ref={ref}
     className={cn(
       "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-      "block mb-4 border border-gray-200 rounded-lg md:border-b md:border-0 md:mb-0 md:rounded-none",
+      "block mb-4 border border-gray-200 rounded-lg md:table-row md:border-b md:border-0 md:mb-0 md:rounded-none",
       className,
     )}
     {...props}
@@ -66,7 +66,7 @@ const ResponsiveTableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      "h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap [&:has([role=checkbox])]:pr-0",
       className,
     )}
     {...props}
