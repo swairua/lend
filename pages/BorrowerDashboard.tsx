@@ -45,9 +45,11 @@ export default function BorrowerDashboard() {
         loansApi.getMyLoans()
       ]);
       setDashboard(dashRes.data?.data || dashRes.data);
-      setLoans(loansRes.data?.data || loansRes.data || []);
+      const loansData = loansRes.data?.data || loansRes.data || [];
+      setLoans(Array.isArray(loansData) ? loansData : []);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
+      setLoans([]);
     } finally {
       setLoading(false);
     }
