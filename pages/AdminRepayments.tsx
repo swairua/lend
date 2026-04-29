@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, DollarSign, Eye, Trash2 } from 'lucide-react';
 import { adminApi, formatKES, formatDate } from '../types/api';
 import { useAlert } from '@/hooks/use-alert';
@@ -112,15 +113,15 @@ export default function AdminRepayments() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 md:py-6 px-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">Repayments Management</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Repayments</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={loadRepayments}>
+        <Button variant="outline" size="sm" onClick={loadRepayments} className="w-full sm:w-auto">
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
@@ -128,35 +129,35 @@ export default function AdminRepayments() {
 
       {error && (
         <Card className="mb-6 border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <p className="text-sm text-red-700">{error}</p>
+          <CardContent className="p-3 md:p-4">
+            <p className="text-xs md:text-sm text-red-700">{error}</p>
           </CardContent>
         </Card>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-green-600" />
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">{formatKES(totalAmount)}</p>
+              <div className="min-w-0">
+                <p className="text-base md:text-2xl font-bold truncate">{formatKES(totalAmount)}</p>
                 <p className="text-xs text-muted-foreground">Total Collected</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-blue-600" />
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalRepayments}</p>
+                <p className="text-base md:text-2xl font-bold">{totalRepayments}</p>
                 <p className="text-xs text-muted-foreground">Total Transactions</p>
               </div>
             </div>
@@ -176,52 +177,50 @@ export default function AdminRepayments() {
       {/* Repayments Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b bg-muted/50">
-                <tr>
-                  <th className="text-left p-3 font-medium">ID</th>
-                  <th className="text-left p-3 font-medium">Loan ID</th>
-                  <th className="text-left p-3 font-medium">Borrower</th>
-                  <th className="text-right p-3 font-medium">Amount</th>
-                  <th className="text-right p-3 font-medium">Principal</th>
-                  <th className="text-right p-3 font-medium">Interest</th>
-                  <th className="text-left p-3 font-medium">Method</th>
-                  <th className="text-left p-3 font-medium">Date</th>
-                  <th className="text-center p-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredRepayments.map((repayment) => (
-                  <tr key={repayment.id} className="hover:bg-muted/50">
-                    <td className="p-3 font-medium">#{repayment.id}</td>
-                    <td className="p-3">#{repayment.loan_id}</td>
-                    <td className="p-3">
-                      <p className="font-medium">{repayment.borrower_name || 'N/A'}</p>
-                      <p className="text-xs text-muted-foreground">{repayment.borrower_email || ''}</p>
-                    </td>
-                    <td className="p-3 text-right font-medium text-green-600">{formatKES(repayment.amount)}</td>
-                    <td className="p-3 text-right">{formatKES(repayment.principal_paid || 0)}</td>
-                    <td className="p-3 text-right">{formatKES(repayment.interest_paid || 0)}</td>
-                    <td className="p-3">
-                      <Badge variant="outline" className="capitalize">{repayment.payment_method || 'N/A'}</Badge>
-                    </td>
-                    <td className="p-3 text-sm text-muted-foreground">{formatDate(repayment.paid_at || repayment.created_at)}</td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedRepayment(repayment); setDialogOpen(true); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleDelete(repayment.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable>
+            <ResponsiveTableHeader className="bg-muted/50">
+              <tr>
+                <ResponsiveTableHead className="text-left">ID</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden sm:table-cell text-left">Loan ID</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-left">Borrower</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-right">Amount</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden md:table-cell text-right">Principal</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden lg:table-cell text-right">Interest</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden sm:table-cell text-left">Method</ResponsiveTableHead>
+                <ResponsiveTableHead className="hidden md:table-cell text-left">Date</ResponsiveTableHead>
+                <ResponsiveTableHead className="text-center">Actions</ResponsiveTableHead>
+              </tr>
+            </ResponsiveTableHeader>
+            <ResponsiveTableBody>
+              {filteredRepayments.map((repayment) => (
+                <ResponsiveTableRow key={repayment.id}>
+                  <ResponsiveTableCell label="ID" className="font-medium md:p-3">#{repayment.id}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Loan ID" className="hidden sm:table-cell md:p-3">#{repayment.loan_id}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Borrower" className="md:p-3">
+                    <p className="font-medium text-sm">{repayment.borrower_name || 'N/A'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{repayment.borrower_email || ''}</p>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Amount" className="text-right font-medium text-green-600 md:p-3">{formatKES(repayment.amount)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Principal" className="hidden md:table-cell text-right md:p-3">{formatKES(repayment.principal_paid || 0)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Interest" className="hidden lg:table-cell text-right md:p-3">{formatKES(repayment.interest_paid || 0)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Method" className="hidden sm:table-cell md:p-3">
+                    <Badge variant="outline" className="capitalize text-xs">{repayment.payment_method || 'N/A'}</Badge>
+                  </ResponsiveTableCell>
+                  <ResponsiveTableCell label="Date" className="hidden md:table-cell text-sm text-muted-foreground md:p-3">{formatDate(repayment.paid_at || repayment.created_at)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Actions" className="md:p-3">
+                    <div className="flex items-center justify-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => { setSelectedRepayment(repayment); setDialogOpen(true); }}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleDelete(repayment.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </ResponsiveTableCell>
+                </ResponsiveTableRow>
+              ))}
+            </ResponsiveTableBody>
+          </ResponsiveTable>
           {filteredRepayments.length === 0 && (
             <div className="p-8 text-center text-muted-foreground">
               {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No repayments found'}
@@ -232,61 +231,61 @@ export default function AdminRepayments() {
 
       {/* Repayment Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
-            <DialogTitle>Repayment Details #{selectedRepayment?.id}</DialogTitle>
+            <DialogTitle className="text-lg md:text-xl">Repayment #{selectedRepayment?.id}</DialogTitle>
           </DialogHeader>
           {selectedRepayment && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Borrower</p>
-                  <p className="font-medium">{selectedRepayment.borrower_name || 'N/A'}</p>
-                  <p className="text-sm">{selectedRepayment.borrower_email || ''}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Borrower</p>
+                  <p className="font-medium text-sm md:text-base">{selectedRepayment.borrower_name || 'N/A'}</p>
+                  <p className="text-xs md:text-sm truncate">{selectedRepayment.borrower_email || ''}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Loan ID</p>
-                  <p className="font-medium">#{selectedRepayment.loan_id}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Loan ID</p>
+                  <p className="font-medium text-sm md:text-base">#{selectedRepayment.loan_id}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs md:text-sm text-muted-foreground">Total Amount</p>
+                  <p className="text-lg md:text-xl font-bold text-green-600">{formatKES(selectedRepayment.amount)}</p>
+                </div>
+                <div>
+                  <p className="text-xs md:text-sm text-muted-foreground">Payment Method</p>
+                  <Badge variant="outline" className="capitalize mt-1 text-xs">{selectedRepayment.payment_method || 'N/A'}</Badge>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="text-xl font-bold text-green-600">{formatKES(selectedRepayment.amount)}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Principal Paid</p>
+                  <p className="font-medium text-sm md:text-base">{formatKES(selectedRepayment.principal_paid || 0)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Payment Method</p>
-                  <Badge variant="outline" className="capitalize mt-1">{selectedRepayment.payment_method || 'N/A'}</Badge>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Principal Paid</p>
-                  <p className="font-medium">{formatKES(selectedRepayment.principal_paid || 0)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Interest Paid</p>
-                  <p className="font-medium">{formatKES(selectedRepayment.interest_paid || 0)}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Interest Paid</p>
+                  <p className="font-medium text-sm md:text-base">{formatKES(selectedRepayment.interest_paid || 0)}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Reference</p>
-                  <p className="font-medium">{selectedRepayment.reference_number || 'N/A'}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Reference</p>
+                  <p className="font-medium text-sm md:text-base truncate">{selectedRepayment.reference_number || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Loan Status</p>
-                  <Badge>{selectedRepayment.loan_status || 'N/A'}</Badge>
+                  <p className="text-xs md:text-sm text-muted-foreground">Loan Status</p>
+                  <Badge className="text-xs">{selectedRepayment.loan_status || 'N/A'}</Badge>
                 </div>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Date</p>
-                <p className="font-medium">{formatDate(selectedRepayment.paid_at || selectedRepayment.created_at)}</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Date</p>
+                <p className="font-medium text-sm md:text-base">{formatDate(selectedRepayment.paid_at || selectedRepayment.created_at)}</p>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
