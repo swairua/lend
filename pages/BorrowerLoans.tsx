@@ -34,9 +34,11 @@ export default function BorrowerLoans() {
   const loadLoans = async () => {
     try {
       const res = await loansApi.getMyLoans();
-      setLoans(res.data?.data || res.data || []);
+      const loansData = res.data?.data || res.data || [];
+      setLoans(Array.isArray(loansData) ? loansData : []);
     } catch (error) {
       console.error('Failed to load loans:', error);
+      setLoans([]);
     } finally {
       setLoading(false);
     }
