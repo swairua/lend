@@ -218,40 +218,41 @@ export default function AdminUsers() {
             <ResponsiveTableBody>
               {filteredUsers.map((user) => (
                 <ResponsiveTableRow key={user.id}>
-                  <ResponsiveTableCell label="User" className="md:p-3">
+                  <ResponsiveTableCell label="User" className="md:p-3 p-2">
                     <div className="flex items-center gap-2 md:gap-3">
                       <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary/10 flex-shrink-0 flex items-center justify-center">
                         <User className="h-3 w-3 md:h-4 md:w-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base truncate">{user.name}</p>
+                        <p className="font-medium text-xs md:text-base truncate">{user.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                       </div>
                     </div>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Role" className="hidden sm:table-cell md:p-3">
+                  <ResponsiveTableCell label="Role" className="hidden sm:table-cell md:p-3 p-2">
                     <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize text-xs">
                       {user.role}
                     </Badge>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Phone" className="hidden md:table-cell text-sm md:p-3">{user.phone || '-'}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Joined" className="hidden lg:table-cell text-sm text-muted-foreground md:p-3">{formatDate(user.created_at)}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Status" className="text-center md:p-3">
+                  <ResponsiveTableCell label="Phone" className="hidden md:table-cell text-xs md:text-sm md:p-3 p-2">{user.phone || '-'}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Joined" className="hidden lg:table-cell text-xs md:text-sm text-muted-foreground md:p-3 p-2">{formatDate(user.created_at)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Status" className="text-center md:p-3 p-2">
                     <Badge variant={user.is_active ? 'default' : 'destructive'} className="text-xs">
                       {user.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Actions" className="md:p-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => handleEdit(user)}>
-                        <Edit className="h-4 w-4" />
+                  <ResponsiveTableCell label="Actions" className="md:p-3 p-2">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleEdit(user)}>
+                        <Edit className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                       <Button
                         size="sm"
                         variant={user.is_active ? 'destructive' : 'default'}
+                        className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2"
                         onClick={() => handleToggle(user)}
                       >
-                        {user.is_active ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                        {user.is_active ? <X className="h-3 w-3 md:h-4 md:w-4" /> : <Check className="h-3 w-3 md:h-4 md:w-4" />}
                       </Button>
                     </div>
                   </ResponsiveTableCell>

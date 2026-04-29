@@ -268,53 +268,51 @@ export default function AdminProducts() {
           </div>
 
           {/* Mobile Card View */}
-          <div className="md:hidden space-y-3 p-3">
+          <div className="md:hidden space-y-2 p-2">
             {products.map((product) => (
               <Card key={product.id} className="border">
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{product.name}</p>
+                      <p className="font-medium text-xs">{product.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{product.description?.slice(0, 40)}</p>
                     </div>
-                    <Badge variant={product.is_active ? 'default' : 'secondary'} className="whitespace-nowrap">
+                    <Badge variant={product.is_active ? 'default' : 'secondary'} className="whitespace-nowrap text-xs">
                       {product.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <p className="text-muted-foreground">Category</p>
-                      <p className="font-medium">{product.category_name}</p>
+                      <p className="text-xs text-muted-foreground">Category</p>
+                      <p className="font-medium text-xs">{product.category_name}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Rate</p>
-                      <p className="font-medium">{product.interest_rate}% {product.interest_type}</p>
+                      <p className="text-xs text-muted-foreground">Rate</p>
+                      <p className="font-medium text-xs">{product.interest_rate}%</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Amount Range</p>
+                      <p className="text-xs text-muted-foreground">Amount</p>
                       <p className="font-medium text-xs">{formatKES(product.min_amount)}</p>
-                      <p className="font-medium text-xs">to {formatKES(product.max_amount)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Term</p>
-                      <p className="font-medium">{product.min_term_months}-{product.max_term_months} mo</p>
+                      <p className="text-xs text-muted-foreground">Term</p>
+                      <p className="font-medium text-xs">{product.min_term_months}-{product.max_term_months}mo</p>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEdit(product)}>
-                      <Edit className="h-4 w-4 mr-2" />
+                  <div className="flex gap-1.5">
+                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => handleEdit(product)}>
+                      <Edit className="h-3 w-3 mr-1" />
                       Edit
                     </Button>
                     <Button
                       size="sm"
                       variant={product.is_active ? 'destructive' : 'default'}
-                      className="flex-1"
+                      className="flex-1 text-xs h-8"
                       onClick={() => handleToggle(product)}
                     >
-                      {product.is_active ? <X className="h-4 w-4 mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-                      {product.is_active ? 'Disable' : 'Enable'}
+                      {product.is_active ? <X className="h-3 w-3 mr-1" /> : <Check className="h-3 w-3 mr-1" />}
                     </Button>
                   </div>
                 </CardContent>
