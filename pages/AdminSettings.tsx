@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { adminApi } from '../types/api';
-import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar } from 'lucide-react';
+import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 
 interface SystemConfig {
@@ -530,16 +530,16 @@ export default function AdminSettings() {
                 <p className="text-center text-muted-foreground py-8">No products found. Add your first loan product.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full text-xs md:text-sm">
                     <thead className="border-b bg-muted/50">
                       <tr>
-                        <th className="text-left p-3">Product</th>
-                        <th className="text-left p-3">Category</th>
-                        <th className="text-right p-3">Amount Range</th>
-                        <th className="text-center p-3">Term</th>
-                        <th className="text-right p-3">Interest</th>
-                        <th className="text-center p-3">Status</th>
-                        <th className="text-center p-3">Actions</th>
+                        <th className="text-left p-2 md:p-3 text-xs md:text-sm">Product</th>
+                        <th className="hidden sm:table-cell text-left p-2 md:p-3 text-xs md:text-sm">Category</th>
+                        <th className="text-right p-2 md:p-3 text-xs md:text-sm">Amount</th>
+                        <th className="hidden md:table-cell text-center p-2 md:p-3 text-xs md:text-sm">Term</th>
+                        <th className="text-right p-2 md:p-3 text-xs md:text-sm">Interest</th>
+                        <th className="text-center p-2 md:p-3 text-xs md:text-sm">Status</th>
+                        <th className="text-center p-2 md:p-3 text-xs md:text-sm">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -547,26 +547,26 @@ export default function AdminSettings() {
                         const cat = categories.find(c => c.id === prod.category_id);
                         return (
                           <tr key={prod.id} className="hover:bg-muted/50">
-                            <td className="p-3">
-                              <p className="font-medium">{prod.name}</p>
+                            <td className="p-2 md:p-3">
+                              <p className="font-medium text-xs md:text-sm">{prod.name}</p>
                               <p className="text-xs text-muted-foreground">{prod.code}</p>
                             </td>
-                            <td className="p-3">{cat?.name || '-'}</td>
-                            <td className="p-3 text-right">KSh {prod.min_amount.toLocaleString()} - {prod.max_amount.toLocaleString()}</td>
-                            <td className="p-3 text-center">{prod.min_term_months}-{prod.max_term_months} mo</td>
-                            <td className="p-3 text-right">{prod.interest_rate}%</td>
-                            <td className="p-3 text-center">
+                            <td className="hidden sm:table-cell p-2 md:p-3 text-xs md:text-sm">{cat?.name || '-'}</td>
+                            <td className="p-2 md:p-3 text-right text-xs md:text-sm">KSh {prod.min_amount.toLocaleString()}</td>
+                            <td className="hidden md:table-cell p-2 md:p-3 text-center text-xs md:text-sm">{prod.min_term_months}-{prod.max_term_months}mo</td>
+                            <td className="p-2 md:p-3 text-right text-xs md:text-sm">{prod.interest_rate}%</td>
+                            <td className="p-2 md:p-3 text-center">
                               <span className={`px-2 py-1 rounded-full text-xs ${prod.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                                 {prod.is_active ? 'Active' : 'Inactive'}
                               </span>
                             </td>
-                            <td className="p-3">
-                              <div className="flex items-center justify-center gap-1">
-                                <Button size="sm" variant="ghost" onClick={() => handleToggleProduct(prod.id, prod.is_active)}>
-                                  {prod.is_active ? 'Deactivate' : 'Activate'}
+                            <td className="p-2 md:p-3">
+                              <div className="flex items-center justify-center gap-0.5 flex-wrap">
+                                <Button size="sm" variant="ghost" className="text-xs h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleToggleProduct(prod.id, prod.is_active)} title={prod.is_active ? 'Deactivate' : 'Activate'}>
+                                  {prod.is_active ? <X className="h-3 w-3 md:h-4 md:w-4" /> : <Check className="h-3 w-3 md:h-4 md:w-4" />}
                                 </Button>
-                                <Button size="sm" variant="ghost" onClick={() => openProductDialog(prod)}><Edit className="h-4 w-4" /></Button>
-                                <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleDeleteProduct(prod.id)}><Trash2 className="h-4 w-4" /></Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => openProductDialog(prod)}><Edit className="h-3 w-3 md:h-4 md:w-4" /></Button>
+                                <Button size="sm" variant="ghost" className="text-red-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleDeleteProduct(prod.id)}><Trash2 className="h-3 w-3 md:h-4 md:w-4" /></Button>
                               </div>
                             </td>
                           </tr>

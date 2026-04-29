@@ -194,26 +194,26 @@ export default function AdminRepayments() {
             <ResponsiveTableBody>
               {filteredRepayments.map((repayment) => (
                 <ResponsiveTableRow key={repayment.id}>
-                  <ResponsiveTableCell label="ID" className="font-medium md:p-3">#{repayment.id}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Loan ID" className="hidden sm:table-cell md:p-3">#{repayment.loan_id}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Borrower" className="md:p-3">
-                    <p className="font-medium text-sm">{repayment.borrower_name || 'N/A'}</p>
+                  <ResponsiveTableCell label="ID" className="font-medium md:p-3 p-2 text-xs md:text-sm">#{repayment.id}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Loan ID" className="hidden sm:table-cell md:p-3 p-2 text-xs md:text-sm">#{repayment.loan_id}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Borrower" className="md:p-3 p-2">
+                    <p className="font-medium text-xs md:text-sm">{repayment.borrower_name || 'N/A'}</p>
                     <p className="text-xs text-muted-foreground truncate">{repayment.borrower_email || ''}</p>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Amount" className="text-right font-medium text-green-600 md:p-3">{formatKES(repayment.amount)}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Principal" className="hidden md:table-cell text-right md:p-3">{formatKES(repayment.principal_paid || 0)}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Interest" className="hidden lg:table-cell text-right md:p-3">{formatKES(repayment.interest_paid || 0)}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Method" className="hidden sm:table-cell md:p-3">
+                  <ResponsiveTableCell label="Amount" className="text-right font-medium text-green-600 md:p-3 p-2 text-xs md:text-sm">{formatKES(repayment.amount)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Principal" className="hidden md:table-cell text-right md:p-3 p-2 text-xs md:text-sm">{formatKES(repayment.principal_paid || 0)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Interest" className="hidden lg:table-cell text-right md:p-3 p-2 text-xs md:text-sm">{formatKES(repayment.interest_paid || 0)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Method" className="hidden sm:table-cell md:p-3 p-2">
                     <Badge variant="outline" className="capitalize text-xs">{repayment.payment_method || 'N/A'}</Badge>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Date" className="hidden md:table-cell text-sm text-muted-foreground md:p-3">{formatDate(repayment.paid_at || repayment.created_at)}</ResponsiveTableCell>
-                  <ResponsiveTableCell label="Actions" className="md:p-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => { setSelectedRepayment(repayment); setDialogOpen(true); }}>
-                        <Eye className="h-4 w-4" />
+                  <ResponsiveTableCell label="Date" className="hidden md:table-cell text-xs md:text-sm text-muted-foreground md:p-3 p-2">{formatDate(repayment.paid_at || repayment.created_at)}</ResponsiveTableCell>
+                  <ResponsiveTableCell label="Actions" className="md:p-3 p-2">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => { setSelectedRepayment(repayment); setDialogOpen(true); }}>
+                        <Eye className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleDelete(repayment.id)}>
-                        <Trash2 className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" className="text-red-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleDelete(repayment.id)}>
+                        <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     </div>
                   </ResponsiveTableCell>

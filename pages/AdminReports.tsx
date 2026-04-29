@@ -282,41 +282,39 @@ export default function AdminReports() {
                   <CardTitle>Loan Portfolio</CardTitle>
                   <CardDescription>{loans.length} loans</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Table>
+                <CardContent className="overflow-x-auto">
+                  <Table className="text-xs md:text-sm">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Borrower</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Principal</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Paid</TableHead>
-                        <TableHead>Balance</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Due Date</TableHead>
+                        <TableHead className="text-xs md:text-sm">ID</TableHead>
+                        <TableHead className="hidden sm:table-cell text-xs md:text-sm">Borrower</TableHead>
+                        <TableHead className="hidden md:table-cell text-xs md:text-sm">Product</TableHead>
+                        <TableHead className="text-right text-xs md:text-sm">Principal</TableHead>
+                        <TableHead className="hidden sm:table-cell text-right text-xs md:text-sm">Balance</TableHead>
+                        <TableHead className="hidden lg:table-cell text-right text-xs md:text-sm">Paid</TableHead>
+                        <TableHead className="text-center text-xs md:text-sm">Status</TableHead>
+                        <TableHead className="hidden md:table-cell text-right text-xs md:text-sm">Due Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loans.map((loan) => (
                         <TableRow key={loan.id}>
-                          <TableCell>#{loan.id}</TableCell>
-                          <TableCell>
-                            <Link to={`/admin/borrowers/${loan.borrower_id}`} className="hover:underline">
+                          <TableCell className="text-xs md:text-sm">#{loan.id}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs md:text-sm">
+                            <Link to={`/admin/borrowers/${loan.borrower_id}`} className="hover:underline truncate block">
                               {loan.borrower_name}
                             </Link>
                           </TableCell>
-                          <TableCell>{loan.product_name}</TableCell>
-                          <TableCell>{formatKES(loan.principal_amount)}</TableCell>
-                          <TableCell>{formatKES(loan.total_amount)}</TableCell>
-                          <TableCell>{formatKES(loan.total_paid || 0)}</TableCell>
-                          <TableCell className="font-medium">{formatKES(loan.balance || 0)}</TableCell>
-                          <TableCell>
-                            <Badge className={getStatusColor(loan.status)}>
+                          <TableCell className="hidden md:table-cell text-xs md:text-sm">{loan.product_name}</TableCell>
+                          <TableCell className="text-right text-xs md:text-sm">{formatKES(loan.principal_amount)}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-right font-medium text-xs md:text-sm">{formatKES(loan.balance || 0)}</TableCell>
+                          <TableCell className="hidden lg:table-cell text-right text-xs md:text-sm">{formatKES(loan.total_paid || 0)}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge className={`${getStatusColor(loan.status)} text-xs`}>
                               {getStatusLabel(loan.status)}
                             </Badge>
                           </TableCell>
-                          <TableCell>{formatDate(loan.due_date)}</TableCell>
+                          <TableCell className="hidden md:table-cell text-right text-xs md:text-sm">{formatDate(loan.due_date)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -333,34 +331,34 @@ export default function AdminReports() {
               <CardTitle>Collection Report</CardTitle>
               <CardDescription>Payments and repayments received</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="text-xs md:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Loan ID</TableHead>
-                    <TableHead>Borrower</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Method</TableHead>
+                    <TableHead className="text-xs md:text-sm">Date</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs md:text-sm">Loan ID</TableHead>
+                    <TableHead className="text-xs md:text-sm">Borrower</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm">Amount</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs md:text-sm">Type</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs md:text-sm">Method</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-xs">
                         No payments recorded
                       </TableCell>
                     </TableRow>
                   ) : (
                     payments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell>{formatDate(payment.paid_at)}</TableCell>
-                        <TableCell>#{payment.loan_id}</TableCell>
-                        <TableCell>{payment.borrower_name}</TableCell>
-                        <TableCell className="font-medium">{formatKES(payment.amount)}</TableCell>
-                        <TableCell className="capitalize">{payment.type}</TableCell>
-                        <TableCell className="capitalize">{payment.method}</TableCell>
+                        <TableCell className="text-xs md:text-sm">{formatDate(payment.paid_at)}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-xs md:text-sm">#{payment.loan_id}</TableCell>
+                        <TableCell className="text-xs md:text-sm truncate">{payment.borrower_name}</TableCell>
+                        <TableCell className="font-medium text-right text-xs md:text-sm">{formatKES(payment.amount)}</TableCell>
+                        <TableCell className="hidden md:table-cell capitalize text-xs md:text-sm">{payment.type}</TableCell>
+                        <TableCell className="hidden sm:table-cell capitalize text-xs md:text-sm">{payment.method}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -376,25 +374,25 @@ export default function AdminReports() {
               <CardTitle>Borrower Report</CardTitle>
               <CardDescription>All registered borrowers</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="text-xs md:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead>Total Loans</TableHead>
-                    <TableHead>Total Borrowed</TableHead>
+                    <TableHead className="text-xs md:text-sm">Name</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs md:text-sm">Email</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs md:text-sm">Joined</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm">Loans</TableHead>
+                    <TableHead className="text-right text-xs md:text-sm">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loans.map((loan, idx) => (
                     <TableRow key={`${loan.borrower_email}-${idx}`}>
-                      <TableCell>{loan.borrower_name}</TableCell>
-                      <TableCell>{loan.borrower_email}</TableCell>
-                      <TableCell>{formatDate(loan.created_at)}</TableCell>
-                      <TableCell>1</TableCell>
-                      <TableCell>{formatKES(loan.principal_amount)}</TableCell>
+                      <TableCell className="text-xs md:text-sm">{loan.borrower_name}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs md:text-sm truncate">{loan.borrower_email}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs md:text-sm">{formatDate(loan.created_at)}</TableCell>
+                      <TableCell className="text-right text-xs md:text-sm">1</TableCell>
+                      <TableCell className="text-right text-xs md:text-sm">{formatKES(loan.principal_amount)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

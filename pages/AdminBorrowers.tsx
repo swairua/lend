@@ -146,40 +146,40 @@ export default function AdminBorrowers() {
             <ResponsiveTableBody>
               {filteredBorrowers.map((borrower) => (
                 <ResponsiveTableRow key={borrower.id}>
-                  <ResponsiveTableCell label="Borrower" className="md:p-3">
+                  <ResponsiveTableCell label="Borrower" className="md:p-3 p-2">
                     <div className="flex items-center gap-2 md:gap-3">
-                      <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex-shrink-0 flex items-center justify-center">
-                        <User className="h-4 w-4 md:h-5 md:w-5" />
+                      <div className="w-7 h-7 md:w-10 md:h-10 rounded-full bg-primary/10 flex-shrink-0 flex items-center justify-center">
+                        <User className="h-3 w-3 md:h-5 md:w-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-sm md:text-base truncate">{borrower.name}</p>
+                        <p className="font-medium text-xs md:text-base truncate">{borrower.name}</p>
                         <p className="text-xs text-muted-foreground">ID: {borrower.id}</p>
                       </div>
                     </div>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Contact" className="hidden sm:table-cell md:p-3">
-                    <p className="text-sm">{borrower.email}</p>
+                  <ResponsiveTableCell label="Contact" className="hidden sm:table-cell md:p-3 p-2">
+                    <p className="text-xs md:text-sm">{borrower.email}</p>
                     <p className="text-xs text-muted-foreground truncate">{borrower.phone || '-'}</p>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Business" className="hidden md:table-cell md:p-3">
-                    <p className="text-sm">{borrower.business_name || '-'}</p>
+                  <ResponsiveTableCell label="Business" className="hidden md:table-cell md:p-3 p-2">
+                    <p className="text-xs md:text-sm">{borrower.business_name || '-'}</p>
                     <p className="text-xs text-muted-foreground">{borrower.business_type || '-'}</p>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Income" className="hidden lg:table-cell text-right md:p-3">
-                    {borrower.monthly_income ? formatKES(borrower.monthly_income) : '-'}
+                  <ResponsiveTableCell label="Income" className="hidden lg:table-cell text-right md:p-3 p-2">
+                    <p className="text-xs md:text-sm">{borrower.monthly_income ? formatKES(borrower.monthly_income) : '-'}</p>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Score" className="text-center md:p-3">
-                    <Badge variant={borrower.credit_score >= 700 ? 'default' : 'secondary'}>
+                  <ResponsiveTableCell label="Score" className="text-center md:p-3 p-2">
+                    <Badge variant={borrower.credit_score >= 700 ? 'default' : 'secondary'} className="text-xs">
                       {borrower.credit_score || '-'}
                     </Badge>
                   </ResponsiveTableCell>
-                  <ResponsiveTableCell label="Actions" className="md:p-3">
+                  <ResponsiveTableCell label="Actions" className="md:p-3 p-2">
                     <div className="flex items-center justify-center gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => handleViewBorrower(borrower)}>
-                        <Eye className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleViewBorrower(borrower)}>
+                        <Eye className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => navigate(`/admin/loans?borrower=${borrower.id}`)}>
-                        <FileText className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => navigate(`/admin/loans?borrower=${borrower.id}`)}>
+                        <FileText className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     </div>
                   </ResponsiveTableCell>
