@@ -39,7 +39,7 @@ export default function AdminCategories() {
   });
 
   useEffect(() => {
-    await loadCategories();
+    loadData();
   }, []);
 
   const loadCategories = async () => {
