@@ -448,9 +448,65 @@ try {
     // ====================================================================
     // PUBLIC
     // ====================================================================
+    // Handle /categories endpoint (alias for public/categories)
+    if ($resource === 'categories') {
+        $data = $DEV_MODE ? $MOCK_CATEGORIES : all("SELECT * FROM loan_categories WHERE is_active = 1 ORDER BY name");
+        log_access('GET', '/categories', 200);
+        echo json_encode(['success' => true, 'data' => $data]);
+        exit;
+    }
+
+    // Handle /products endpoint (alias for public/products)
+    if ($resource === 'products') {
+        $catId = $_GET['category_id'] ?? null;
+        if ($DEV_MODE) {
+            $data = $MOCK_PRODUCTS;
+            if ($catId) {
+                $data = array_filter($data, function($p) use ($catId) { return $p['category_id'] == $catId; });
+            }
+        } else {
+            $sql = "SELECT lp.*, lc.name as category_name, lc.code as category_code
+                    FROM loan_products lp LEFT JOIN loan_categories lc ON lp.category_id = lc.id
+                    WHERE lp.is_active = 1";
+            $params = [];
+            if ($catId) { $sql .= " AND lp.category_id = ?"; $params[] = $catId; }
+            $sql .= " ORDER BY lp.min_amount";
+            $data = all($sql, $params);
+        }
+        log_access('GET', '/products', 200);
+        echo json_encode(['success' => true, 'data' => $data]);
+        exit;
+    }
+
+    // Handle /loans/calculate endpoint
+    if ($method === 'POST' && strpos($uri, 'loans/calculate') !== false) {
+        $d = input();
+        $product = $DEV_MODE ? (array_values(array_filter($MOCK_PRODUCTS, function($p) { return $p['id'] == ($d['product_id'] ?? 0); }))  [0] ?? null) : one("SELECT * FROM loan_products WHERE id = ?", [$d['product_id'] ?? 0]);
+        if (!$product) {
+            log_error("Product not found", ['product_id' => $d['product_id'] ?? 'unknown']);
+            echo json_encode(['success' => false, 'error' => 'Product not found']);
+            exit;
+        }
+        $amount = floatval($d['amount'] ?? 0);
+        $term = intval($d['term_months'] ?? 1);
+        $interest = ($amount * floatval($product['interest_rate']) / 100) * ($term / 12);
+        $procFee = $amount * (floatval($product['processing_fee_percent'] ?? 0) / 100);
+        $assetFee = floatval($product['asset_transfer_fee'] ?? 0);
+        $trackFee = floatval($product['tracking_system_fee'] ?? 0);
+        $total = $amount + $interest + $procFee + $assetFee + $trackFee;
+        log_access('POST', 'loans/calculate', 200);
+        echo json_encode(['success' => true, 'data' => [
+            'principal' => $amount, 'interest' => $interest,
+            'processing_fee' => $procFee, 'asset_transfer_fee' => $assetFee,
+            'tracking_system_fee' => $trackFee, 'total_amount' => $total,
+            'monthly_payment' => $total / max($term, 1),
+        ]]);
+        exit;
+    }
+
     if ($resource === 'public') {
         if (strpos($uri, 'public/categories') !== false) {
-            $data = all("SELECT * FROM loan_categories WHERE is_active = 1 ORDER BY name");
+            $data = $DEV_MODE ? $MOCK_CATEGORIES : all("SELECT * FROM loan_categories WHERE is_active = 1 ORDER BY name");
             log_access('GET', 'public/categories', 200);
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
@@ -463,13 +519,20 @@ try {
         }
         if (strpos($uri, 'public/products') !== false) {
             $catId = $_GET['category_id'] ?? null;
-            $sql = "SELECT lp.*, lc.name as category_name, lc.code as category_code
-                    FROM loan_products lp LEFT JOIN loan_categories lc ON lp.category_id = lc.id
-                    WHERE lp.is_active = 1";
-            $params = [];
-            if ($catId) { $sql .= " AND lp.category_id = ?"; $params[] = $catId; }
-            $sql .= " ORDER BY lp.min_amount";
-            $data = all($sql, $params);
+            if ($DEV_MODE) {
+                $data = $MOCK_PRODUCTS;
+                if ($catId) {
+                    $data = array_filter($data, function($p) use ($catId) { return $p['category_id'] == $catId; });
+                }
+            } else {
+                $sql = "SELECT lp.*, lc.name as category_name, lc.code as category_code
+                        FROM loan_products lp LEFT JOIN loan_categories lc ON lp.category_id = lc.id
+                        WHERE lp.is_active = 1";
+                $params = [];
+                if ($catId) { $sql .= " AND lp.category_id = ?"; $params[] = $catId; }
+                $sql .= " ORDER BY lp.min_amount";
+                $data = all($sql, $params);
+            }
             log_access('GET', 'public/products', 200);
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
@@ -610,17 +673,24 @@ try {
                 }
             }
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
-            $loans = all("SELECT l.*, lp.name as product_name, lp.interest_rate,
-                                 lc.name as category_name, lc.code as category_code
-                          FROM loans l
-                          LEFT JOIN loan_products lp ON l.product_id = lp.id
-                          LEFT JOIN loan_categories lc ON lp.category_id = lc.id
-                          WHERE l.borrower_id = ? ORDER BY l.created_at DESC LIMIT $limit OFFSET $off", [$bid]);
-            $tot = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
-            foreach ($loans as &$l) {
-                $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
-                $l['total_paid'] = $p['t'];
-                $l['balance'] = floatval($l['total_amount']) - floatval($p['t']);
+            if ($DEV_MODE) {
+                $loans = [
+                    ['id' => 1, 'borrower_id' => 1, 'product_id' => 1, 'principal_amount' => 100000, 'interest_amount' => 12500, 'processing_fee' => 2500, 'asset_transfer_fee' => 500, 'tracking_system_fee' => 200, 'total_amount' => 115700, 'term_months' => 12, 'status' => 'active', 'created_at' => date('Y-m-d H:i:s', time() - 86400 * 30), 'product_name' => 'Vehicle Loan', 'interest_rate' => 12.5, 'category_name' => 'Asset-Based Lending', 'category_code' => 'ABL', 'total_paid' => 20000, 'balance' => 95700],
+                ];
+                $tot = ['c' => 1];
+            } else {
+                $loans = all("SELECT l.*, lp.name as product_name, lp.interest_rate,
+                                     lc.name as category_name, lc.code as category_code
+                              FROM loans l
+                              LEFT JOIN loan_products lp ON l.product_id = lp.id
+                              LEFT JOIN loan_categories lc ON lp.category_id = lc.id
+                              WHERE l.borrower_id = ? ORDER BY l.created_at DESC LIMIT $limit OFFSET $off", [$bid]);
+                $tot = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
+                foreach ($loans as &$l) {
+                    $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
+                    $l['total_paid'] = $p['t'];
+                    $l['balance'] = floatval($l['total_amount']) - floatval($p['t']);
+                }
             }
             log_access('GET', 'borrower/loans', 200);
             echo json_encode(['success' => true, 'data' => ['loans' => $loans,
@@ -632,9 +702,14 @@ try {
     // -------------------- MESSAGES --------------------
     if ($resource === 'messages') {
         if (strpos($uri, 'messages/unread') !== false) {
-            $u = one("SELECT COUNT(*) c FROM messages WHERE recipient_id = ? AND is_read = 0", [$user['id']]);
+            if ($DEV_MODE) {
+                $count = 2;
+            } else {
+                $u = one("SELECT COUNT(*) c FROM messages WHERE recipient_id = ? AND is_read = 0", [$user['id']]);
+                $count = $u['c'] ?? 0;
+            }
             log_access('GET', 'messages/unread', 200);
-            echo json_encode(['success' => true, 'data' => ['unread' => $u['c']]]);
+            echo json_encode(['success' => true, 'data' => ['unread' => $count]]);
             exit;
         }
         if ($method === 'PUT' && preg_match('#messages/(\d+)/read#', $uri, $m)) {
@@ -670,7 +745,13 @@ try {
         // List
         $folder = $_GET['folder'] ?? 'inbox';
         $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
-        if ($folder === 'sent') {
+        if ($DEV_MODE) {
+            $msgs = [
+                ['id' => 1, 'sender_id' => 2, 'recipient_id' => 1, 'loan_id' => null, 'subject' => 'Loan Approved', 'message' => 'Your loan application has been approved.', 'type' => 'notification', 'is_read' => 0, 'created_at' => date('Y-m-d H:i:s', time() - 86400), 'sender_name' => 'Admin', 'recipient_name' => 'You'],
+                ['id' => 2, 'sender_id' => 1, 'recipient_id' => 2, 'loan_id' => null, 'subject' => 'Re: Loan Status', 'message' => 'Thank you for the update.', 'type' => 'message', 'is_read' => 1, 'created_at' => date('Y-m-d H:i:s', time() - 172800), 'sender_name' => 'You', 'recipient_name' => 'Admin'],
+            ];
+            $tot = ['c' => 2];
+        } else if ($folder === 'sent') {
             $msgs = all("SELECT m.*, u.name as recipient_name, u.email as recipient_email
                          FROM messages m LEFT JOIN users u ON m.recipient_id = u.id
                          WHERE m.sender_id = ? ORDER BY m.created_at DESC LIMIT $limit OFFSET $off", [$user['id']]);

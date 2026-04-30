@@ -8,10 +8,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5173',
-        pathRewrite: {
-          '^/api': '/api.php',
-        },
+        target: 'https://lending.wayrus.co.ke',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

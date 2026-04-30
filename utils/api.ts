@@ -13,7 +13,7 @@ class ApiError extends Error {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), 60000);
 
   const token = localStorage.getItem('token');
 
@@ -50,7 +50,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   } catch (e: any) {
     clearTimeout(timeout);
     if (e.name === 'AbortError') {
-      throw new Error(`Request timeout: API took too long to respond (>30s). Endpoint: ${endpoint}`);
+      throw new Error(`Request timeout: API took too long to respond (>60s). Endpoint: ${endpoint}`);
     }
     throw e;
   }
