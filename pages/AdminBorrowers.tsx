@@ -6,10 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
+import DocumentsPanel from "../components/DocumentsPanel";
+import ProfilePhoto from "../components/ProfilePhoto";
 import { adminApi, formatKES, formatDate } from '../types/api';
-import { Loader2, Plus, Edit, Trash2, Search, ChevronLeft, Filter, User, Users, FileText, CreditCard, Eye } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, Search, ChevronLeft, Filter, User, Users, FileText, CreditCard, Eye, Shield } from 'lucide-react';
 
 interface Borrower {
   id: number;
@@ -44,6 +47,9 @@ export default function AdminBorrowers() {
   const [borrowerLoans, setBorrowerLoans] = useState<Loan[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [kycDialogOpen, setKycDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [kycForm, setKycForm] = useState({ kra_pin: "", tcc_number: "", national_id: "", client_type: "individual", is_verified: false });
 
   useEffect(() => {
     loadBorrowers();
@@ -57,6 +63,32 @@ export default function AdminBorrowers() {
       console.error('Failed to load borrowers:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenKYC = (borrower: any) => {
+    setSelectedBorrower(borrower);
+    setKycForm({
+      kra_pin: borrower.kra_pin || "",
+      tcc_number: borrower.tcc_number || "",
+      national_id: borrower.national_id || "",
+      client_type: borrower.client_type || "individual",
+      is_verified: borrower.is_verified || false,
+    });
+    setKycDialogOpen(true);
+  };
+
+  const handleSaveKYC = async () => {
+    if (!selectedBorrower) return;
+    setSaving(true);
+    try {
+      await adminApi.updateBorrowerKYC(selectedBorrower.id, kycForm);
+      await loadBorrowers();
+      setKycDialogOpen(false);
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -175,6 +207,9 @@ export default function AdminBorrowers() {
                   </ResponsiveTableCell>
                   <ResponsiveTableCell label="Actions" className="md:p-3 p-2">
                     <div className="flex items-center justify-center gap-1">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Edit KYC" onClick={() => handleOpenKYC(borrower)}>
+                        <Shield className="h-3 w-3 md:h-4 md:w-4 text-amber-600" />
+                      </Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleViewBorrower(borrower)}>
                         <Eye className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
@@ -193,13 +228,70 @@ export default function AdminBorrowers() {
         </CardContent>
       </Card>
 
+
+      {/* KYC Edit Dialog */}
+      <Dialog open={kycDialogOpen} onOpenChange={setKycDialogOpen}>
+        <DialogContent className="max-w-lg w-[95vw]">
+          <DialogHeader>
+            <DialogTitle>Edit KYC Information</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs text-amber-700 font-medium">These fields are mandatory and admin-only. TCC Number should be renewed annually.</p>
+            </div>
+            <div className="space-y-1">
+              <Label>Client Type *</Label>
+              <Select value={kycForm.client_type} onValueChange={(v)=>setKycForm({...kycForm,client_type:v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="individual">Individual</SelectItem>
+                  <SelectItem value="corporate">Corporate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>National ID / Passport *</Label>
+              <Input value={kycForm.national_id} onChange={(e)=>setKycForm({...kycForm,national_id:e.target.value})} placeholder="ID number" />
+            </div>
+            <div className="space-y-1">
+              <Label>KRA PIN *</Label>
+              <Input value={kycForm.kra_pin} onChange={(e)=>setKycForm({...kycForm,kra_pin:e.target.value})} placeholder="e.g. A000123456B" />
+            </div>
+            <div className="space-y-1">
+              <Label>TCC Number * (update annually)</Label>
+              <Input value={kycForm.tcc_number} onChange={(e)=>setKycForm({...kycForm,tcc_number:e.target.value})} placeholder="Tax Compliance Certificate number" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="is_verified" checked={kycForm.is_verified} onChange={(e)=>setKycForm({...kycForm,is_verified:e.target.checked})} className="accent-primary" />
+              <Label htmlFor="is_verified">Mark as Admin Verified</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={()=>setKycDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveKYC} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save KYC
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
-            <DialogTitle className="text-lg md:text-2xl">Borrower Details</DialogTitle>
+            <div className="flex items-center gap-4">
+              <ProfilePhoto name={(selectedBorrower as any)?.name} currentUrl={(selectedBorrower as any)?.photo_url} size="sm" />
+              <div><DialogTitle className="text-lg">{(selectedBorrower as any)?.name}</DialogTitle><p className="text-xs text-muted-foreground">{(selectedBorrower as any)?.email}</p></div>
+            </div>
           </DialogHeader>
           {selectedBorrower && (
+            <Tabs defaultValue="info">
+              <TabsList className="w-full">
+                <TabsTrigger value="info" className="flex-1">Profile</TabsTrigger>
+                <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+              </TabsList>
+              <TabsContent value="info">
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -235,11 +327,25 @@ export default function AdminBorrowers() {
                   <p className="font-medium">{selectedBorrower.monthly_income ? formatKES(selectedBorrower.monthly_income) : '-'}</p>
                 </div>
               </div>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                <p className="text-xs font-bold text-amber-800 uppercase">KYC Details</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="text-xs text-muted-foreground">Client Type</Label><p className="font-medium capitalize text-sm">{(selectedBorrower as any).client_type || "individual"}</p></div>
+                  <div><Label className="text-xs text-muted-foreground">Verified</Label><p className="font-medium text-sm">{(selectedBorrower as any).is_verified ? "Yes" : "Pending"}</p></div>
+                  <div><Label className="text-xs text-muted-foreground">KRA PIN</Label><p className="font-medium text-sm">{(selectedBorrower as any).kra_pin || "-"}</p></div>
+                  <div><Label className="text-xs text-muted-foreground">TCC Number</Label><p className="font-medium text-sm">{(selectedBorrower as any).tcc_number || "-"}</p></div>
+                </div>
+              </div>
               <div>
                 <Label className="text-muted-foreground">Credit Score</Label>
                 <p className="font-medium text-lg">{selectedBorrower.credit_score || '-'}</p>
               </div>
             </div>
+              </TabsContent>
+              <TabsContent value="documents" className="mt-2">
+                <DocumentsPanel borrowerId={(selectedBorrower as any).user_id || (selectedBorrower as any).id} readOnly={false} />
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>

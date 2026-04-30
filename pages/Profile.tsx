@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import ProfilePhoto from "../components/ProfilePhoto";
+import DocumentsPanel from "../components/DocumentsPanel";
 import { authApi, loansApi, formatKES, formatDate } from '../types/api';
 import { Loader2, User, Mail, Phone, Home, Briefcase, Banknote, ArrowLeft, Save, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -34,8 +36,12 @@ export default function Profile() {
   const [user, setUser] = useState<User | null>(null);
   const [borrower, setBorrower] = useState<BorrowerProfile | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState("");
   
   const [form, setForm] = useState({
+    client_type: "",
+    kra_pin: "",
+    tcc_number: "",
     name: '',
     phone: '',
     currentPassword: '',
@@ -155,6 +161,28 @@ export default function Profile() {
       </div>
 
       <form onSubmit={handleSaveProfile} className="space-y-6">
+        {/* Profile Photo */}
+        <div className="flex justify-center mb-2">
+          <ProfilePhoto
+            name={user?.name}
+            currentUrl={photoUrl}
+            borrowerId={user?.id}
+            onUploaded={(url) => setPhotoUrl(url)}
+          />
+        </div>
+        {/* Client Type Badge */}
+        <div className="flex items-center gap-3 mb-4 p-3 bg-muted rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Account Type:</span>
+            <span className={"inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold " + (form.client_type==="corporate" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800")}>
+              {form.client_type==="corporate" ? "Corporate" : "Individual"}
+            </span>
+          </div>
+          {user?.role==="borrower" && (
+            <span className="text-xs text-muted-foreground ml-auto">Contact admin to change</span>
+          )}
+        </div>
+
         {/* Personal Information */}
         <Card>
           <CardHeader>
@@ -209,15 +237,27 @@ export default function Profile() {
             <CardDescription>Your loan application details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="national_id">National ID / Passport</Label>
-              <Input
-                id="national_id"
-                value={form.national_id}
-                onChange={(e) => setForm({ ...form, national_id: e.target.value })}
-                placeholder="National ID number"
-              />
+            
+            {/* KYC Fields - Read Only for Borrowers */}
+            <div className="space-y-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">KYC Information (Admin-Managed)</p>
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">National ID / Passport *</Label>
+                  <Input value={form.national_id} disabled className="bg-white text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">KRA PIN *</Label>
+                  <Input value={form.kra_pin || "Not set"} disabled className="bg-white text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">TCC Number * (Renewed Annually)</Label>
+                  <Input value={form.tcc_number || "Not set"} disabled className="bg-white text-sm" />
+                </div>
+              </div>
+              <p className="text-xs text-amber-700">These mandatory fields can only be updated by an administrator.</p>
             </div>
+
             
             <div className="space-y-2">
               <Label htmlFor="address">Address</Label>
@@ -289,6 +329,10 @@ export default function Profile() {
           Save Changes
         </Button>
       </form>
+
+
+      {/* Documents Section */}
+      <DocumentsPanel borrowerId={user?.id} />
 
       {/* Change Password */}
       <form onSubmit={handleChangePassword} className="mt-6">

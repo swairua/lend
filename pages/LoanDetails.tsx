@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import InvoiceReceipt from "../components/InvoiceReceipt";
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
-import { Loader2, ArrowLeft, Calendar, DollarSign, Clock, FileText, CreditCard, AlertCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Calendar, DollarSign, Clock, FileText, CreditCard, AlertCircle, Printer, Receipt, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function LoanDetails() {
   const navigate = useNavigate();
@@ -69,6 +70,29 @@ export default function LoanDetails() {
         <h1 className="text-base md:text-xl font-bold">Loan #{loan.id}</h1>
       </div>
 
+
+      {/* Late Payment Alert */}
+      {(() => { const { isLate, daysOverdue, lateFee } = calcLatePayment(loan); return isLate ? (
+        <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-red-700 text-sm">Payment Overdue by {daysOverdue} day{daysOverdue>1?"s":""}</p>
+            <p className="text-xs text-red-600">A 2% late fee of {formatKES(lateFee)} applies on your outstanding balance. Please pay immediately to avoid further penalties.</p>
+          </div>
+        </div>
+      ) : null; })()}
+
+      {/* Invoice / Receipt Buttons */}
+      <div className="flex gap-2">
+        <button onClick={()=>setShowInvoice(true)} className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium">
+          <FileText className="h-4 w-4" /> Invoice
+        </button>
+        {loan.repayments?.length > 0 && (
+          <button onClick={()=>{setSelectedRepayment(loan.repayments[loan.repayments.length-1]);setShowReceipt(true);}} className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium">
+            <Receipt className="h-4 w-4" /> Receipt
+          </button>
+        )}
+      </div>
       {/* Status Card */}
       <Card className="bg-gradient-to-r from-primary/10 to-primary/5">
         <CardContent className="p-3 md:p-4">
@@ -149,6 +173,30 @@ export default function LoanDetails() {
         </Card>
       )}
 
+
+      {/* Repayment Schedule */}
+      {loan.status === "active" && loan.term_months && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold flex items-center gap-2"><Calendar className="h-4 w-4" /> Repayment Schedule</h2>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="grid grid-cols-4 text-xs font-semibold bg-muted p-2 gap-2">
+              <span>#</span><span>Due Date</span><span className="text-right">Amount</span><span className="text-center">Status</span>
+            </div>
+            {generateSchedule(loan).map((s) => (
+              <div key={s.no} className={("grid grid-cols-4 gap-2 px-2 py-2 border-t text-xs ")+(s.isPaid?"bg-green-50":s.isLate?"bg-red-50":"")}>
+                <span className="font-medium">{s.no}</span>
+                <span>{s.due.toLocaleDateString("en-KE",{month:"short",day:"numeric",year:"numeric"})}</span>
+                <span className="text-right">{formatKES(s.amount)}{s.isLate&&<span className="text-red-500 block">+{formatKES(s.lateFee)} fee</span>}</span>
+                <span className="text-center">{s.isPaid?<CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />:s.isLate?<XCircle className="h-4 w-4 text-red-500 mx-auto" />:<Clock className="h-4 w-4 text-gray-400 mx-auto" />}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Modal */}
+      <InvoiceReceipt open={showInvoice} onClose={()=>setShowInvoice(false)} type="invoice" loan={loan} userName={user?.name} />
+      <InvoiceReceipt open={showReceipt} onClose={()=>setShowReceipt(false)} type="receipt" loan={loan} repayment={selectedRepayment} userName={user?.name} />
       {/* Repayments */}
       {loan.repayments?.length > 0 && (
         <Card>
