@@ -39,7 +39,7 @@ export default function AdminCategories() {
   });
 
   useEffect(() => {
-    loadCategories();
+    await loadCategories();
   }, []);
 
   const loadCategories = async () => {
@@ -84,7 +84,7 @@ export default function AdminCategories() {
       } else {
         await adminApi.createCategory(form);
       }
-      loadCategories();
+      await loadCategories();
       setDialogOpen(false);
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
@@ -99,7 +99,7 @@ export default function AdminCategories() {
       setSaving(true);
       try {
         await adminApi.deleteCategory(selectedCategory.id);
-        loadCategories();
+        await loadCategories();
         setDeleteDialogOpen(false);
         setDialogOpen(false);
       } catch (error: any) {
@@ -113,7 +113,7 @@ export default function AdminCategories() {
   const handleToggle = async (category: Category) => {
     try {
       await adminApi.toggleCategory(category.id, !category.is_active);
-      loadCategories();
+      await loadCategories();
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
     }

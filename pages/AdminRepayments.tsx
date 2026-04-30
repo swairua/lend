@@ -38,7 +38,7 @@ export default function AdminRepayments() {
   const { showAlert, confirm, AlertComponent } = useAlert();
 
   useEffect(() => {
-    loadRepayments();
+    await loadRepayments();
   }, []);
 
   const loadRepayments = async () => {
@@ -86,7 +86,7 @@ export default function AdminRepayments() {
     confirm('Delete this repayment record?', async () => {
       try {
         await adminApi.deleteRepayment(id);
-        loadRepayments();
+        await loadRepayments();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
       }

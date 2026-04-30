@@ -1,221 +1,205 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import InvoiceReceipt from "../components/InvoiceReceipt";
-import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
-import { Loader2, ArrowLeft, Calendar, DollarSign, Clock, FileText, CreditCard, AlertCircle, Printer, Receipt, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from "../types/api";
+import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock } from "lucide-react";
+
+const GRACE_DAYS = 7;
+const LATE_FEE_RATE = 0.02;
+
+function calcLatePayment(loan: any) {
+  if (!loan || loan.status !== "active" || !loan.due_date) return { isLate: false, daysOverdue: 0, lateFee: 0 };
+  const grace = new Date(loan.due_date);
+  grace.setDate(grace.getDate() + GRACE_DAYS);
+  const daysOverdue = Math.floor((Date.now() - grace.getTime()) / 86400000);
+  const isLate = daysOverdue > 0;
+  return { isLate, daysOverdue, lateFee: isLate ? (loan.balance || 0) * LATE_FEE_RATE : 0 };
+}
+
+function generateSchedule(loan: any) {
+  if (!loan || !loan.term_months) return [];
+  const start = new Date(loan.disbursed_at || loan.approved_at || loan.created_at);
+  const monthly = loan.total_amount / loan.term_months;
+  const paid = loan.total_paid || 0;
+  const schedule = [];
+  for (let i = 1; i <= loan.term_months; i++) {
+    const due = new Date(start);
+    due.setMonth(due.getMonth() + i);
+    const cumulative = monthly * i;
+    const isPaid = paid >= cumulative;
+    const grace = new Date(due);
+    grace.setDate(grace.getDate() + GRACE_DAYS);
+    const isLate = !isPaid && Date.now() > grace.getTime();
+    schedule.push({ no: i, due, amount: monthly, isPaid, isLate, lateFee: isLate ? (loan.balance || 0) * LATE_FEE_RATE : 0 });
+  }
+  return schedule;
+}
 
 export default function LoanDetails() {
   const navigate = useNavigate();
   const { loanId } = useParams();
   const [loading, setLoading] = useState(true);
   const [loan, setLoan] = useState<any>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [selectedRepayment, setSelectedRepayment] = useState<any>(null);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  useEffect(() => {
-    loadLoan();
-  }, [loanId]);
+  useEffect(() => { loadLoan(); }, [loanId]);
 
   const loadLoan = async () => {
-    if (!loanId) {
-      setError('No loan ID provided');
-      setLoading(false);
-      return;
-    }
+    if (!loanId) { setError("No loan ID provided"); setLoading(false); return; }
     try {
       const res = await loansApi.getMyLoan(parseInt(loanId));
       const data = res.data?.data || res.data;
-      if (!data) {
-        setError('Loan not found');
-      } else {
-        setLoan(data);
-      }
-    } catch (error: any) {
-      console.error('Failed to load loan:', error);
-      setError(error.message || 'Failed to load loan details');
-    } finally {
-      setLoading(false);
-    }
+      if (!data) { setError("Loan not found"); } else { setLoan(data); }
+    } catch (err: any) {
+      console.error("Failed to load loan:", err);
+      setError(err.message || "Failed to load loan details");
+    } finally { setLoading(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
-  if (error || !loan) {
-    return (
-      <div className="p-4 text-center">
-        <p className="text-muted-foreground mb-4">{error || 'Loan not found'}</p>
-        <Button onClick={() => navigate('/loans')}>Back to Loans</Button>
-      </div>
-    );
-  }
+  if (error || !loan) return (
+    <div className="p-4 text-center">
+      <p className="text-muted-foreground mb-4">{error || "Loan not found"}</p>
+      <Button onClick={() => navigate("/loans")}>Back to Loans</Button>
+    </div>
+  );
 
-  const progress = loan.total_paid && loan.total_amount 
-    ? Math.min((loan.total_paid / loan.total_amount) * 100, 100) 
-    : 0;
+  const progress = loan.total_paid && loan.total_amount ? Math.min((loan.total_paid / loan.total_amount) * 100, 100) : 0;
+  const { isLate, daysOverdue, lateFee } = calcLatePayment(loan);
+  const schedule = generateSchedule(loan);
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/loans')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/loans")}><ArrowLeft className="h-4 w-4" /></Button>
         <h1 className="text-base md:text-xl font-bold">Loan #{loan.id}</h1>
+        <Badge className={getStatusColor(loan.status) + " ml-auto text-xs"}>{getStatusLabel(loan.status)}</Badge>
       </div>
 
-
       {/* Late Payment Alert */}
-      {(() => { const { isLate, daysOverdue, lateFee } = calcLatePayment(loan); return isLate ? (
+      {isLate && (
         <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
           <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-red-700 text-sm">Payment Overdue by {daysOverdue} day{daysOverdue>1?"s":""}</p>
-            <p className="text-xs text-red-600">A 2% late fee of {formatKES(lateFee)} applies on your outstanding balance. Please pay immediately to avoid further penalties.</p>
+            <p className="font-semibold text-red-700 text-sm">Payment Overdue by {daysOverdue} day{daysOverdue > 1 ? "s" : ""}</p>
+            <p className="text-xs text-red-600">A 2% late fee of {formatKES(lateFee)} applies on your outstanding balance. Please pay immediately.</p>
           </div>
         </div>
-      ) : null; })()}
+      )}
 
       {/* Invoice / Receipt Buttons */}
       <div className="flex gap-2">
-        <button onClick={()=>setShowInvoice(true)} className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium">
-          <FileText className="h-4 w-4" /> Invoice
-        </button>
-        {loan.repayments?.length > 0 && (
-          <button onClick={()=>{setSelectedRepayment(loan.repayments[loan.repayments.length-1]);setShowReceipt(true);}} className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium">
-            <Receipt className="h-4 w-4" /> Receipt
-          </button>
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowInvoice(true)}>
+          <FileText className="h-4 w-4 mr-1" /> Invoice
+        </Button>
+        {(loan.repayments?.length > 0) && (
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedRepayment(loan.repayments[loan.repayments.length - 1]); setShowReceipt(true); }}>
+            <Receipt className="h-4 w-4 mr-1" /> Receipt
+          </Button>
         )}
       </div>
-      {/* Status Card */}
+
+      {/* Summary Card */}
       <Card className="bg-gradient-to-r from-primary/10 to-primary/5">
         <CardContent className="p-3 md:p-4">
-          <Badge className={`${getStatusColor(loan.status)} mb-2 text-xs`}>
-            {getStatusLabel(loan.status)}
-          </Badge>
           <p className="font-bold text-xl md:text-2xl">{formatKES(loan.principal_amount)}</p>
-          <p className="text-xs md:text-sm text-muted-foreground">{loan.product_name || 'Loan'}</p>
-        </CardContent>
-      </Card>
-
-      {/* Progress */}
-      <Card>
-        <CardContent className="p-3 md:p-4">
-          <div className="flex justify-between mb-2 gap-2">
-            <span className="text-xs md:text-sm font-medium">Repayment Progress</span>
-            <span className="text-xs md:text-sm flex-shrink-0">{progress.toFixed(0)}%</span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="flex justify-between mt-2 text-xs md:text-sm gap-2">
-            <span>Paid: {formatKES(loan.total_paid || 0)}</span>
-            <span className="hidden sm:inline">Balance: {formatKES(loan.balance || 0)}</span>
+          <p className="text-xs md:text-sm text-muted-foreground">{loan.product_name || "Loan"}</p>
+          <div className="mt-3">
+            <div className="flex justify-between mb-1 text-xs">
+              <span>Repayment Progress</span><span>{progress.toFixed(0)}%</span>
+            </div>
+            <div className="h-2 bg-white/50 rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full" style={{ width: progress + "%" }} />
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+              <span>Paid: {formatKES(loan.total_paid || 0)}</span>
+              <span>Balance: {formatKES(loan.balance || 0)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Loan Details */}
       <Card>
-        <CardHeader className="p-3 md:p-4 pb-1 md:pb-2">
-          <CardTitle className="text-xs md:text-sm">Loan Information</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 md:p-4 pt-0 space-y-2 md:space-y-3">
-          <div className="flex justify-between gap-2 text-xs md:text-sm">
-            <span className="text-muted-foreground">Applied</span>
-            <span className="text-right">{formatDate(loan.created_at)}</span>
-          </div>
-          <div className="flex justify-between gap-2 text-xs md:text-sm">
-            <span className="text-muted-foreground">Term</span>
-            <span>{loan.term_months} months</span>
-          </div>
-          <div className="flex justify-between gap-2 text-xs md:text-sm">
-            <span className="text-muted-foreground">Interest Rate</span>
-            <span>{loan.interest_rate || loan.product_rate || 0}% p.a.</span>
-          </div>
-          <div className="flex justify-between gap-2 text-xs md:text-sm">
-            <span className="text-muted-foreground">Total Repayable</span>
-            <span className="font-medium">{formatKES(loan.total_amount)}</span>
-          </div>
-          <div className="flex justify-between gap-2 text-xs md:text-sm">
-            <span className="text-muted-foreground">Due Date</span>
-            <span className="text-right">{formatDate(loan.due_date)}</span>
-          </div>
+        <CardHeader className="p-3 md:p-4 pb-1"><CardTitle className="text-xs md:text-sm">Loan Details</CardTitle></CardHeader>
+        <CardContent className="p-3 md:p-4 pt-0 space-y-2">
+          {[{label:"Applied",value:formatDate(loan.created_at)},{label:"Term",value:loan.term_months+" months"},{label:"Interest Rate",value:(loan.interest_rate||0)+"% p.a."},{label:"Total Repayable",value:formatKES(loan.total_amount)},{label:"Due Date",value:formatDate(loan.due_date)},{label:"Disbursed",value:formatDate(loan.disbursed_at)}].map(row => row.value && row.value !== "N/A" ? (
+            <div key={row.label} className="flex justify-between gap-2 text-xs md:text-sm">
+              <span className="text-muted-foreground">{row.label}</span>
+              <span className="text-right font-medium">{row.value}</span>
+            </div>
+          ) : null)}
         </CardContent>
       </Card>
 
       {/* Fees */}
-      {(loan.processing_fee > 0 || loan.interest_amount > 0) && (
+      {(loan.processing_fee > 0 || loan.interest_amount > 0 || loan.asset_transfer_fee > 0) && (
         <Card>
-          <CardHeader className="p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm">Fees</CardTitle>
-          </CardHeader>
+          <CardHeader className="p-3 md:p-4 pb-1"><CardTitle className="text-xs md:text-sm">Fee Breakdown</CardTitle></CardHeader>
           <CardContent className="p-3 md:p-4 pt-0 space-y-2">
-            {loan.interest_amount > 0 && (
-              <div className="flex justify-between gap-2 text-xs md:text-sm">
-                <span className="text-muted-foreground">Interest</span>
-                <span>{formatKES(loan.interest_amount)}</span>
-              </div>
-            )}
-            {loan.processing_fee > 0 && (
-              <div className="flex justify-between gap-2 text-xs md:text-sm">
-                <span className="text-muted-foreground">Processing Fee</span>
-                <span>{formatKES(loan.processing_fee)}</span>
-              </div>
-            )}
+            {loan.interest_amount > 0 && <div className="flex justify-between text-xs md:text-sm"><span className="text-muted-foreground">Interest</span><span>{formatKES(loan.interest_amount)}</span></div>}
+            {loan.processing_fee > 0 && <div className="flex justify-between text-xs md:text-sm"><span className="text-muted-foreground">Processing Fee</span><span>{formatKES(loan.processing_fee)}</span></div>}
+            {loan.asset_transfer_fee > 0 && <div className="flex justify-between text-xs md:text-sm"><span className="text-muted-foreground">Asset Transfer Fee</span><span>{formatKES(loan.asset_transfer_fee)}</span></div>}
+            {loan.tracking_system_fee > 0 && <div className="flex justify-between text-xs md:text-sm"><span className="text-muted-foreground">Tracking Fee</span><span>{formatKES(loan.tracking_system_fee)}</span></div>}
           </CardContent>
         </Card>
       )}
 
-
       {/* Repayment Schedule */}
-      {loan.status === "active" && loan.term_months && (
+      {loan.status === "active" && schedule.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-sm font-semibold flex items-center gap-2"><Calendar className="h-4 w-4" /> Repayment Schedule</h2>
           <div className="border rounded-lg overflow-hidden">
-            <div className="grid grid-cols-4 text-xs font-semibold bg-muted p-2 gap-2">
+            <div className="grid grid-cols-4 text-xs font-semibold bg-muted p-2 border-b">
               <span>#</span><span>Due Date</span><span className="text-right">Amount</span><span className="text-center">Status</span>
             </div>
-            {generateSchedule(loan).map((s) => (
-              <div key={s.no} className={("grid grid-cols-4 gap-2 px-2 py-2 border-t text-xs ")+(s.isPaid?"bg-green-50":s.isLate?"bg-red-50":"")}>
+            {schedule.map((s) => (
+              <div key={s.no} className={"grid grid-cols-4 gap-1 px-2 py-2 border-b last:border-0 text-xs " + (s.isPaid ? "bg-green-50" : s.isLate ? "bg-red-50" : "")}>
                 <span className="font-medium">{s.no}</span>
-                <span>{s.due.toLocaleDateString("en-KE",{month:"short",day:"numeric",year:"numeric"})}</span>
-                <span className="text-right">{formatKES(s.amount)}{s.isLate&&<span className="text-red-500 block">+{formatKES(s.lateFee)} fee</span>}</span>
-                <span className="text-center">{s.isPaid?<CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />:s.isLate?<XCircle className="h-4 w-4 text-red-500 mx-auto" />:<Clock className="h-4 w-4 text-gray-400 mx-auto" />}</span>
+                <span className="text-muted-foreground">{s.due.toLocaleDateString("en-KE", { month: "short", day: "numeric", year: "numeric" })}</span>
+                <div className="text-right">
+                  <span>{formatKES(s.amount)}</span>
+                  {s.isLate && <p className="text-red-500 text-[10px]">+{formatKES(s.lateFee)} fee</p>}
+                </div>
+                <div className="flex justify-center">
+                  {s.isPaid ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : s.isLate ? <XCircle className="h-4 w-4 text-red-500" /> : <Clock className="h-4 w-4 text-gray-300" />}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Invoice Modal */}
-      <InvoiceReceipt open={showInvoice} onClose={()=>setShowInvoice(false)} type="invoice" loan={loan} userName={user?.name} />
-      <InvoiceReceipt open={showReceipt} onClose={()=>setShowReceipt(false)} type="receipt" loan={loan} repayment={selectedRepayment} userName={user?.name} />
-      {/* Repayments */}
+      {/* Payment History */}
       {loan.repayments?.length > 0 && (
         <Card>
-          <CardHeader className="p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm">Payment History</CardTitle>
-          </CardHeader>
+          <CardHeader className="p-3 md:p-4 pb-1"><CardTitle className="text-xs md:text-sm">Payment History</CardTitle></CardHeader>
           <CardContent className="p-3 md:p-4 pt-0 space-y-2">
-            {loan.repayments.map((payment: any) => (
-              <div key={payment.id} className="flex justify-between items-start md:items-center py-2 border-b last:border-0 gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm font-medium">{formatKES(payment.amount)}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(payment.paid_at)}</p>
+            {loan.repayments.map((pmt: any) => (
+              <div key={pmt.id} className="flex justify-between items-center py-2 border-b last:border-0 gap-2">
+                <div>
+                  <p className="text-xs md:text-sm font-medium">{formatKES(pmt.amount)}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(pmt.paid_at)}</p>
                 </div>
-                <Badge variant="outline" className="text-xs flex-shrink-0">{payment.payment_method || 'Payment'}</Badge>
+                <Badge variant="outline" className="text-xs capitalize">{pmt.payment_method || "payment"}</Badge>
               </div>
             ))}
           </CardContent>
         </Card>
       )}
+
+      {/* Invoice / Receipt Modals */}
+      <InvoiceReceipt open={showInvoice} onClose={() => setShowInvoice(false)} type="invoice" loan={loan} userName={user?.name} />
+      <InvoiceReceipt open={showReceipt} onClose={() => setShowReceipt(false)} type="receipt" loan={loan} repayment={selectedRepayment} userName={user?.name} />
     </div>
   );
 }

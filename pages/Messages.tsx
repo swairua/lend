@@ -42,7 +42,8 @@ export default function Messages() {
     setLoading(true);
     try {
       const response = await messagesApi.getMessages(folder);
-      setMessages(response.data.messages);
+      const msgs = response.data?.messages || response.data?.data || response.data || [];
+      setMessages(Array.isArray(msgs) ? msgs : []);
     } catch (error) {
       console.error('Failed to load messages:', error);
     } finally {
@@ -53,7 +54,7 @@ export default function Messages() {
   const loadUnreadCount = async () => {
     try {
       const response = await messagesApi.getUnreadCount();
-      setUnreadCount(response.data.unread);
+      setUnreadCount(response.data?.unread ?? response.data?.count ?? 0);
     } catch (error) {
       console.error('Failed to load unread count:', error);
     }
@@ -64,8 +65,8 @@ export default function Messages() {
     if (!msg.is_read && folder === 'inbox') {
       try {
         await messagesApi.markRead(msg.id);
-        loadMessages();
-        loadUnreadCount();
+        await loadMessages();
+        await loadUnreadCount();
       } catch (error) {
         console.error('Failed to mark as read:', error);
       }
@@ -76,7 +77,7 @@ export default function Messages() {
     try {
       await messagesApi.delete(id);
       setSelectedMessage(null);
-      loadMessages();
+      await loadMessages();
       toast({ title: 'Message deleted' });
     } catch (error) {
       console.error('Failed to delete message:', error);

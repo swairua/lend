@@ -137,7 +137,7 @@ export default function AdminLoans() {
         setActionLoading(true);
         try {
           await adminApi.approveLoan(loanId, true);
-          loadLoans();
+          await loadLoans();
         } catch (error: any) {
           showAlert({ type: 'error', message: error.message });
         } finally {
@@ -156,7 +156,7 @@ export default function AdminLoans() {
     setActionLoading(true);
     try {
       await adminApi.approveLoan(selectedLoan.id, false, rejectionReason);
-      loadLoans();
+      await loadLoans();
       setRejectDialogOpen(false);
       setRejectionReason('');
     } catch (error: any) {
@@ -171,7 +171,7 @@ export default function AdminLoans() {
       setActionLoading(true);
       try {
         await adminApi.disburseLoan(loanId);
-        loadLoans();
+        await loadLoans();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
       } finally {
@@ -185,7 +185,7 @@ export default function AdminLoans() {
       setActionLoading(true);
       try {
         await adminApi.markDefaulted(loanId);
-        loadLoans();
+        await loadLoans();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
       } finally {
@@ -199,7 +199,7 @@ export default function AdminLoans() {
       setActionLoading(true);
       try {
         await adminApi.reactivateLoan(loanId);
-        loadLoans();
+        await loadLoans();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
       } finally {

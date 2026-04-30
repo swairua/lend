@@ -54,7 +54,7 @@ export default function AdminReports() {
     }
     
     loadReport();
-  }, [navigate, activeReport, dateFrom, dateTo, statusFilter]);
+  }, [navigate, activeReport, statusFilter]);
 
   const loadReport = async () => {
     setLoading(true);

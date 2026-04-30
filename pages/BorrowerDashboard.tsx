@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
-import { Loader2, Plus, FileText, CreditCard, TrendingUp, User, LogOut, Home, FileCheck, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, FileText, CreditCard, TrendingUp, User, AlertCircle } from 'lucide-react';
 
 interface User {
   id: number;
@@ -74,21 +74,11 @@ export default function BorrowerDashboard() {
   const completedLoans = loans.filter(l => l.status === 'completed');
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background border-b">
-        <div className="flex items-center justify-between px-3 py-3">
-          <div>
-            <h1 className="text-lg font-bold">Dashboard</h1>
-            <p className="text-xs text-muted-foreground">{user?.name}</p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 text-red-500" />
-          </Button>
-        </div>
-      </header>
-
-      <div className="p-3 pb-24 space-y-4 max-w-md mx-auto">
+    <div className="space-y-4 max-w-md mx-auto">
+      <div>
+        <h1 className="text-xl font-bold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Welcome back, {user?.name}</p>
+      </div>
         {/* Quick Apply Card */}
         <Card className="bg-gradient-to-r from-green-600 to-green-700 text-white border-0">
           <CardContent className="p-4">
@@ -213,35 +203,7 @@ export default function BorrowerDashboard() {
             </CardContent>
           </Card>
         )}
-      </div>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-50">
-        <div className="flex justify-around py-2 px-2 max-w-md mx-auto">
-          <Button variant="ghost" size="sm" className="flex-col h-12 gap-0.5 text-primary">
-            <Home className="h-4 w-4" />
-            <span className="text-[10px]">Home</span>
-          </Button>
-          <Button variant="ghost" size="sm" className="flex-col h-12 gap-0.5 text-muted-foreground" asChild>
-            <Link to="/loans">
-              <FileText className="h-4 w-4" />
-              <span className="text-[10px]">Loans</span>
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="flex-col h-12 gap-0.5 text-muted-foreground" asChild>
-            <Link to="/apply">
-              <Plus className="h-4 w-4" />
-              <span className="text-[10px]">Apply</span>
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="flex-col h-12 gap-0.5 text-muted-foreground" asChild>
-            <Link to="/profile">
-              <User className="h-4 w-4" />
-              <span className="text-[10px]">Profile</span>
-            </Link>
-          </Button>
-        </div>
-      </nav>
     </div>
+
   );
 }
