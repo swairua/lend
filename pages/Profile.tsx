@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import ProfilePhoto from "../components/ProfilePhoto";
+import DocumentsPanel from "../components/DocumentsPanel";
 import { authApi, loansApi, formatKES, formatDate } from '../types/api';
 import { Loader2, User, Mail, Phone, Home, Briefcase, Banknote, ArrowLeft, Save, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +36,7 @@ export default function Profile() {
   const [user, setUser] = useState<User | null>(null);
   const [borrower, setBorrower] = useState<BorrowerProfile | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState("");
   
   const [form, setForm] = useState({
     client_type: "",
@@ -158,6 +161,15 @@ export default function Profile() {
       </div>
 
       <form onSubmit={handleSaveProfile} className="space-y-6">
+        {/* Profile Photo */}
+        <div className="flex justify-center mb-2">
+          <ProfilePhoto
+            name={user?.name}
+            currentUrl={photoUrl}
+            borrowerId={user?.id}
+            onUploaded={(url) => setPhotoUrl(url)}
+          />
+        </div>
         {/* Client Type Badge */}
         <div className="flex items-center gap-3 mb-4 p-3 bg-muted rounded-lg">
           <div className="flex items-center gap-2">
@@ -317,6 +329,10 @@ export default function Profile() {
           Save Changes
         </Button>
       </form>
+
+
+      {/* Documents Section */}
+      <DocumentsPanel borrowerId={user?.id} />
 
       {/* Change Password */}
       <form onSubmit={handleChangePassword} className="mt-6">

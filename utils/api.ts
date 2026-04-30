@@ -457,3 +457,59 @@ export const messagesApi = {
 };
 
 export { ApiError };
+
+// ==================== Uploads ====================
+export interface UploadedDocument {
+  id: number;
+  borrower_id: number;
+  filename: string;
+  original_name: string;
+  file_type: string;
+  doc_type: string;
+  file_url: string;
+  uploaded_at: string;
+}
+
+async function uploadRequest<T>(endpoint: string, formData: FormData): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  const token = localStorage.getItem("token");
+  const headers: Record<string,string> = {};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  try {
+    const response = await fetch(API_BASE + endpoint, {
+      method: "POST",
+      headers,
+      body: formData,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const text = await response.text();
+    let data;
+    try { data = text ? JSON.parse(text) : { success: false, error: "Empty response" }; } catch(e) { throw new ApiError(response.status, "Invalid JSON: " + text); }
+    if (!response.ok) throw new ApiError(response.status, data.error || data.message || "Upload failed");
+    return data;
+  } catch(e: any) {
+    clearTimeout(timeout);
+    if (e.name === "AbortError") throw new Error("Upload timeout");
+    throw e;
+  }
+}
+
+export const uploadsApi = {
+  upload: (file: File, docType: string, borrowerId?: number) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("doc_type", docType);
+    if (borrowerId) fd.append("borrower_id", String(borrowerId));
+    return uploadRequest<{ success: boolean; data: UploadedDocument }>("/uploads", fd);
+  },
+
+  getDocuments: (borrowerId?: number) => {
+    const q = borrowerId ? "?borrower_id=" + borrowerId : "";
+    return request<{ success: boolean; data: UploadedDocument[] }>("/uploads" + q);
+  },
+
+  deleteDocument: (id: number) =>
+    request<{ success: boolean }>("/uploads/" + id, { method: "DELETE" }),
+};

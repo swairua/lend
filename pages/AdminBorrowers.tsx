@@ -6,8 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
+import DocumentsPanel from "../components/DocumentsPanel";
+import ProfilePhoto from "../components/ProfilePhoto";
 import { adminApi, formatKES, formatDate } from '../types/api';
 import { Loader2, Plus, Edit, Trash2, Search, ChevronLeft, Filter, User, Users, FileText, CreditCard, Eye, Shield } from 'lucide-react';
 
@@ -277,9 +280,18 @@ export default function AdminBorrowers() {
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
-            <DialogTitle className="text-lg md:text-2xl">Borrower Details</DialogTitle>
+            <div className="flex items-center gap-4">
+              <ProfilePhoto name={(selectedBorrower as any)?.name} currentUrl={(selectedBorrower as any)?.photo_url} size="sm" />
+              <div><DialogTitle className="text-lg">{(selectedBorrower as any)?.name}</DialogTitle><p className="text-xs text-muted-foreground">{(selectedBorrower as any)?.email}</p></div>
+            </div>
           </DialogHeader>
           {selectedBorrower && (
+            <Tabs defaultValue="info">
+              <TabsList className="w-full">
+                <TabsTrigger value="info" className="flex-1">Profile</TabsTrigger>
+                <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+              </TabsList>
+              <TabsContent value="info">
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -329,6 +341,11 @@ export default function AdminBorrowers() {
                 <p className="font-medium text-lg">{selectedBorrower.credit_score || '-'}</p>
               </div>
             </div>
+              </TabsContent>
+              <TabsContent value="documents" className="mt-2">
+                <DocumentsPanel borrowerId={(selectedBorrower as any).user_id || (selectedBorrower as any).id} readOnly={false} />
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
