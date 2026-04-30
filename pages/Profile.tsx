@@ -101,6 +101,10 @@ export default function Profile() {
       await authApi.updateProfile({
         name: form.name,
         phone: form.phone,
+        address: form.address || undefined,
+        business_name: form.business_name || undefined,
+        business_type: form.business_type || undefined,
+        monthly_income: form.monthly_income ? Number(form.monthly_income) : undefined,
       });
       
       localStorage.setItem('user', JSON.stringify({

@@ -135,10 +135,14 @@ export default function AdminSettings() {
   const loadSettings = async () => {
     try {
       const response = await adminApi.getConfig();
-      if (response.data?.data) {
+      const settingsList = Array.isArray(response.data) ? response.data
+        : Array.isArray(response.data?.data) ? response.data.data
+        : Array.isArray(response.data?.settings) ? response.data.settings
+        : [];
+      if (settingsList.length > 0) {
         const configObj: any = {};
-        response.data.data.forEach((s: any) => {
-          configObj[s.key_name] = s.key_value;
+        settingsList.forEach((s: any) => {
+          if (s.key_name) configObj[s.key_name] = s.key_value ?? "";
         });
         setConfig(prev => ({ ...prev, ...configObj }));
       }

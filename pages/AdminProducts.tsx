@@ -77,7 +77,7 @@ export default function AdminProducts() {
   const [form, setForm] = useState<any>(emptyForm);
 
   useEffect(() => {
-    loadData();
+    await loadData();
   }, []);
 
   const loadData = async () => {
@@ -154,7 +154,7 @@ export default function AdminProducts() {
       } else {
         await adminApi.createProduct(data);
       }
-      loadData();
+      await loadData();
       setDialogOpen(false);
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
@@ -169,7 +169,7 @@ export default function AdminProducts() {
       setSaving(true);
       try {
         await adminApi.deleteProduct(selectedProduct.id);
-        loadData();
+        await loadData();
         setDeleteDialogOpen(false);
         setDialogOpen(false);
       } catch (error: any) {
@@ -183,7 +183,7 @@ export default function AdminProducts() {
   const handleToggle = async (product: Product) => {
     try {
       await adminApi.updateProduct(product.id, { is_active: !product.is_active });
-      loadData();
+      await loadData();
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
     }

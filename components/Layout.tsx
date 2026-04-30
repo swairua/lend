@@ -26,14 +26,14 @@ export function Layout({ children, user }: LayoutProps) {
       try {
         const { messagesApi } = await import('@/utils/api');
         const response = await messagesApi.getUnreadCount();
-        setUnreadCount(response.data.unread);
+        setUnreadCount(response.data?.unread ?? response.data?.count ?? 0);
       } catch (e) {
         // Not logged in or error
       }
     };
     if (user) {
       loadUnreadCount();
-      const interval = setInterval(loadUnreadCount, 30000);
+      const interval = setInterval(loadUnreadCount, 60000);
       return () => clearInterval(interval);
     }
   }, [user]);

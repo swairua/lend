@@ -25,12 +25,16 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
     setLoading(true);
     try {
       const res = await uploadsApi.getDocuments(borrowerId);
-      setDocs(Array.isArray(res.data) ? res.data : []);
+      const docs = Array.isArray(res.data) ? res.data
+        : Array.isArray(res.data?.data) ? res.data.data
+        : Array.isArray(res.data?.documents) ? res.data.documents
+        : [];
+      setDocs(docs);
     } catch (e) { setDocs([]); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadDocs(); }, [borrowerId]);
+  useEffect(() => { if (borrowerId !== undefined) loadDocs(); else setLoading(false); }, [borrowerId]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this document?")) return;

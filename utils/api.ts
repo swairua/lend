@@ -13,7 +13,7 @@ class ApiError extends Error {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 10000);
 
   const token = localStorage.getItem('token');
 
@@ -32,10 +32,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       headers,
       signal: controller.signal,
     });
-    clearTimeout(timeout);
-
-    // Handle empty responses
+    // Handle empty responses (clearTimeout after body read covers slow transfers)
     const text = await response.text();
+    clearTimeout(timeout);
     let data;
     try {
       data = text ? JSON.parse(text) : { success: false, error: 'Empty response from server' };
@@ -73,7 +72,7 @@ export const authApi = {
 
   getMe: () => request<{ success: boolean; user: User }>('/auth/me'),
 
-  updateProfile: (data: { name?: string; phone?: string }) =>
+  updateProfile: (data: { name?: string; phone?: string; address?: string; business_name?: string; business_type?: string; monthly_income?: number }) =>
     request<{ success: boolean; user: User }>('/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -123,6 +122,7 @@ export const loansApi = {
     product_id: number;
     amount: number;
     term_months: number;
+    purpose?: string;
     security_details?: string;
     guarantor_details?: string;
     postdated_check_no?: string;

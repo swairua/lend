@@ -107,6 +107,7 @@ export default function ApplyLoan() {
         product_id: selectedProduct.id,
         amount: form.amount,
         term_months: form.term_months,
+        purpose: form.purpose || undefined,
         security_details: form.security_details || undefined,
         guarantor_details: form.guarantor_details || undefined,
       });

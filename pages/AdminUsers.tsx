@@ -44,7 +44,7 @@ export default function AdminUsers() {
   });
 
   useEffect(() => {
-    loadUsers();
+    await loadUsers();
   }, []);
 
   const loadUsers = async () => {
@@ -94,7 +94,7 @@ export default function AdminUsers() {
       } else {
         await adminApi.createUser(form);
       }
-      loadUsers();
+      await loadUsers();
       setDialogOpen(false);
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
@@ -106,7 +106,7 @@ export default function AdminUsers() {
   const handleToggle = async (user: User) => {
     try {
       await adminApi.toggleUser(user.id);
-      loadUsers();
+      await loadUsers();
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
     }
