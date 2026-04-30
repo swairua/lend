@@ -82,6 +82,17 @@ export default function Login() {
                     />
                   </div>
                   <div className="space-y-1.5">
+                    <Label className="text-sm">Client Type</Label>
+                    <div className="flex gap-4 pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input type="radio" name="client_type" value="individual" checked={form.client_type==="individual"} onChange={()=>setForm({...form,client_type:"individual"})} className="accent-primary" /> Individual
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input type="radio" name="client_type" value="corporate" checked={form.client_type==="corporate"} onChange={()=>setForm({...form,client_type:"corporate"})} className="accent-primary" /> Corporate
+                      </label>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
                     <Label htmlFor="phone" className="text-sm">Phone Number</Label>
                     <Input
                       id="phone"

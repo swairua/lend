@@ -235,6 +235,9 @@ export const adminApi = {
     );
   },
 
+  updateBorrowerKYC: (id, data) =>
+    request("/admin/borrowers/"+id, { method: "PUT", body: JSON.stringify(data) }),
+
   getBorrower: (id: number) =>
     request<{ success: boolean; data: any }>(`/admin/borrowers/${id}`),
 

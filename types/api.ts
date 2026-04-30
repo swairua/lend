@@ -4,6 +4,7 @@ export interface User {
   name: string;
   phone: string | null;
   role: 'admin' | 'borrower';
+  client_type?: 'individual' | 'corporate';
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -18,6 +19,10 @@ export interface Borrower {
   business_type: string | null;
   monthly_income: number | null;
   credit_score: number;
+  kra_pin?: string | null;
+  tcc_number?: string | null;
+  client_type?: string | null;
+  is_verified?: boolean;
 }
 
 export interface LoanProduct {
