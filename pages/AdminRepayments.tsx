@@ -38,7 +38,7 @@ export default function AdminRepayments() {
   const { showAlert, confirm, AlertComponent } = useAlert();
 
   useEffect(() => {
-    await loadRepayments();
+    loadData();
   }, []);
 
   const loadRepayments = async () => {
