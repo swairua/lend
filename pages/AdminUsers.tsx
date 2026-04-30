@@ -44,7 +44,7 @@ export default function AdminUsers() {
   });
 
   useEffect(() => {
-    await loadUsers();
+    loadData();
   }, []);
 
   const loadUsers = async () => {
