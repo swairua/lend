@@ -77,7 +77,7 @@ export default function AdminProducts() {
   const [form, setForm] = useState<any>(emptyForm);
 
   useEffect(() => {
-    await loadData();
+    loadData();
   }, []);
 
   const loadData = async () => {
