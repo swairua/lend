@@ -81,26 +81,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ---------- Database connection ----------
-$DB_HOST = 'localhost';
-$DB_NAME = 'wayrusc1_lending';
-$DB_USER = 'wayrusc1_lending';
-$DB_PASS = 'Sirgeorge.12';
+// Use SQLite for local development (easier setup, no MySQL required)
+$DB_FILE = __DIR__ . '/lending.db';
 
 $PDO_INSTANCE = null;
 function pdo() {
-    global $PDO_INSTANCE, $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS;
+    global $PDO_INSTANCE, $DB_FILE;
     if ($PDO_INSTANCE === null) {
         try {
-            $dsn = "mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4";
-            $PDO_INSTANCE = new PDO($dsn, $DB_USER, $DB_PASS, [
+            $dsn = "sqlite:$DB_FILE";
+            $PDO_INSTANCE = new PDO($dsn, null, null, [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]);
+            // Enable foreign keys for SQLite
+            $PDO_INSTANCE->exec("PRAGMA foreign_keys = ON");
         } catch (PDOException $e) {
             log_error("Database Connection Failed", [
-                'host' => $DB_HOST,
-                'database' => $DB_NAME,
+                'database' => $DB_FILE,
                 'error' => $e->getMessage()
             ]);
             throw $e;
