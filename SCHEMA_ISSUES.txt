@@ -1,0 +1,80 @@
+DATABASE FOREIGN KEY AUDIT REPORT
+=====================================
+
+CRITICAL ISSUE FOUND: Foreign Key Mismatch in loans.borrower_id
+==============================================================
+
+THE PROBLEM:
+-----------
+Your database schema defines:
+  loans.borrower_id -> users.id (directly)
+
+BUT your application code expects:
+  loans.borrower_id -> borrowers.id (intermediate table)
+
+PROOF FROM CODE:
+---------------
+
+In routes/borrower.php:
+  $borrower = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
+  $bid = $borrower['id'];  // Gets borrowers.id
+  INSERT INTO loans (borrower_id, ...) VALUES (?, ...)  // Stores $bid
+
+In routes/admin.php (lines 56-57, 103, 143):
+  LEFT JOIN borrowers b ON l.borrower_id = b.id        // Joins to borrowers.id
+  LEFT JOIN users u ON b.user_id = u.id               // Then to users.id
+
+In routes/admin.php (lines 190, 224, 252):
+  $borrower = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
+                                                          ↑
+                                        Treats as borrowers.id
+
+CURRENT SCHEMA (WRONG):
+----------------------
+CREATE TABLE `loans` (
+  `id` int(11) NOT NULL,
+  `borrower_id` int(11) NOT NULL,
+  ...
+);
+ALTER TABLE `loans` 
+  ADD CONSTRAINT `loans_ibfk_1` FOREIGN KEY (`borrower_id`) REFERENCES `users` (`id`);
+
+
+CORRECT SCHEMA (NEEDED):
+------------------------
+CREATE TABLE `loans` (
+  `id` int(11) NOT NULL,
+  `borrower_id` int(11) NOT NULL,
+  ...
+);
+ALTER TABLE `loans` 
+  ADD CONSTRAINT `loans_ibfk_1` FOREIGN KEY (`borrower_id`) REFERENCES `borrowers` (`id`);
+
+
+OTHER FOREIGN KEYS (ALL CORRECT):
+---------------------------------
+✓ borrowers.user_id          -> users.id
+✓ loans.product_id           -> loan_products.id
+✓ loans.approved_by          -> users.id
+✓ messages.sender_id         -> users.id
+✓ messages.recipient_id      -> users.id
+✓ messages.loan_id           -> loans.id
+✓ payments.loan_id           -> loans.id
+✓ repayments.loan_id         -> loans.id
+✓ repayments.paid_by         -> users.id
+✓ audit_logs.user_id         -> users.id
+✓ loan_products.category_id  -> loan_categories.id
+
+
+IMPACT:
+-------
+- Data integrity issues: Any user can be referenced as borrower, even if not in borrowers table
+- Schema/code mismatch causes inconsistency
+- Risk of data corruption
+- Violates application design pattern
+
+SOLUTION:
+---------
+Run the included fix-foreign-keys.sql script to correct the constraint.
+
+This fixes the schema to match what the application code expects.
