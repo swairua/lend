@@ -42,10 +42,10 @@ export default function BorrowerDashboard() {
   const loadDashboard = async () => {
     try {
       const [dashRes, loansRes] = await Promise.all([
-        loansApi.getDashboard(),
+        loansApi.getDashboard() as Promise<any>,
         loansApi.getMyLoans()
       ]);
-      setDashboard(dashRes.data?.data ?? dashRes.data);
+      setDashboard(dashRes.data?.data ?? dashRes.data ?? dashRes);
       const loansList = normalizeList<any>(loansRes);
       setLoans(loansList as any[]);
     } catch (error) {

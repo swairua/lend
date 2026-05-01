@@ -291,13 +291,34 @@ function bootstrap() {
             CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        // Seed admin user
-        $admin = one("SELECT id FROM users WHERE email = ?", ['admin@lending.com']);
-        if (!$admin) {
-            $hash = password_hash('Pass123', PASSWORD_BCRYPT);
-            q("INSERT INTO users (email, password, name, role, is_active) VALUES (?, ?, ?, 'admin', 1)",
-              ['admin@lending.com', $hash, 'Admin User']);
-            log_error("Admin user created", ['email' => 'admin@lending.com']);
+        // Seed / repair demo users (admin + borrower) with valid Pass123 hash
+        $demoUsers = [
+            ['admin@lending.com',    'Admin User',    'admin',    null],
+            ['borrower@lending.com', 'Borrower User', 'borrower', true],
+        ];
+        foreach ($demoUsers as [$email, $name, $role, $createBorrowerRow]) {
+            $existing = one("SELECT id, password FROM users WHERE email = ?", [$email]);
+            $freshHash = password_hash('Pass123', PASSWORD_BCRYPT);
+            if (!$existing) {
+                q("INSERT INTO users (email, password, name, role, is_active) VALUES (?, ?, ?, ?, 1)",
+                  [$email, $freshHash, $name, $role]);
+                $userId = (int)pdo()->lastInsertId();
+                log_error("Demo user created", ['email' => $email, 'role' => $role]);
+            } else {
+                $userId = (int)$existing['id'];
+                if (!password_verify('Pass123', $existing['password'])) {
+                    q("UPDATE users SET password = ?, role = ?, is_active = 1 WHERE id = ?",
+                      [$freshHash, $role, $userId]);
+                    log_error("Demo user password reset", ['email' => $email]);
+                }
+            }
+            if ($createBorrowerRow) {
+                $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$userId]);
+                if (!$b) {
+                    q("INSERT INTO borrowers (user_id, credit_score) VALUES (?, 750)", [$userId]);
+                    log_error("Borrower row created", ['user_id' => $userId]);
+                }
+            }
         }
 
         // Seed loan categories

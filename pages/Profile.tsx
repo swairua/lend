@@ -69,8 +69,8 @@ export default function Profile() {
 
   const loadProfile = async () => {
     try {
-      const response = await authApi.getMe();
-      const userData = response.user;
+      const response: any = await authApi.getMe();
+      const userData: any = response.user;
       
       setForm({
         ...form,

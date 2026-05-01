@@ -54,8 +54,8 @@ export default function LoanDetails() {
   const loadLoan = async () => {
     if (!loanId) { setError("No loan ID provided"); setLoading(false); return; }
     try {
-      const res = await loansApi.getMyLoan(parseInt(loanId));
-      const data = res.data?.data || res.data;
+      const res: any = await loansApi.getMyLoan(parseInt(loanId));
+      const data = res.data?.data || res.data || res;
       if (!data) { setError("Loan not found"); } else { setLoan(data); }
     } catch (err: any) {
       console.error("Failed to load loan:", err);

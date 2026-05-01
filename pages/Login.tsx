@@ -4,21 +4,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { authApi } from '../types/api';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
+
+interface LoginForm {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  client_type: 'individual' | 'corporate';
+}
 
 export default function Login() {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<LoginForm>({
     email: 'admin@lending.com',
     password: 'Pass123',
     name: '',
     phone: '',
+    client_type: 'individual',
   });
   const { showAlert, AlertComponent } = useAlert();
 

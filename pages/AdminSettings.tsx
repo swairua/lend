@@ -134,7 +134,7 @@ export default function AdminSettings() {
 
   const loadSettings = async () => {
     try {
-      const response = await adminApi.getConfig();
+      const response: any = await adminApi.getConfig();
       const settingsList = Array.isArray(response.data) ? response.data
         : Array.isArray(response.data?.data) ? response.data.data
         : Array.isArray(response.data?.settings) ? response.data.settings
@@ -155,7 +155,7 @@ export default function AdminSettings() {
 
   const loadCategories = async () => {
     try {
-      const response = await adminApi.getCategories();
+      const response: any = await adminApi.getCategories();
       console.log('Categories response:', response);
       const cats = response.data || response || [];
       console.log('Setting categories:', cats);
@@ -167,7 +167,7 @@ export default function AdminSettings() {
 
   const loadProducts = async () => {
     try {
-      const response = await adminApi.getProducts();
+      const response: any = await adminApi.getProducts();
       setProducts(response.data?.data || response.data || []);
     } catch (error) {
       console.error('Failed to load products:', error);
@@ -292,7 +292,7 @@ export default function AdminSettings() {
     }
     setProductSaving(true);
     try {
-      const data = {
+      const data: any = {
         category_id: productForm.category_id ? parseInt(productForm.category_id) : null,
         name: productForm.name,
         code: productForm.code,
