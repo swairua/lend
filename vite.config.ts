@@ -7,46 +7,61 @@ export default defineConfig({
     host: "localhost",
     port: 5173,
     proxy: {
-      // Proxy API requests to local PHP backend during development
-      '/auth': {
-        target: 'http://localhost:8082',
+      // Proxy API requests to remote lending.wayrus.co.ke backend
+      '/api': {
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '/api.php'),
+      },
+      '/auth': {
+        target: 'https://lending.wayrus.co.ke',
+        changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/borrower': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/admin': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/loans': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/repayments': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/products': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/categories': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/messages': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/uploads': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
       '/public': {
-        target: 'http://localhost:8082',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
+        rewrite: (path) => '/api.php' + path,
       },
     },
   },
