@@ -15,8 +15,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
-    email: '',
-    password: '',
+    email: 'admin@lending.com',
+    password: 'Pass123',
     name: '',
     phone: '',
   });
@@ -163,7 +163,7 @@ export default function Login() {
             {/* Demo credentials hint */}
             <div className="mt-4 p-2 bg-muted rounded-lg text-xs text-muted-foreground">
               <p className="font-medium">Demo:</p>
-              <p>Admin: admin@lending.com / admin123</p>
+              <p>Admin: admin@lending.com / Pass123</p>
             </div>
           </CardContent>
         </Card>
