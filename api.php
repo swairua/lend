@@ -69,6 +69,7 @@ set_exception_handler(function($e) {
 });
 
 $startTime = microtime(true);
+$timestamp = date('Y-m-d H:i:s');
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -419,13 +420,23 @@ try {
     if ($resource === 'auth') {
         if ($method === 'POST' && strpos($uri, 'auth/login') !== false) {
             $d = input();
+            $email = $d['email'] ?? '';
+            $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+
             try {
-                $user = one("SELECT * FROM users WHERE email = ?", [$d['email'] ?? '']);
+                $user = one("SELECT * FROM users WHERE email = ?", [$email]);
                 if ($user && password_verify($d['password'] ?? '', $user['password'])) {
+                    // Successful login
                     $tok = 't_' . bin2hex(random_bytes(32));
                     q("INSERT INTO tokens (user_id, token) VALUES (?, ?)", [$user['id'], $tok]);
                     q("UPDATE users SET last_login = NOW() WHERE id = ?", [$user['id']]);
                     $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
+
+                    // Log successful login
+                    $logMsg = "[$timestamp] LOGIN SUCCESS | Email: $email | User ID: {$user['id']} | Role: {$user['role']} | IP: $ip | UA: $userAgent\n";
+                    @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
+
                     $payload = [
                         'id' => $user['id'], 'email' => $user['email'], 'name' => $user['name'],
                         'phone' => $user['phone'], 'role' => $user['role'],
@@ -436,12 +447,20 @@ try {
                                       'data' => ['token' => $tok, 'user' => $payload]]);
                     exit;
                 }
-                log_error("Login failed", ['email' => $d['email'] ?? 'unknown']);
+
+                // Failed login - log the attempt
+                $reason = !$user ? 'User not found' : 'Invalid password';
+                $logMsg = "[$timestamp] LOGIN FAILED | Email: $email | Reason: $reason | IP: $ip | UA: $userAgent\n";
+                @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
+                log_error("Login failed", ['email' => $email, 'reason' => $reason, 'ip' => $ip]);
+
                 http_response_code(401);
                 echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
                 exit;
             } catch (Exception $e) {
-                log_error("Login exception", ['email' => $d['email'] ?? '', 'error' => $e->getMessage()]);
+                $logMsg = "[$timestamp] LOGIN EXCEPTION | Email: $email | Error: {$e->getMessage()} | IP: $ip\n";
+                @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
+                log_error("Login exception", ['email' => $email, 'error' => $e->getMessage(), 'ip' => $ip]);
                 throw $e;
             }
         }
