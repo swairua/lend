@@ -896,9 +896,18 @@ try {
             $monthly = all("SELECT strftime('%Y-%m', created_at) month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
                             FROM loans WHERE status IN ('active','completed') AND created_at >= datetime('now', '-6 months')
                             GROUP BY strftime('%Y-%m', created_at) ORDER BY month");
-            $catDist = $tot > 0 ? all("SELECT lc.name category, COUNT(*) count, (COUNT(*)/$tot*100) percentage
-                                        FROM loans l LEFT JOIN loan_products lp ON l.product_id=lp.id
-                                        LEFT JOIN loan_categories lc ON lp.category_id=lc.id GROUP BY lc.id, lc.name") : [];
+            $catDist = [];
+            if ($tot > 0) {
+                $catRows = all("SELECT lc.id, lc.name category, COUNT(*) count
+                                FROM loans l LEFT JOIN loan_products lp ON l.product_id=lp.id
+                                LEFT JOIN loan_categories lc ON lp.category_id=lc.id
+                                WHERE lc.id IS NOT NULL
+                                GROUP BY lc.id, lc.name");
+                foreach ($catRows as $row) {
+                    $row['percentage'] = ($row['count'] / $tot) * 100;
+                    $catDist[] = $row;
+                }
+            }
             $recentLoans = all("SELECT l.*, u.name borrower_name, lp.name product_name, lc.name category_name
                                  FROM loans l
                                  LEFT JOIN borrowers b ON l.borrower_id=b.id
