@@ -6,13 +6,6 @@ export default defineConfig({
   server: {
     host: "localhost",
     port: 5173,
-    proxy: {
-      // Proxy API requests to local Node.js dev server
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
-    },
   },
   build: {
     outDir: "dist",

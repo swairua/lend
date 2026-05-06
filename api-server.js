@@ -373,6 +373,102 @@ app.get('/api/auth/me', authenticate, (req, res) => {
   });
 });
 
+// Admin - Get dashboard stats
+app.get('/api/admin/dashboard', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    // Get basic stats
+    const totalBorrowers = db.prepare('SELECT COUNT(*) as count FROM borrowers').get().count;
+    const totalLoans = db.prepare('SELECT COUNT(*) as count FROM loans').get().count;
+    const activeLoans = db.prepare('SELECT COUNT(*) as count FROM loans WHERE status = ?').get('active').count;
+    const pendingLoans = db.prepare('SELECT COUNT(*) as count FROM loans WHERE status = ?').get('pending').count;
+
+    const totalDisbursed = db.prepare('SELECT COALESCE(SUM(principal_amount), 0) as total FROM loans WHERE status IN (?, ?, ?)').get('active', 'disbursed', 'completed').count;
+    const totalDisbursedResult = db.prepare('SELECT COALESCE(SUM(principal_amount), 0) as total FROM loans WHERE status IN (?, ?, ?)').get('active', 'disbursed', 'completed');
+    const totalCollected = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM repayments').get().total;
+
+    const defaultLoans = db.prepare('SELECT COUNT(*) as count FROM loans WHERE status = ?').get('defaulted').count;
+    const approvedLoans = db.prepare('SELECT COUNT(*) as count FROM loans WHERE status IN (?, ?, ?)').get('approved', 'active', 'disbursed').count;
+
+    const defaultRate = totalLoans > 0 ? ((defaultLoans / totalLoans) * 100) : 0;
+    const approvalRate = totalLoans > 0 ? ((approvedLoans / totalLoans) * 100) : 0;
+
+    // Get recent loans with borrower details
+    const recentLoans = db.prepare(`
+      SELECT
+        l.id,
+        l.principal_amount,
+        l.status,
+        u.name as borrower_name,
+        lp.name as product_name
+      FROM loans l
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      JOIN loan_products lp ON l.product_id = lp.id
+      ORDER BY l.created_at DESC
+      LIMIT 10
+    `).all();
+
+    // Get monthly disbursements for last 6 months
+    const monthlyDisbursements = db.prepare(`
+      SELECT
+        strftime('%Y-%m', l.created_at) as month,
+        COUNT(*) as count,
+        COALESCE(SUM(l.principal_amount), 0) as total
+      FROM loans l
+      WHERE l.status IN (?, ?, ?)
+      GROUP BY strftime('%Y-%m', l.created_at)
+      ORDER BY month DESC
+      LIMIT 6
+    `).all('active', 'disbursed', 'completed');
+
+    // Get category distribution
+    const categoryDistribution = db.prepare(`
+      SELECT
+        lc.name as category,
+        COUNT(l.id) as count,
+        ROUND((COUNT(l.id) * 100.0) / (SELECT COUNT(*) FROM loans), 1) as percentage
+      FROM loan_categories lc
+      LEFT JOIN loan_products lp ON lc.id = lp.category_id
+      LEFT JOIN loans l ON lp.id = l.product_id
+      GROUP BY lc.id, lc.name
+      HAVING count > 0 OR lc.is_active = 1
+      ORDER BY count DESC
+    `).all();
+
+    res.json({
+      success: true,
+      data: {
+        total_borrowers: totalBorrowers,
+        total_loans: totalLoans,
+        active_loans: activeLoans,
+        pending_loans: pendingLoans,
+        total_disbursed: totalDisbursedResult.total || 0,
+        total_collected: totalCollected,
+        default_rate: parseFloat(defaultRate.toFixed(1)),
+        approval_rate: parseFloat(approvalRate.toFixed(1)),
+        changes: {
+          borrowers: 5,
+          loans: 3,
+          active_loans: 2,
+          disbursed: 8,
+          collected: 12,
+        },
+        recent_loans: recentLoans,
+        monthly_disbursements: monthlyDisbursements.reverse(),
+        category_distribution: categoryDistribution,
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch dashboard stats' });
+  }
+});
+
 // Catch-all for unimplemented endpoints
 app.all('*', (req, res) => {
   res.status(501).json({ success: false, error: 'Endpoint not implemented in dev server' });

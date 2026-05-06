@@ -69,6 +69,7 @@ set_exception_handler(function($e) {
 });
 
 $startTime = microtime(true);
+$timestamp = date('Y-m-d H:i:s');
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -83,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // ---------- Database connection ----------
 // Use SQLite for local development (easier setup, no MySQL required)
 $DB_FILE = __DIR__ . '/lending.db';
+$DB_TYPE = 'sqlite'; // or 'mysql'
 
 $PDO_INSTANCE = null;
 function pdo() {
@@ -119,176 +121,171 @@ function bootstrap() {
         $p = pdo();
 
         $p->exec("CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            email VARCHAR(255) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            name VARCHAR(255) NOT NULL,
-            phone VARCHAR(50) DEFAULT NULL,
-            role ENUM('admin','borrower','agent','manager') NOT NULL DEFAULT 'borrower',
-            permissions LONGTEXT DEFAULT NULL,
-            last_login TIMESTAMP NULL DEFAULT NULL,
-            is_active TINYINT(1) DEFAULT 1,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY idx_role (role)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            name TEXT NOT NULL,
+            phone TEXT,
+            role TEXT NOT NULL DEFAULT 'borrower',
+            permissions TEXT,
+            last_login TIMESTAMP,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS tokens (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            token VARCHAR(128) NOT NULL UNIQUE,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            KEY idx_token (token),
-            CONSTRAINT fk_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS borrowers (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL UNIQUE,
-            national_id VARCHAR(50) DEFAULT NULL,
-            address TEXT DEFAULT NULL,
-            business_name VARCHAR(255) DEFAULT NULL,
-            business_type VARCHAR(100) DEFAULT NULL,
-            monthly_income DECIMAL(15,2) DEFAULT NULL,
-            credit_score INT DEFAULT 0,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_borrowers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            national_id TEXT,
+            address TEXT,
+            business_name TEXT,
+            business_type TEXT,
+            monthly_income REAL,
+            credit_score INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_categories (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            code VARCHAR(50) NOT NULL UNIQUE,
-            description TEXT DEFAULT NULL,
-            is_active TINYINT(1) DEFAULT 1,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            code TEXT NOT NULL UNIQUE,
+            description TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_products (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            category_id INT DEFAULT NULL,
-            name VARCHAR(255) NOT NULL,
-            description TEXT DEFAULT NULL,
-            min_amount DECIMAL(15,2) NOT NULL,
-            max_amount DECIMAL(15,2) NOT NULL,
-            min_term_months INT NOT NULL,
-            max_term_months INT NOT NULL,
-            interest_rate DECIMAL(5,2) NOT NULL,
-            interest_type ENUM('flat','reducing') DEFAULT 'flat',
-            processing_fee_percent DECIMAL(5,2) DEFAULT 0.00,
-            asset_transfer_fee DECIMAL(15,2) DEFAULT 0.00,
-            tracking_system_fee DECIMAL(15,2) DEFAULT 0.00,
-            late_fee_percent DECIMAL(5,2) DEFAULT 0.00,
-            requires_security TINYINT(1) DEFAULT 0,
-            requires_guarantor TINYINT(1) DEFAULT 0,
-            requires_postdated_checks TINYINT(1) DEFAULT 0,
-            min_income DECIMAL(15,2) DEFAULT 0.00,
-            is_active TINYINT(1) DEFAULT 1,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_products_cat FOREIGN KEY (category_id) REFERENCES loan_categories(id) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category_id INTEGER,
+            name TEXT NOT NULL,
+            description TEXT,
+            min_amount REAL NOT NULL,
+            max_amount REAL NOT NULL,
+            min_term_months INTEGER NOT NULL,
+            max_term_months INTEGER NOT NULL,
+            interest_rate REAL NOT NULL,
+            interest_type TEXT DEFAULT 'flat',
+            processing_fee_percent REAL DEFAULT 0,
+            asset_transfer_fee REAL DEFAULT 0,
+            tracking_system_fee REAL DEFAULT 0,
+            late_fee_percent REAL DEFAULT 0,
+            requires_security INTEGER DEFAULT 0,
+            requires_guarantor INTEGER DEFAULT 0,
+            requires_postdated_checks INTEGER DEFAULT 0,
+            min_income REAL DEFAULT 0,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES loan_categories(id) ON DELETE SET NULL
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loans (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            borrower_id INT NOT NULL,
-            product_id INT NOT NULL,
-            principal_amount DECIMAL(15,2) NOT NULL,
-            interest_amount DECIMAL(15,2) NOT NULL,
-            processing_fee DECIMAL(15,2) DEFAULT 0.00,
-            asset_transfer_fee DECIMAL(15,2) DEFAULT 0.00,
-            tracking_system_fee DECIMAL(15,2) DEFAULT 0.00,
-            late_fee_rate DECIMAL(5,2) DEFAULT 0.00,
-            total_amount DECIMAL(15,2) NOT NULL,
-            term_months INT NOT NULL,
-            status ENUM('pending','approved','rejected','active','completed','defaulted','written_off') DEFAULT 'pending',
-            approved_by INT DEFAULT NULL,
-            approved_at TIMESTAMP NULL DEFAULT NULL,
-            disbursed_at TIMESTAMP NULL DEFAULT NULL,
-            due_date DATE DEFAULT NULL,
-            security_details TEXT DEFAULT NULL,
-            guarantor_details TEXT DEFAULT NULL,
-            postdated_check_no VARCHAR(100) DEFAULT NULL,
-            logbook_no VARCHAR(100) DEFAULT NULL,
-            asset_description VARCHAR(255) DEFAULT NULL,
-            asset_value DECIMAL(15,2) DEFAULT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY idx_status (status),
-            CONSTRAINT fk_loans_borrower FOREIGN KEY (borrower_id) REFERENCES borrowers(id) ON DELETE CASCADE,
-            CONSTRAINT fk_loans_product FOREIGN KEY (product_id) REFERENCES loan_products(id),
-            CONSTRAINT fk_loans_approver FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            borrower_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            principal_amount REAL NOT NULL,
+            interest_amount REAL NOT NULL,
+            processing_fee REAL DEFAULT 0,
+            asset_transfer_fee REAL DEFAULT 0,
+            tracking_system_fee REAL DEFAULT 0,
+            late_fee_rate REAL DEFAULT 0,
+            total_amount REAL NOT NULL,
+            term_months INTEGER NOT NULL,
+            status TEXT DEFAULT 'pending',
+            approved_by INTEGER,
+            approved_at TIMESTAMP,
+            disbursed_at TIMESTAMP,
+            due_date DATE,
+            security_details TEXT,
+            guarantor_details TEXT,
+            postdated_check_no TEXT,
+            logbook_no TEXT,
+            asset_description TEXT,
+            asset_value REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (borrower_id) REFERENCES borrowers(id) ON DELETE CASCADE,
+            FOREIGN KEY (product_id) REFERENCES loan_products(id),
+            FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS payments (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            loan_id INT NOT NULL,
-            type ENUM('disbursement','repayment','refund','processing_fee','asset_transfer','tracking_system') NOT NULL,
-            amount DECIMAL(15,2) NOT NULL,
-            method ENUM('cash','mpesa','bank','cheque','other') DEFAULT 'mpesa',
-            reference VARCHAR(100) DEFAULT NULL,
-            status ENUM('pending','completed','failed') DEFAULT 'completed',
-            processed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_payments_loan FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            loan_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            amount REAL NOT NULL,
+            method TEXT DEFAULT 'mpesa',
+            reference TEXT,
+            status TEXT DEFAULT 'completed',
+            processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS repayments (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            loan_id INT NOT NULL,
-            amount DECIMAL(15,2) NOT NULL,
-            principal_paid DECIMAL(15,2) NOT NULL,
-            interest_paid DECIMAL(15,2) NOT NULL,
-            penalty_paid DECIMAL(15,2) DEFAULT 0.00,
-            late_fee_paid DECIMAL(15,2) DEFAULT 0.00,
-            payment_method ENUM('cash','mpesa','bank','cheque','other') DEFAULT 'mpesa',
-            reference_number VARCHAR(100) DEFAULT NULL,
-            paid_by INT DEFAULT NULL,
-            paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_repayments_loan FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE,
-            CONSTRAINT fk_repayments_user FOREIGN KEY (paid_by) REFERENCES users(id) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            loan_id INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            principal_paid REAL NOT NULL,
+            interest_paid REAL NOT NULL,
+            penalty_paid REAL DEFAULT 0,
+            late_fee_paid REAL DEFAULT 0,
+            payment_method TEXT DEFAULT 'mpesa',
+            reference_number TEXT,
+            paid_by INTEGER,
+            paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE,
+            FOREIGN KEY (paid_by) REFERENCES users(id) ON DELETE SET NULL
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS messages (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            sender_id INT NOT NULL,
-            recipient_id INT NOT NULL,
-            loan_id INT DEFAULT NULL,
-            subject VARCHAR(255) NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER NOT NULL,
+            recipient_id INTEGER NOT NULL,
+            loan_id INTEGER,
+            subject TEXT NOT NULL,
             message TEXT NOT NULL,
-            type ENUM('system','loan_update','payment','reminder','general','approval','disbursement','rejection') DEFAULT 'general',
-            is_read TINYINT(1) DEFAULT 0,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            KEY idx_recipient (recipient_id),
-            KEY idx_loan (loan_id),
-            CONSTRAINT fk_msg_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_msg_recipient FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_msg_loan FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            type TEXT DEFAULT 'general',
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE SET NULL
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS settings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            key_name VARCHAR(100) NOT NULL UNIQUE,
-            key_value TEXT DEFAULT NULL,
-            description VARCHAR(255) DEFAULT NULL,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key_name TEXT NOT NULL UNIQUE,
+            key_value TEXT,
+            description TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS audit_logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT DEFAULT NULL,
-            action VARCHAR(100) NOT NULL,
-            entity_type VARCHAR(50) DEFAULT NULL,
-            entity_id INT DEFAULT NULL,
-            details LONGTEXT DEFAULT NULL,
-            ip_address VARCHAR(45) DEFAULT NULL,
-            user_agent VARCHAR(255) DEFAULT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT NOT NULL,
+            entity_type TEXT,
+            entity_id INTEGER,
+            details TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        )");
 
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
         $demoUsers = [
@@ -322,24 +319,29 @@ function bootstrap() {
 
         // Seed loan categories
         if (!one("SELECT id FROM loan_categories LIMIT 1")) {
-            q("INSERT INTO loan_categories (name, code, description) VALUES
-              ('Asset Finance','ASSET','Asset purchase/financing with logbook transfer'),
-              ('Micro Finance','MICRO','Small loans against salary or security'),
-              ('LPOS Finance','LPOS','Loan against point of sale equipment')");
+            q("INSERT INTO loan_categories (name, code, description) VALUES (?, ?, ?)",
+              ['Asset Finance', 'ASSET', 'Asset purchase/financing with logbook transfer']);
+            q("INSERT INTO loan_categories (name, code, description) VALUES (?, ?, ?)",
+              ['Micro Finance', 'MICRO', 'Small loans against salary or security']);
+            q("INSERT INTO loan_categories (name, code, description) VALUES (?, ?, ?)",
+              ['LPOS Finance', 'LPOS', 'Loan against point of sale equipment']);
             log_error("Loan categories seeded", []);
         }
 
         // Seed loan products
         if (!one("SELECT id FROM loan_products LIMIT 1")) {
-            q("INSERT INTO loan_products (category_id, name, description, min_amount, max_amount, min_term_months, max_term_months, interest_rate, interest_type, processing_fee_percent, asset_transfer_fee, tracking_system_fee, late_fee_percent, requires_security, requires_guarantor, requires_postdated_checks, min_income) VALUES
-              (1,'Asset Finance','Finance for vehicle/asset purchase with logbook transfer',50000,5000000,6,60,19.5,'reducing',4,7000,25000,2.5,1,1,0,50000),
-              (2,'Micro Loan - Small','Quick small loan up to 10k',5000,10000,1,2,15,'flat',4,0,0,2.5,1,0,1,10000),
-              (2,'Micro Loan - Medium','Quick loan up to 50k',10001,50000,1,3,15,'flat',4,0,0,2.5,1,0,1,20000),
-              (3,'LPOS Finance','Finance for LPOS equipment',10000,100000,3,24,12,'flat',3,0,0,2.5,1,0,0,15000)");
+            q("INSERT INTO loan_products (category_id, name, description, min_amount, max_amount, min_term_months, max_term_months, interest_rate, interest_type, processing_fee_percent, asset_transfer_fee, tracking_system_fee, late_fee_percent, requires_security, requires_guarantor, requires_postdated_checks, min_income) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              [1, 'Asset Finance', 'Finance for vehicle/asset purchase with logbook transfer', 50000, 5000000, 6, 60, 19.5, 'reducing', 4, 7000, 25000, 2.5, 1, 1, 0, 50000]);
+            q("INSERT INTO loan_products (category_id, name, description, min_amount, max_amount, min_term_months, max_term_months, interest_rate, interest_type, processing_fee_percent, asset_transfer_fee, tracking_system_fee, late_fee_percent, requires_security, requires_guarantor, requires_postdated_checks, min_income) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              [2, 'Micro Loan - Small', 'Quick small loan up to 10k', 5000, 10000, 1, 2, 15, 'flat', 4, 0, 0, 2.5, 1, 0, 1, 10000]);
+            q("INSERT INTO loan_products (category_id, name, description, min_amount, max_amount, min_term_months, max_term_months, interest_rate, interest_type, processing_fee_percent, asset_transfer_fee, tracking_system_fee, late_fee_percent, requires_security, requires_guarantor, requires_postdated_checks, min_income) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              [2, 'Micro Loan - Medium', 'Quick loan up to 50k', 10001, 50000, 1, 3, 15, 'flat', 4, 0, 0, 2.5, 1, 0, 1, 20000]);
+            q("INSERT INTO loan_products (category_id, name, description, min_amount, max_amount, min_term_months, max_term_months, interest_rate, interest_type, processing_fee_percent, asset_transfer_fee, tracking_system_fee, late_fee_percent, requires_security, requires_guarantor, requires_postdated_checks, min_income) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              [3, 'LPOS Finance', 'Finance for LPOS equipment', 10000, 100000, 3, 24, 12, 'flat', 3, 0, 0, 2.5, 1, 0, 0, 15000]);
             log_error("Loan products seeded", []);
         }
 
-        // Seed default settings
+        // Seed default settings (SQLite doesn't support ON DUPLICATE KEY, use INSERT OR IGNORE)
         $defaults = [
             'company_name' => 'Wayrus Lending',
             'currency' => 'KES',
@@ -350,7 +352,7 @@ function bootstrap() {
             'tracking_system_fee' => '25000',
         ];
         foreach ($defaults as $k => $v) {
-            q("INSERT INTO settings (key_name, key_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE key_name = key_name", [$k, $v]);
+            q("INSERT OR IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
         }
     } catch (Exception $e) {
         log_error("Bootstrap failed", [
@@ -369,15 +371,50 @@ try {
     exit;
 }
 
+// ========== UTILITY ENDPOINTS (Temporary - remove after testing) ==========
+if (isset($_GET['action'])) {
+    if ($_GET['action'] === 'reset_demo_passwords') {
+        try {
+            $freshHash = password_hash('Pass123', PASSWORD_BCRYPT);
+            q("UPDATE users SET password = ? WHERE email IN (?, ?)",
+              [$freshHash, 'admin@lending.com', 'borrower@lending.com']);
+            echo json_encode(['success' => true, 'message' => 'Demo passwords reset']);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            exit;
+        }
+    }
+    if ($_GET['action'] === 'debug_login') {
+        $email = $_GET['email'] ?? 'admin@lending.com';
+        $user = one("SELECT id, email, password FROM users WHERE email = ?", [$email]);
+        if ($user) {
+            echo json_encode([
+                'success' => true,
+                'user' => $user['email'],
+                'password_verify_Pass123' => password_verify('Pass123', $user['password']),
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'User not found']);
+        }
+        exit;
+    }
+}
+
 // ---------- Routing ----------
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim($uri, '/');
-foreach (['api', 'lending', 'server'] as $base) {
+
+// Strip out common base paths and the filename itself
+foreach (['api.php', 'api', 'lending', 'server'] as $base) {
     if ($uri === $base || strpos($uri, $base . '/') === 0) {
         $uri = substr($uri, strlen($base) + 1);
         break;
     }
 }
+
+$uri = trim($uri, '/');
 $method = $_SERVER['REQUEST_METHOD'];
 
 $token = null;
@@ -419,13 +456,38 @@ try {
     if ($resource === 'auth') {
         if ($method === 'POST' && strpos($uri, 'auth/login') !== false) {
             $d = input();
+            $email = $d['email'] ?? '';
+            $password = $d['password'] ?? '';
+            $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+
+            // Debug logging
+            log_error("Login attempt", ['email' => $email, 'password_length' => strlen($password)]);
+
             try {
-                $user = one("SELECT * FROM users WHERE email = ?", [$d['email'] ?? '']);
-                if ($user && password_verify($d['password'] ?? '', $user['password'])) {
+                $user = one("SELECT * FROM users WHERE email = ?", [$email]);
+
+                if (!$user) {
+                    log_error("User not found", ['email' => $email]);
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
+                    exit;
+                }
+
+                $passwordMatch = password_verify($password, $user['password']);
+                log_error("Password check", ['email' => $email, 'match' => $passwordMatch, 'is_active' => $user['is_active']]);
+
+                if ($passwordMatch && $user['is_active']) {
+                    // Successful login
                     $tok = 't_' . bin2hex(random_bytes(32));
                     q("INSERT INTO tokens (user_id, token) VALUES (?, ?)", [$user['id'], $tok]);
-                    q("UPDATE users SET last_login = NOW() WHERE id = ?", [$user['id']]);
+                    q("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", [$user['id']]);
                     $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
+
+                    // Log successful login
+                    $logMsg = "[$timestamp] LOGIN SUCCESS | Email: $email | User ID: {$user['id']} | Role: {$user['role']} | IP: $ip | UA: $userAgent\n";
+                    @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
+
                     $payload = [
                         'id' => $user['id'], 'email' => $user['email'], 'name' => $user['name'],
                         'phone' => $user['phone'], 'role' => $user['role'],
@@ -436,12 +498,20 @@ try {
                                       'data' => ['token' => $tok, 'user' => $payload]]);
                     exit;
                 }
-                log_error("Login failed", ['email' => $d['email'] ?? 'unknown']);
+
+                // Failed login - log the attempt
+                $reason = !$passwordMatch ? 'Invalid password' : 'User inactive';
+                $logMsg = "[$timestamp] LOGIN FAILED | Email: $email | Reason: $reason | IP: $ip | UA: $userAgent\n";
+                @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
+                log_error("Login failed", ['email' => $email, 'reason' => $reason]);
+
                 http_response_code(401);
                 echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
                 exit;
             } catch (Exception $e) {
-                log_error("Login exception", ['email' => $d['email'] ?? '', 'error' => $e->getMessage()]);
+                $logMsg = "[$timestamp] LOGIN EXCEPTION | Email: $email | Error: {$e->getMessage()} | IP: $ip\n";
+                @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
+                log_error("Login exception", ['email' => $email, 'error' => $e->getMessage(), 'ip' => $ip]);
                 throw $e;
             }
         }
@@ -823,12 +893,21 @@ try {
             $collected = one("SELECT COALESCE(SUM(amount),0) t FROM repayments");
             $defaultRate  = $tot > 0 ? ($defaulted / $tot * 100) : 0;
             $approvalRate = ($tot - $pending) > 0 ? ($approved / ($tot - $pending) * 100) : 0;
-            $monthly = all("SELECT DATE_FORMAT(created_at,'%Y-%m') month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
-                            FROM loans WHERE status IN ('active','completed') AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-                            GROUP BY DATE_FORMAT(created_at,'%Y-%m') ORDER BY month");
-            $catDist = $tot > 0 ? all("SELECT lc.name category, COUNT(*) count, (COUNT(*)/$tot*100) percentage
-                                        FROM loans l LEFT JOIN loan_products lp ON l.product_id=lp.id
-                                        LEFT JOIN loan_categories lc ON lp.category_id=lc.id GROUP BY lc.id, lc.name") : [];
+            $monthly = all("SELECT strftime('%Y-%m', created_at) month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
+                            FROM loans WHERE status IN ('active','completed') AND created_at >= datetime('now', '-6 months')
+                            GROUP BY strftime('%Y-%m', created_at) ORDER BY month");
+            $catDist = [];
+            if ($tot > 0) {
+                $catRows = all("SELECT lc.id, lc.name category, COUNT(*) count
+                                FROM loans l LEFT JOIN loan_products lp ON l.product_id=lp.id
+                                LEFT JOIN loan_categories lc ON lp.category_id=lc.id
+                                WHERE lc.id IS NOT NULL
+                                GROUP BY lc.id, lc.name");
+                foreach ($catRows as $row) {
+                    $row['percentage'] = ($row['count'] / $tot) * 100;
+                    $catDist[] = $row;
+                }
+            }
             $recentLoans = all("SELECT l.*, u.name borrower_name, lp.name product_name, lc.name category_name
                                  FROM loans l
                                  LEFT JOIN borrowers b ON l.borrower_id=b.id
@@ -864,7 +943,7 @@ try {
                 }
                 $d = input(); $approve = $d['approve'] ?? true;
                 $ns = $approve ? 'approved' : 'rejected';
-                q("UPDATE loans SET status=?, approved_by=?, approved_at=NOW() WHERE id=?", [$ns, $user['id'], $m[1]]);
+                q("UPDATE loans SET status=?, approved_by=?, approved_at=CURRENT_TIMESTAMP WHERE id=?", [$ns, $user['id'], $m[1]]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
                 q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type) VALUES (?,?,?,?,?,?)",
                   [$user['id'], $b['user_id'], $m[1],
@@ -889,7 +968,7 @@ try {
                 }
                 $d = input();
                 $amt = $d['disbursement_amount'] ?? $loan['principal_amount'];
-                q("UPDATE loans SET status='active', disbursed_at=NOW() WHERE id=?", [$m[1]]);
+                q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
                 q("INSERT INTO payments (loan_id, type, amount, method, reference, status)
                    VALUES (?,'disbursement',?,'bank',?,'completed')", [$m[1], $amt, $d['reference'] ?? null]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
