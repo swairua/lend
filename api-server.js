@@ -223,7 +223,7 @@ function initializeSchema() {
       `).run(
         'Asset Finance', 'ASSET', 'Asset purchase/financing with logbook transfer',
         'Micro Finance', 'MICRO', 'Small loans against salary or security',
-        'LPOS Finance', 'LPOS', 'Loan against point of sale equipment'
+        'LPO Finance', 'LPO', 'Advancing against Local Purchase Orders'
       );
       console.log('✓ Loan categories seeded');
     }

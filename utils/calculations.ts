@@ -114,12 +114,12 @@ export function calculateCategory2Loan(
 }
 
 // ============================================
-// Category 3: LPOS (Lipa Pole Pole)
+// Category 3: LPO (Local Purchase Orders)
 // ============================================
 
 /**
- * Calculate loan for Category 3: LPOS (Lipa Pole Pole)
- * - Flexible payment structure
+ * Calculate loan for Category 3: LPO (Local Purchase Orders)
+ * - Advancing against Local Purchase Orders
  * - Admin-configurable rates
  */
 export function calculateCategory3Loan(
