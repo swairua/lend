@@ -481,7 +481,7 @@ try {
                     // Successful login
                     $tok = 't_' . bin2hex(random_bytes(32));
                     q("INSERT INTO tokens (user_id, token) VALUES (?, ?)", [$user['id'], $tok]);
-                    q("UPDATE users SET last_login = NOW() WHERE id = ?", [$user['id']]);
+                    q("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", [$user['id']]);
                     $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
 
                     // Log successful login
@@ -934,7 +934,7 @@ try {
                 }
                 $d = input(); $approve = $d['approve'] ?? true;
                 $ns = $approve ? 'approved' : 'rejected';
-                q("UPDATE loans SET status=?, approved_by=?, approved_at=NOW() WHERE id=?", [$ns, $user['id'], $m[1]]);
+                q("UPDATE loans SET status=?, approved_by=?, approved_at=CURRENT_TIMESTAMP WHERE id=?", [$ns, $user['id'], $m[1]]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
                 q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type) VALUES (?,?,?,?,?,?)",
                   [$user['id'], $b['user_id'], $m[1],
@@ -959,7 +959,7 @@ try {
                 }
                 $d = input();
                 $amt = $d['disbursement_amount'] ?? $loan['principal_amount'];
-                q("UPDATE loans SET status='active', disbursed_at=NOW() WHERE id=?", [$m[1]]);
+                q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
                 q("INSERT INTO payments (loan_id, type, amount, method, reference, status)
                    VALUES (?,'disbursement',?,'bank',?,'completed')", [$m[1], $amt, $d['reference'] ?? null]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
