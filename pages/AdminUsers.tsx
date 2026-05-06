@@ -41,10 +41,12 @@ export default function AdminUsers() {
   const loadUsers = async () => {
     try {
       const response: any = await adminApi.getUsers();
-      const usersArr = normalizeList<ApiUser>(response) as ApiUser[];
-      setUsers(usersArr);
+      // API returns { success: boolean; data: { users: any[] } }
+      const usersArr = response?.data?.users || normalizeList<ApiUser>(response) || [];
+      setUsers(usersArr as ApiUser[]);
     } catch (error) {
       console.error('Failed to load users:', error);
+      setUsers([]);
     } finally {
       setLoading(false);
     }

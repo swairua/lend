@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { messagesApi, formatDate } from '../types/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { messagesApi, formatDate, adminApi, authApi } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { Mail, MailOpen, Trash2, Send, Search, Archive, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,11 @@ interface Message {
   recipient_name?: string;
 }
 
+interface BorrowerOption {
+  user_id: number;
+  name: string;
+}
+
 export default function Messages() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [folder, setFolder] = useState<'inbox' | 'sent'>('inbox');
@@ -32,12 +38,60 @@ export default function Messages() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState({ recipient_id: 0, subject: '', message: '' });
+  const [borrowers, setBorrowers] = useState<BorrowerOption[]>([]);
+  const [borrowersLoading, setBorrowersLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [adminUserId, setAdminUserId] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     loadMessages();
     loadUnreadCount();
+    loadUserAndBorrowers();
   }, [folder]);
+
+  const loadUserAndBorrowers = async () => {
+    try {
+      // Get current user from localStorage
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+
+        // If admin, load borrowers list
+        if (user.role === 'admin') {
+          setBorrowersLoading(true);
+          try {
+            const response = await adminApi.getBorrowers();
+            const data = response as any;
+            const borrowersData = data?.data?.borrowers || [];
+
+            // Transform borrowers to include user_id and name from user data
+            const borrowerOptions = borrowersData
+              .filter((b: any) => b.user && b.user.name)
+              .map((b: any) => ({
+                user_id: b.user_id,
+                name: b.user.name,
+              }))
+              .sort((a, b) => a.name.localeCompare(b.name));
+
+            setBorrowers(borrowerOptions);
+          } catch (error) {
+            console.error('Failed to load borrowers:', error);
+            toast({ title: 'Failed to load borrowers list', variant: 'destructive' });
+          } finally {
+            setBorrowersLoading(false);
+          }
+        } else {
+          // For borrowers, default to admin user ID 1
+          // The admin_id can be configured in backend if needed
+          setAdminUserId(1);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user:', error);
+    }
+  };
 
   const loadMessages = async () => {
     setLoading(true);
@@ -89,12 +143,25 @@ export default function Messages() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!composeData.recipient_id || !composeData.subject || !composeData.message) {
+
+    let recipientId = composeData.recipient_id;
+
+    // For borrowers, use the admin user ID as recipient
+    if (currentUser?.role !== 'admin' && adminUserId) {
+      recipientId = adminUserId;
+    }
+
+    if (!recipientId || !composeData.subject || !composeData.message) {
       toast({ title: 'Please fill all fields', variant: 'destructive' });
       return;
     }
+
     try {
-      await messagesApi.send(composeData);
+      await messagesApi.send({
+        recipient_id: recipientId,
+        subject: composeData.subject,
+        message: composeData.message,
+      });
       setComposeOpen(false);
       setComposeData({ recipient_id: 0, subject: '', message: '' });
       toast({ title: 'Message sent successfully' });
@@ -252,17 +319,38 @@ export default function Messages() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSendMessage} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Recipient ID</label>
-                  <Input
-                    type="number"
-                    value={composeData.recipient_id}
-                    onChange={(e) =>
-                      setComposeData({ ...composeData, recipient_id: parseInt(e.target.value) })
-                    }
-                    placeholder="Enter recipient user ID"
-                  />
-                </div>
+                {currentUser?.role === 'admin' ? (
+                  // Admin: Show borrower dropdown
+                  <div>
+                    <label className="text-sm font-medium">Select Borrower</label>
+                    <Select
+                      value={composeData.recipient_id.toString()}
+                      onValueChange={(value) =>
+                        setComposeData({ ...composeData, recipient_id: parseInt(value) })
+                      }
+                      disabled={borrowersLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a borrower" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {borrowers.map((borrower) => (
+                          <SelectItem key={borrower.user_id} value={borrower.user_id.toString()}>
+                            {borrower.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  // Borrower: Show read-only Admin field
+                  <div>
+                    <label className="text-sm font-medium">Recipient</label>
+                    <div className="px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                      Admin
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="text-sm font-medium">Subject</label>
                   <Input
