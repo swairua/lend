@@ -374,7 +374,7 @@ try {
 // ========== PASSWORD RESET UTILITY ==========
 // Temporary endpoint to reset demo user passwords
 // Remove this after first use for security
-if ($_GET['action'] === 'reset_demo_passwords') {
+if (isset($_GET['action']) && $_GET['action'] === 'reset_demo_passwords') {
     try {
         $freshHash = password_hash('Pass123', PASSWORD_BCRYPT);
         q("UPDATE users SET password = ? WHERE email IN (?, ?)",
