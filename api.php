@@ -380,11 +380,42 @@ if (isset($_GET['action']) && $_GET['action'] === 'reset_demo_passwords') {
         q("UPDATE users SET password = ? WHERE email IN (?, ?)",
           [$freshHash, 'admin@lending.com', 'borrower@lending.com']);
 
-        log_error("Demo passwords reset", ['admin' => 'admin@lending.com', 'borrower' => 'borrower@lending.com']);
-        echo json_encode(['success' => true, 'message' => 'Demo passwords reset to Pass123']);
+        // Verify the update
+        $admin = one("SELECT email, password FROM users WHERE email = ?", ['admin@lending.com']);
+        $verified = password_verify('Pass123', $admin['password']);
+
+        log_error("Demo passwords reset", ['admin' => 'admin@lending.com', 'verified' => $verified]);
+        echo json_encode(['success' => true, 'message' => 'Demo passwords reset to Pass123', 'hash' => $admin['password'], 'verified' => $verified]);
         exit;
     } catch (Exception $e) {
         log_error("Password reset failed", ['error' => $e->getMessage()]);
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
+
+// Debug endpoint to check user and password
+if (isset($_GET['action']) && $_GET['action'] === 'debug_login') {
+    try {
+        $email = $_GET['email'] ?? 'admin@lending.com';
+        $user = one("SELECT id, email, password FROM users WHERE email = ?", [$email]);
+
+        if ($user) {
+            $verified = password_verify('Pass123', $user['password']);
+            echo json_encode([
+                'success' => true,
+                'user' => $user['email'],
+                'hash' => $user['password'],
+                'password_verify_Pass123' => $verified,
+                'test_hash' => password_hash('Pass123', PASSWORD_BCRYPT),
+                'hash_algo' => password_algo('sha256'),
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'User not found']);
+        }
+        exit;
+    } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         exit;
