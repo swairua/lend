@@ -91,6 +91,11 @@ export default function Profile() {
           monthly_income: userData.monthly_income || '',
         }));
 
+        // Load saved profile photo from server
+        if (userData.photo_url) {
+          setPhotoUrl(userData.photo_url);
+        }
+
         if (userData.borrower) {
           setBorrower(userData.borrower);
         }
@@ -106,23 +111,25 @@ export default function Profile() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       await authApi.updateProfile({
         name: form.name,
         phone: form.phone,
+        photo_url: photoUrl || undefined,
         address: form.address || undefined,
         business_name: form.business_name || undefined,
         business_type: form.business_type || undefined,
         monthly_income: form.monthly_income ? Number(form.monthly_income) : undefined,
       });
-      
+
       localStorage.setItem('user', JSON.stringify({
         ...user,
         name: form.name,
         phone: form.phone,
+        photo_url: photoUrl,
       }));
-      
+
       toast({ title: 'Profile updated successfully' });
     } catch (error: any) {
       toast({ title: error.message || 'Failed to update profile', variant: 'destructive' });

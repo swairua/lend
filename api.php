@@ -135,6 +135,7 @@ function bootstrap() {
             password TEXT NOT NULL,
             name TEXT NOT NULL,
             phone TEXT,
+            photo_url TEXT,
             role TEXT NOT NULL DEFAULT 'borrower',
             permissions TEXT,
             last_login TIMESTAMP,
@@ -546,12 +547,84 @@ try {
         }
         if ($method === 'GET' && strpos($uri, 'auth/me') !== false) {
             $u = auth();
-            $row = one("SELECT id, email, name, phone, role FROM users WHERE id = ?", [$u['id']]);
+            $row = one("SELECT id, email, name, phone, photo_url, role FROM users WHERE id = ?", [$u['id']]);
             $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$u['id']]);
             $row['borrower_id'] = $b['id'] ?? null;
             log_access('GET', 'auth/me', 200);
             echo json_encode(['success' => true, 'data' => $row]);
             exit;
+        }
+        if ($method === 'PUT' && strpos($uri, 'auth/profile') !== false) {
+            $u = auth();
+            $d = input();
+            try {
+                // Update user profile fields
+                $updates = [];
+                $values = [];
+
+                if (isset($d['name'])) {
+                    $updates[] = "name = ?";
+                    $values[] = $d['name'];
+                }
+                if (isset($d['phone'])) {
+                    $updates[] = "phone = ?";
+                    $values[] = $d['phone'];
+                }
+                if (isset($d['photo_url'])) {
+                    $updates[] = "photo_url = ?";
+                    $values[] = $d['photo_url'];
+                }
+
+                if ($updates) {
+                    $updates[] = "updated_at = CURRENT_TIMESTAMP";
+                    $values[] = $u['id'];
+                    q("UPDATE users SET " . implode(", ", $updates) . " WHERE id = ?", $values);
+                }
+
+                // Update borrower profile if provided
+                $borrower = one("SELECT id FROM borrowers WHERE user_id = ?", [$u['id']]);
+                if ($borrower && (isset($d['address']) || isset($d['business_name']) || isset($d['business_type']) || isset($d['monthly_income']))) {
+                    $b_updates = [];
+                    $b_values = [];
+
+                    if (isset($d['address'])) {
+                        $b_updates[] = "address = ?";
+                        $b_values[] = $d['address'];
+                    }
+                    if (isset($d['business_name'])) {
+                        $b_updates[] = "business_name = ?";
+                        $b_values[] = $d['business_name'];
+                    }
+                    if (isset($d['business_type'])) {
+                        $b_updates[] = "business_type = ?";
+                        $b_values[] = $d['business_type'];
+                    }
+                    if (isset($d['monthly_income'])) {
+                        $b_updates[] = "monthly_income = ?";
+                        $b_values[] = floatval($d['monthly_income']);
+                    }
+
+                    if ($b_updates) {
+                        $b_updates[] = "updated_at = CURRENT_TIMESTAMP";
+                        $b_values[] = $borrower['id'];
+                        q("UPDATE borrowers SET " . implode(", ", $b_updates) . " WHERE id = ?", $b_values);
+                    }
+                }
+
+                // Return updated user data
+                $row = one("SELECT id, email, name, phone, photo_url, role FROM users WHERE id = ?", [$u['id']]);
+                $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$u['id']]);
+                $row['borrower_id'] = $b['id'] ?? null;
+
+                log_access('PUT', 'auth/profile', 200);
+                echo json_encode(['success' => true, 'data' => $row]);
+                exit;
+            } catch (Exception $e) {
+                log_error("Profile update exception", ['user_id' => $u['id'], 'error' => $e->getMessage()]);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to update profile']);
+                exit;
+            }
         }
         http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Not found']);
