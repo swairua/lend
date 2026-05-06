@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { messagesApi, formatDate, adminApi } from '../types/api';
+import { messagesApi, formatDate, adminApi, authApi } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { Mail, MailOpen, Trash2, Send, Search, Archive, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -83,18 +83,9 @@ export default function Messages() {
             setBorrowersLoading(false);
           }
         } else {
-          // For borrowers, find the admin user ID to use as recipient
-          try {
-            const response = await adminApi.getUsers();
-            const data = response as any;
-            const users = data?.data?.users || [];
-            const adminUser = users.find((u: any) => u.role === 'admin');
-            if (adminUser) {
-              setAdminUserId(adminUser.id);
-            }
-          } catch (error) {
-            console.error('Failed to load admin user:', error);
-          }
+          // For borrowers, default to admin user ID 1
+          // The admin_id can be configured in backend if needed
+          setAdminUserId(1);
         }
       }
     } catch (error) {
