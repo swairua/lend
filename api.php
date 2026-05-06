@@ -371,6 +371,26 @@ try {
     exit;
 }
 
+// ========== PASSWORD RESET UTILITY ==========
+// Temporary endpoint to reset demo user passwords
+// Remove this after first use for security
+if ($_GET['action'] === 'reset_demo_passwords') {
+    try {
+        $freshHash = password_hash('Pass123', PASSWORD_BCRYPT);
+        q("UPDATE users SET password = ? WHERE email IN (?, ?)",
+          [$freshHash, 'admin@lending.com', 'borrower@lending.com']);
+
+        log_error("Demo passwords reset", ['admin' => 'admin@lending.com', 'borrower' => 'borrower@lending.com']);
+        echo json_encode(['success' => true, 'message' => 'Demo passwords reset to Pass123']);
+        exit;
+    } catch (Exception $e) {
+        log_error("Password reset failed", ['error' => $e->getMessage()]);
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
+
 // ---------- Routing ----------
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim($uri, '/');
