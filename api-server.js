@@ -10,10 +10,30 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3001;
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  }
+});
+const upload = multer({ storage });
 
 // Middleware
 app.use(cors());
@@ -468,6 +488,98 @@ app.get('/api/admin/dashboard', authenticate, (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch dashboard stats' });
   }
 });
+
+// File uploads
+app.post('/api/uploads', authenticate, upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'File is required' });
+  }
+
+  const doc_type = req.body.doc_type || 'general';
+  const borrower_id = req.body.borrower_id ? parseInt(req.body.borrower_id) : null;
+
+  try {
+    const result = db.prepare(`
+      INSERT INTO documents (borrower_id, filename, original_name, file_type, doc_type, file_url)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      borrower_id,
+      req.file.filename,
+      req.file.originalname,
+      req.file.mimetype,
+      doc_type,
+      `/uploads/${req.file.filename}`
+    );
+
+    const document = db.prepare('SELECT id, filename, original_name as file_name, doc_type, uploaded_at as created_at, file_url FROM documents WHERE id = ?').get(result.lastInsertRowid);
+
+    res.json({
+      success: true,
+      data: document
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    // Clean up uploaded file on error
+    fs.unlink(req.file.path, () => {});
+    res.status(500).json({ success: false, error: 'Failed to save document info' });
+  }
+});
+
+// Get uploaded files
+app.get('/api/uploads', authenticate, (req, res) => {
+  const borrower_id = req.query.borrower_id ? parseInt(req.query.borrower_id) : null;
+
+  try {
+    let query = 'SELECT id, filename, original_name as file_name, doc_type, uploaded_at as created_at, file_url FROM documents';
+    let params = [];
+
+    if (borrower_id) {
+      query += ' WHERE borrower_id = ?';
+      params.push(borrower_id);
+    }
+
+    query += ' ORDER BY uploaded_at DESC';
+    const documents = db.prepare(query).all(...params);
+
+    res.json({
+      success: true,
+      data: documents
+    });
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch documents' });
+  }
+});
+
+// Delete uploaded file
+app.delete('/api/uploads/:id', authenticate, (req, res) => {
+  const doc_id = parseInt(req.params.id);
+
+  try {
+    const document = db.prepare('SELECT filename, file_url FROM documents WHERE id = ?').get(doc_id);
+
+    if (!document) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    // Delete the file from disk
+    const filePath = path.join(uploadsDir, document.filename);
+    fs.unlink(filePath, (err) => {
+      if (err) console.error('Error deleting file:', err);
+    });
+
+    // Delete the database record
+    db.prepare('DELETE FROM documents WHERE id = ?').run(doc_id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete document' });
+  }
+});
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(uploadsDir));
 
 // Catch-all for unimplemented endpoints
 app.all('*', (req, res) => {
