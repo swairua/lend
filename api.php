@@ -472,12 +472,18 @@ try {
         if ($method === 'POST' && strpos($uri, 'auth/login') !== false) {
             $d = input();
             $email = $d['email'] ?? '';
+            $password = $d['password'] ?? '';
             $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
             $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
 
+            // Debug logging
+            log_error("Login attempt", ['email' => $email, 'has_password' => !empty($password), 'input' => $d]);
+
             try {
                 $user = one("SELECT * FROM users WHERE email = ?", [$email]);
-                if ($user && password_verify($d['password'] ?? '', $user['password'])) {
+                log_error("User lookup", ['email' => $email, 'found' => !empty($user), 'is_active' => $user['is_active'] ?? null]);
+
+                if ($user && password_verify($password, $user['password'])) {
                     // Successful login
                     $tok = 't_' . bin2hex(random_bytes(32));
                     q("INSERT INTO tokens (user_id, token) VALUES (?, ?)", [$user['id'], $tok]);
