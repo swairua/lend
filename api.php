@@ -115,9 +115,18 @@ function one($sql, $params = []) { return q($sql, $params)->fetch(); }
 function all($sql, $params = []) { return q($sql, $params)->fetchAll(); }
 function input() { return json_decode(file_get_contents('php://input'), true) ?? $_POST; }
 
+// Initialize DEV_MODE - production server uses database, not mock data
+$DEV_MODE = false;
+
 // ---------- Bootstrap (idempotent schema + seed) ----------
 function bootstrap() {
     try {
+        // Create uploads directory
+        $UPLOADS_DIR = __DIR__ . '/uploads';
+        if (!is_dir($UPLOADS_DIR)) {
+            @mkdir($UPLOADS_DIR, 0755, true);
+        }
+
         $p = pdo();
 
         $p->exec("CREATE TABLE IF NOT EXISTS users (
@@ -284,6 +293,20 @@ function bootstrap() {
             ip_address TEXT,
             user_agent TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            borrower_id INTEGER,
+            user_id INTEGER,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            doc_type TEXT NOT NULL,
+            file_size INTEGER,
+            mime_type TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (borrower_id) REFERENCES borrowers(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )");
 
@@ -1178,6 +1201,63 @@ try {
 
         // Users
         if (strpos($uri, 'admin/users') !== false) {
+            if ($method === 'POST') {
+                try {
+                    $d = input();
+                    $email = $d['email'] ?? '';
+                    $name = $d['name'] ?? '';
+                    $phone = $d['phone'] ?? null;
+                    $role = $d['role'] ?? 'borrower';
+                    $password = $d['password'] ?? null;
+
+                    // Validate required fields
+                    if (!$email || !$name) {
+                        log_error("User creation validation failed", ['email' => $email, 'name' => $name]);
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Email and name are required']);
+                        exit;
+                    }
+
+                    // Check if user already exists
+                    $existing = one("SELECT id FROM users WHERE email = ?", [$email]);
+                    if ($existing) {
+                        log_error("User creation failed - email exists", ['email' => $email]);
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'User with this email already exists']);
+                        exit;
+                    }
+
+                    // Generate default password if not provided
+                    if (!$password) {
+                        $password = bin2hex(random_bytes(8));
+                    }
+                    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+
+                    // Create user
+                    q("INSERT INTO users (email, password, name, phone, role, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                      [$email, $hashedPassword, $name, $phone, $role]);
+
+                    $userId = pdo()->lastInsertId();
+                    $newUser = one("SELECT id, email, name, phone, role, created_at FROM users WHERE id = ?", [$userId]);
+
+                    // Create borrower record if role is borrower
+                    if ($role === 'borrower') {
+                        q("INSERT INTO borrowers (user_id, credit_score) VALUES (?, 750)", [$userId]);
+                    }
+
+                    log_error("User created successfully via admin", ['user_id' => $userId, 'email' => $email, 'role' => $role]);
+                    log_access('POST', 'admin/users', 201);
+                    echo json_encode(['success' => true, 'data' => $newUser]);
+                    exit;
+                } catch (Exception $e) {
+                    log_error("User creation exception", ['email' => $email ?? 'unknown', 'error' => $e->getMessage()]);
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Failed to create user: ' . $e->getMessage()]);
+                    exit;
+                }
+            }
+
+            // GET /admin/users - list users
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
             $rows = all("SELECT id, email, name, phone, role, is_active, created_at FROM users
                          ORDER BY created_at DESC LIMIT $limit OFFSET $off");
@@ -1185,6 +1265,119 @@ try {
             log_access('GET', 'admin/users', 200);
             echo json_encode(['success' => true, 'data' => ['users' => $rows,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+            exit;
+        }
+
+        // -------------------- DOCUMENTS (UPLOADS) --------------------
+        if ($resource === 'uploads') {
+            $user = auth(); // Require authentication
+
+            if ($method === 'GET') {
+                // GET /uploads - list documents for borrower
+                $borrower_id = $_GET['borrower_id'] ?? null;
+
+                $sql = "SELECT id, file_name, doc_type, file_size, created_at FROM documents WHERE 1=1";
+                $params = [];
+
+                if ($borrower_id) {
+                    $sql .= " AND borrower_id = ?";
+                    $params[] = $borrower_id;
+                }
+
+                $sql .= " ORDER BY created_at DESC";
+                $data = all($sql, $params);
+                log_access('GET', 'uploads', 200);
+                echo json_encode(['success' => true, 'data' => $data]);
+                exit;
+            }
+
+            if ($method === 'POST') {
+                // POST /uploads - upload new document
+                if (!isset($_FILES['file'])) {
+                    log_error("Upload failed - no file", []);
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'File is required']);
+                    exit;
+                }
+
+                $file = $_FILES['file'];
+                $doc_type = $_POST['doc_type'] ?? 'general';
+                $borrower_id = $_POST['borrower_id'] ?? null;
+
+                if ($file['error'] !== UPLOAD_ERR_OK) {
+                    log_error("Upload failed - upload error", ['error' => $file['error']]);
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Upload error: ' . $file['error']]);
+                    exit;
+                }
+
+                // Save file with unique name
+                $file_name = basename($file['name']);
+                $file_ext = pathinfo($file_name, PATHINFO_EXTENSION);
+                $unique_name = date('Ymdhis') . '_' . bin2hex(random_bytes(4)) . '.' . $file_ext;
+                $file_path = 'uploads/' . $unique_name;
+                $full_path = __DIR__ . '/' . $file_path;
+
+                if (!move_uploaded_file($file['tmp_name'], $full_path)) {
+                    log_error("Upload failed - cannot save file", ['file' => $file_name]);
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Failed to save file']);
+                    exit;
+                }
+
+                // Save to database
+                try {
+                    q("INSERT INTO documents (borrower_id, user_id, file_name, file_path, doc_type, file_size, mime_type)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)",
+                      [$borrower_id, $user['id'], $file_name, $file_path, $doc_type, $file['size'], $file['type']]);
+
+                    $doc_id = pdo()->lastInsertId();
+                    $data = one("SELECT id, file_name, doc_type, file_size, created_at FROM documents WHERE id = ?", [$doc_id]);
+
+                    log_error("File uploaded successfully", ['doc_id' => $doc_id, 'file' => $file_name, 'size' => $file['size']]);
+                    log_access('POST', 'uploads', 201);
+                    echo json_encode(['success' => true, 'data' => $data]);
+                    exit;
+                } catch (Exception $e) {
+                    // Delete the uploaded file if database insert fails
+                    @unlink($full_path);
+                    log_error("Upload database insert failed", ['file' => $file_name, 'error' => $e->getMessage()]);
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Failed to save document info']);
+                    exit;
+                }
+            }
+
+            if ($method === 'DELETE' && preg_match('#uploads/(\d+)#', $uri, $m)) {
+                // DELETE /uploads/:id - delete document
+                $doc_id = $m[1];
+                $doc = one("SELECT file_path FROM documents WHERE id = ?", [$doc_id]);
+
+                if (!$doc) {
+                    log_error("Delete failed - document not found", ['doc_id' => $doc_id]);
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Document not found']);
+                    exit;
+                }
+
+                // Delete file from disk
+                $full_path = __DIR__ . '/' . $doc['file_path'];
+                if (file_exists($full_path)) {
+                    @unlink($full_path);
+                }
+
+                // Delete from database
+                q("DELETE FROM documents WHERE id = ?", [$doc_id]);
+
+                log_error("Document deleted", ['doc_id' => $doc_id, 'file' => $doc['file_path']]);
+                log_access('DELETE', 'uploads/' . $doc_id, 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+
+            http_response_code(404);
+            log_error("Invalid uploads request", ['method' => $method, 'uri' => $uri]);
+            echo json_encode(['success' => false, 'error' => 'Invalid request']);
             exit;
         }
     }
