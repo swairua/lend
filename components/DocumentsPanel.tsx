@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { uploadsApi, UploadedDocument } from "../utils/api";
+import { uploadsApi, UploadedDocument, getFileUrl } from "../utils/api";
 import FileUpload, { DOC_TYPES } from "./FileUpload";
 import { FileText, Image, Trash2, Eye, Plus, Loader2, FolderOpen } from "lucide-react";
 
@@ -70,9 +70,11 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
           </div>
         ) : (
           <div className="space-y-2">
-            {docs.map(doc => (
+            {docs.map(doc => {
+              const fullUrl = getFileUrl(doc.file_url);
+              return (
               <div key={doc.id} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/30">
-                {isImg(doc.file_url) ? <Image className="h-8 w-8 text-blue-400 flex-shrink-0" /> : <FileText className="h-8 w-8 text-gray-400 flex-shrink-0" />}
+                {isImg(fullUrl) ? <Image className="h-8 w-8 text-blue-400 flex-shrink-0" /> : <FileText className="h-8 w-8 text-gray-400 flex-shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{doc.original_name}</p>
                   <Badge variant="secondary" className="text-xs mt-0.5">{docLabel(doc.doc_type)}</Badge>
@@ -82,7 +84,8 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
                   {!readOnly && <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDelete(doc.id)} disabled={deleting === doc.id}>{deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}</Button>}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -115,19 +118,20 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
       <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{viewDoc && docLabel(viewDoc.doc_type)}</DialogTitle></DialogHeader>
-          {viewDoc && (
-            isImg(viewDoc.file_url) ? (
-              <img src={viewDoc.file_url} alt={viewDoc.original_name} className="w-full rounded-lg" />
+          {viewDoc && (() => {
+            const fullUrl = getFileUrl(viewDoc.file_url);
+            return isImg(fullUrl) ? (
+              <img src={fullUrl} alt={viewDoc.original_name} className="w-full rounded-lg" />
             ) : (
               <div className="flex flex-col items-center gap-4 py-8">
                 <FileText className="h-16 w-16 text-blue-300" />
                 <p className="text-sm text-muted-foreground">{viewDoc.original_name}</p>
-                <a href={viewDoc.file_url} target="_blank" rel="noreferrer">
+                <a href={fullUrl} target="_blank" rel="noreferrer">
                   <Button>Open Document</Button>
                 </a>
               </div>
-            )
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </Card>

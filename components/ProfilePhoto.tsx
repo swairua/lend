@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Loader2, Camera, User } from "lucide-react";
-import { uploadsApi } from "../utils/api";
+import { uploadsApi, getFileUrl } from "../utils/api";
 
 interface ProfilePhotoProps {
   name?: string;
@@ -27,7 +27,7 @@ export default function ProfilePhoto({ name, currentUrl, borrowerId, onUploaded,
     setError(""); setUploading(true);
     try {
       const res = await uploadsApi.upload(file, "profile_photo", borrowerId);
-      const url = res.data?.file_url || "";
+      const url = getFileUrl(res.data?.file_url || "");
       setPhoto(url);
       onUploaded?.(url);
     } catch (err: any) { setError(err.message || "Upload failed"); }

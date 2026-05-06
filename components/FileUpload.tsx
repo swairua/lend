@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Loader2, UploadCloud, X, CheckCircle2, FileText } from "lucide-react";
-import { uploadsApi } from "../utils/api";
+import { uploadsApi, getFileUrl } from "../utils/api";
 
 export const DOC_TYPES = [
   { value: "profile_photo", label: "Profile Photo", accept: "image/*" },
@@ -36,7 +36,7 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
     setError(""); setUploading(true); setFileName(file.name);
     try {
       const res = await uploadsApi.upload(file, docType, borrowerId);
-      const url = res.data?.file_url || "";
+      const url = getFileUrl(res.data?.file_url || "");
       setUploaded(url);
       onUploaded?.(res.data);
     } catch (e: any) {
