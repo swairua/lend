@@ -893,9 +893,9 @@ try {
             $collected = one("SELECT COALESCE(SUM(amount),0) t FROM repayments");
             $defaultRate  = $tot > 0 ? ($defaulted / $tot * 100) : 0;
             $approvalRate = ($tot - $pending) > 0 ? ($approved / ($tot - $pending) * 100) : 0;
-            $monthly = all("SELECT DATE_FORMAT(created_at,'%Y-%m') month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
-                            FROM loans WHERE status IN ('active','completed') AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-                            GROUP BY DATE_FORMAT(created_at,'%Y-%m') ORDER BY month");
+            $monthly = all("SELECT strftime('%Y-%m', created_at) month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
+                            FROM loans WHERE status IN ('active','completed') AND created_at >= datetime('now', '-6 months')
+                            GROUP BY strftime('%Y-%m', created_at) ORDER BY month");
             $catDist = $tot > 0 ? all("SELECT lc.name category, COUNT(*) count, (COUNT(*)/$tot*100) percentage
                                         FROM loans l LEFT JOIN loan_products lp ON l.product_id=lp.id
                                         LEFT JOIN loan_categories lc ON lp.category_id=lc.id GROUP BY lc.id, lc.name") : [];
