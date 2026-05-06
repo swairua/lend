@@ -1349,7 +1349,7 @@ try {
                 // GET /uploads - list documents for borrower
                 $borrower_id = $_GET['borrower_id'] ?? null;
 
-                $sql = "SELECT id, file_name, doc_type, file_size, created_at FROM documents WHERE 1=1";
+                $sql = "SELECT id, file_name, file_path, doc_type, file_size, created_at FROM documents WHERE 1=1";
                 $params = [];
 
                 if ($borrower_id) {
@@ -1359,6 +1359,13 @@ try {
 
                 $sql .= " ORDER BY created_at DESC";
                 $data = all($sql, $params);
+
+                // Add file_url and original_name to each document for frontend
+                foreach ($data as &$doc) {
+                    $doc['file_url'] = '/' . $doc['file_path'];
+                    $doc['original_name'] = $doc['file_name'];
+                }
+
                 log_access('GET', 'uploads', 200);
                 echo json_encode(['success' => true, 'data' => $data]);
                 exit;
@@ -1405,7 +1412,13 @@ try {
                       [$borrower_id, $user['id'], $file_name, $file_path, $doc_type, $file['size'], $file['type']]);
 
                     $doc_id = pdo()->lastInsertId();
-                    $data = one("SELECT id, file_name, doc_type, file_size, created_at FROM documents WHERE id = ?", [$doc_id]);
+                    $data = one("SELECT id, file_name, file_path, doc_type, file_size, created_at FROM documents WHERE id = ?", [$doc_id]);
+
+                    // Add file_url to response (maps file_path for frontend)
+                    if ($data) {
+                        $data['file_url'] = '/' . $data['file_path'];
+                        $data['original_name'] = $data['file_name'];
+                    }
 
                     log_error("File uploaded successfully", ['doc_id' => $doc_id, 'file' => $file_name, 'size' => $file['size']]);
                     log_access('POST', 'uploads', 201);

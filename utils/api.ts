@@ -3,6 +3,14 @@ import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats } from
 // For local development, use /api proxy to avoid CORS issues
 // For production, VITE_API_URL should be set to the actual API endpoint
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
+
+// Helper to construct full file URL
+export function getFileUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http')) return path; // Already a full URL
+  return UPLOADS_URL + (path.startsWith('/') ? path : '/' + path);
+}
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
