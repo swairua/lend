@@ -70,8 +70,25 @@ export default function Profile() {
   const loadProfile = async () => {
     try {
       const response: any = await authApi.getMe();
-      const userData: any = response.user;
-      
+      // API returns user data in response.data (not response.user)
+      const userData: any = response?.data || response?.user || user;
+
+      if (!userData || !userData.name) {
+        console.error('No user data in response:', response);
+        // Use the user from state if API response is incomplete
+        if (user) {
+          setForm({
+            ...form,
+            name: user.name || '',
+            phone: user.phone || '',
+          });
+          setLoading(false);
+          return;
+        }
+        setLoading(false);
+        return;
+      }
+
       setForm({
         ...form,
         name: userData.name || '',
@@ -82,12 +99,21 @@ export default function Profile() {
         business_type: userData.business_type || '',
         monthly_income: userData.monthly_income || '',
       });
-      
+
       if (userData.borrower) {
         setBorrower(userData.borrower);
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
+      // Fallback: use user from localStorage
+      if (user) {
+        setForm({
+          ...form,
+          name: user.name || '',
+          phone: user.phone || '',
+        });
+      }
+      toast({ title: 'Failed to load profile', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
