@@ -408,8 +408,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'debug_login') {
                 'user' => $user['email'],
                 'hash' => $user['password'],
                 'password_verify_Pass123' => $verified,
-                'test_hash' => password_hash('Pass123', PASSWORD_BCRYPT),
-                'hash_algo' => password_algo('sha256'),
+                'hash_length' => strlen($user['password']),
             ]);
         } else {
             echo json_encode(['success' => false, 'error' => 'User not found']);
