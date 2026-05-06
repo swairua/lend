@@ -413,6 +413,9 @@ foreach (['api', 'lending', 'server'] as $base) {
 }
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Debug logging
+log_error("Request", ['method' => $method, 'uri' => $uri]);
+
 $token = null;
 if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
     $token = trim(str_replace('Bearer', '', $_SERVER['HTTP_AUTHORIZATION']));
