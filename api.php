@@ -348,7 +348,7 @@ function bootstrap() {
             q("INSERT INTO loan_categories (name, code, description) VALUES (?, ?, ?)",
               ['Micro Finance', 'MICRO', 'Small loans against salary or security']);
             q("INSERT INTO loan_categories (name, code, description) VALUES (?, ?, ?)",
-              ['LPOS Finance', 'LPOS', 'Loan against point of sale equipment']);
+              ['LPO Finance', 'LPO', 'Advancing against Local Purchase Orders']);
             log_error("Loan categories seeded", []);
         }
 

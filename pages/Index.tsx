@@ -202,8 +202,8 @@ export default function Index() {
                   <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
                     <Briefcase className="h-6 w-6 text-accent" />
                   </div>
-                  <CardTitle>LPOS (Lipa Pole Pole)</CardTitle>
-                  <CardDescription>Flexible payment structure</CardDescription>
+                  <CardTitle>LPO (Local Purchase Orders)</CardTitle>
+                  <CardDescription>Advancing against Local Purchase Orders</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
