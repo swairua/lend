@@ -57,63 +57,47 @@ export default function Profile() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-    
-    if (!token || !storedUser) {
+
+    if (!token || !storedUser.id) {
       navigate('/login');
       return;
     }
-    
+
     setUser(storedUser);
+    // Initialize form with localStorage user data
+    setForm((prev) => ({
+      ...prev,
+      name: storedUser.name || '',
+      phone: storedUser.phone || '',
+    }));
     loadProfile();
   }, [navigate]);
 
   const loadProfile = async () => {
     try {
       const response: any = await authApi.getMe();
-      // API returns user data in response.data (not response.user)
-      const userData: any = response?.data || response?.user || user;
+      // API returns user data in response.data or response.user
+      const userData: any = response?.data || response?.user;
 
-      if (!userData || !userData.name) {
-        console.error('No user data in response:', response);
-        // Use the user from state if API response is incomplete
-        if (user) {
-          setForm({
-            ...form,
-            name: user.name || '',
-            phone: user.phone || '',
-          });
-          setLoading(false);
-          return;
+      if (userData) {
+        setForm((prev) => ({
+          ...prev,
+          name: userData.name || prev.name || '',
+          phone: userData.phone || prev.phone || '',
+          national_id: userData.national_id || '',
+          address: userData.address || '',
+          business_name: userData.business_name || '',
+          business_type: userData.business_type || '',
+          monthly_income: userData.monthly_income || '',
+        }));
+
+        if (userData.borrower) {
+          setBorrower(userData.borrower);
         }
-        setLoading(false);
-        return;
-      }
-
-      setForm({
-        ...form,
-        name: userData.name || '',
-        phone: userData.phone || '',
-        national_id: userData.national_id || '',
-        address: userData.address || '',
-        business_name: userData.business_name || '',
-        business_type: userData.business_type || '',
-        monthly_income: userData.monthly_income || '',
-      });
-
-      if (userData.borrower) {
-        setBorrower(userData.borrower);
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
-      // Fallback: use user from localStorage
-      if (user) {
-        setForm({
-          ...form,
-          name: user.name || '',
-          phone: user.phone || '',
-        });
-      }
-      toast({ title: 'Failed to load profile', variant: 'destructive' });
+      // Form already has initial data from localStorage
     } finally {
       setLoading(false);
     }
