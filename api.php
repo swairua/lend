@@ -405,16 +405,17 @@ if (isset($_GET['action'])) {
 // ---------- Routing ----------
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim($uri, '/');
-foreach (['api', 'lending', 'server'] as $base) {
+
+// Strip out common base paths and the filename itself
+foreach (['api.php', 'api', 'lending', 'server'] as $base) {
     if ($uri === $base || strpos($uri, $base . '/') === 0) {
         $uri = substr($uri, strlen($base) + 1);
         break;
     }
 }
-$method = $_SERVER['REQUEST_METHOD'];
 
-// Debug logging
-log_error("Request", ['method' => $method, 'uri' => $uri]);
+$uri = trim($uri, '/');
+$method = $_SERVER['REQUEST_METHOD'];
 
 $token = null;
 if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
