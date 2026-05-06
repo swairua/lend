@@ -371,52 +371,33 @@ try {
     exit;
 }
 
-// ========== PASSWORD RESET UTILITY ==========
-// Temporary endpoint to reset demo user passwords
-// Remove this after first use for security
-if (isset($_GET['action']) && $_GET['action'] === 'reset_demo_passwords') {
-    try {
-        $freshHash = password_hash('Pass123', PASSWORD_BCRYPT);
-        q("UPDATE users SET password = ? WHERE email IN (?, ?)",
-          [$freshHash, 'admin@lending.com', 'borrower@lending.com']);
-
-        // Verify the update
-        $admin = one("SELECT email, password FROM users WHERE email = ?", ['admin@lending.com']);
-        $verified = password_verify('Pass123', $admin['password']);
-
-        log_error("Demo passwords reset", ['admin' => 'admin@lending.com', 'verified' => $verified]);
-        echo json_encode(['success' => true, 'message' => 'Demo passwords reset to Pass123', 'hash' => $admin['password'], 'verified' => $verified]);
-        exit;
-    } catch (Exception $e) {
-        log_error("Password reset failed", ['error' => $e->getMessage()]);
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-        exit;
+// ========== UTILITY ENDPOINTS (Temporary - remove after testing) ==========
+if (isset($_GET['action'])) {
+    if ($_GET['action'] === 'reset_demo_passwords') {
+        try {
+            $freshHash = password_hash('Pass123', PASSWORD_BCRYPT);
+            q("UPDATE users SET password = ? WHERE email IN (?, ?)",
+              [$freshHash, 'admin@lending.com', 'borrower@lending.com']);
+            echo json_encode(['success' => true, 'message' => 'Demo passwords reset']);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            exit;
+        }
     }
-}
-
-// Debug endpoint to check user and password
-if (isset($_GET['action']) && $_GET['action'] === 'debug_login') {
-    try {
+    if ($_GET['action'] === 'debug_login') {
         $email = $_GET['email'] ?? 'admin@lending.com';
         $user = one("SELECT id, email, password FROM users WHERE email = ?", [$email]);
-
         if ($user) {
-            $verified = password_verify('Pass123', $user['password']);
             echo json_encode([
                 'success' => true,
                 'user' => $user['email'],
-                'hash' => $user['password'],
-                'password_verify_Pass123' => $verified,
-                'hash_length' => strlen($user['password']),
+                'password_verify_Pass123' => password_verify('Pass123', $user['password']),
             ]);
         } else {
             echo json_encode(['success' => false, 'error' => 'User not found']);
         }
-        exit;
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         exit;
     }
 }
@@ -477,13 +458,22 @@ try {
             $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
 
             // Debug logging
-            log_error("Login attempt", ['email' => $email, 'has_password' => !empty($password), 'input' => $d]);
+            log_error("Login attempt", ['email' => $email, 'password_length' => strlen($password)]);
 
             try {
                 $user = one("SELECT * FROM users WHERE email = ?", [$email]);
-                log_error("User lookup", ['email' => $email, 'found' => !empty($user), 'is_active' => $user['is_active'] ?? null]);
 
-                if ($user && password_verify($password, $user['password'])) {
+                if (!$user) {
+                    log_error("User not found", ['email' => $email]);
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
+                    exit;
+                }
+
+                $passwordMatch = password_verify($password, $user['password']);
+                log_error("Password check", ['email' => $email, 'match' => $passwordMatch, 'is_active' => $user['is_active']]);
+
+                if ($passwordMatch && $user['is_active']) {
                     // Successful login
                     $tok = 't_' . bin2hex(random_bytes(32));
                     q("INSERT INTO tokens (user_id, token) VALUES (?, ?)", [$user['id'], $tok]);
@@ -506,10 +496,10 @@ try {
                 }
 
                 // Failed login - log the attempt
-                $reason = !$user ? 'User not found' : 'Invalid password';
+                $reason = !$passwordMatch ? 'Invalid password' : 'User inactive';
                 $logMsg = "[$timestamp] LOGIN FAILED | Email: $email | Reason: $reason | IP: $ip | UA: $userAgent\n";
                 @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
-                log_error("Login failed", ['email' => $email, 'reason' => $reason, 'ip' => $ip]);
+                log_error("Login failed", ['email' => $email, 'reason' => $reason]);
 
                 http_response_code(401);
                 echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
