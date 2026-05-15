@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authApi } from '../types/api';
+import { secureStorage } from '../utils/secureStorage';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 
@@ -31,11 +32,14 @@ export default function Login() {
   const { showAlert, AlertComponent } = useAlert();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (token) {
-      navigate(user.role === 'admin' ? '/admin' : '/dashboard');
-    }
+    const checkAuth = async () => {
+      const token = await secureStorage.getToken();
+      const user = await secureStorage.getUser();
+      if (token) {
+        navigate(user?.role === 'admin' ? '/admin' : '/dashboard');
+      }
+    };
+    checkAuth();
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,9 +54,9 @@ export default function Login() {
         response = await authApi.register(form);
       }
 
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      
+      await secureStorage.setToken(response.token);
+      await secureStorage.setUser(response.user);
+
       navigate(response.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message || 'Authentication failed' });

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
+import { secureStorage } from '../utils/secureStorage';
 import { normalizeList } from '../utils/normalize';
 import { Loader2, Plus, FileText, CreditCard, TrendingUp, User, AlertCircle } from 'lucide-react';
 
@@ -22,21 +23,24 @@ export default function BorrowerDashboard() {
   const [loans, setLoans] = useState<any[]>([]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-    
-    if (!token || !storedUser) {
-      navigate('/login');
-      return;
-    }
-    
-    if (storedUser.role === 'admin') {
-      navigate('/admin');
-      return;
-    }
-    
-    setUser(storedUser);
-    loadDashboard();
+    const checkAuth = async () => {
+      const token = await secureStorage.getToken();
+      const storedUser = await secureStorage.getUser();
+
+      if (!token || !storedUser) {
+        navigate('/login');
+        return;
+      }
+
+      if (storedUser.role === 'admin') {
+        navigate('/admin');
+        return;
+      }
+
+      setUser(storedUser);
+      loadDashboard();
+    };
+    checkAuth();
   }, [navigate]);
 
   const loadDashboard = async () => {
@@ -56,9 +60,8 @@ export default function BorrowerDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const handleLogout = async () => {
+    await secureStorage.clear();
     navigate('/login');
   };
 

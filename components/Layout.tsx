@@ -2,6 +2,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, LogOut, Mail } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { secureStorage } from "../utils/secureStorage";
 
 interface User {
   id: string;
@@ -41,8 +43,8 @@ export function Layout({ children, user }: LayoutProps) {
     }
   }, [user]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("currentUser");
+  const handleLogout = async () => {
+    await secureStorage.clear();
     navigate("/");
     setMobileMenuOpen(false);
   };

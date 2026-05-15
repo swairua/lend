@@ -7,6 +7,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { initializeCapacitor } from "./utils/capacitorInit";
 
 // Pages
 import Index from "./pages/Index";
@@ -38,11 +39,20 @@ import PrivateRoute from "./components/PrivateRoute";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user') || 'null'));
+  const [user, setUser] = useState<any>(null);
   const location = useLocation();
 
   useEffect(() => {
-    setUser(JSON.parse(localStorage.getItem('user') || 'null'));
+    const loadUser = async () => {
+      try {
+        const { secureStorage } = await import('./utils/secureStorage');
+        const storedUser = await secureStorage.getUser();
+        setUser(storedUser);
+      } catch (error) {
+        console.log('Error loading user:', error);
+      }
+    };
+    loadUser();
   }, [location.pathname]);
   
   return (
@@ -98,6 +108,9 @@ const App = () => {
   );
 };
 
+// Initialize Capacitor (native mobile features)
+initializeCapacitor();
+
 // Register service worker for PWA support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
@@ -112,7 +125,6 @@ if ('serviceWorker' in navigator) {
 
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New service worker is ready to take over
             const event = new CustomEvent('sw-update-ready', { detail: { registration } });
             window.dispatchEvent(event);
             console.log('Service Worker update available');
