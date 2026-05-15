@@ -378,15 +378,17 @@ export default function AdminSettings() {
       )}
 
       <Tabs defaultValue="company" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 overflow-x-auto gap-1">
-          <TabsTrigger value="company" className="text-xs md:text-sm"><Building className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Company</span></TabsTrigger>
-          <TabsTrigger value="loans" className="text-xs md:text-sm"><DollarSign className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Defaults</span></TabsTrigger>
-          <TabsTrigger value="categories" className="text-xs md:text-sm"><Package className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Categories</span></TabsTrigger>
-          <TabsTrigger value="products" className="text-xs md:text-sm"><CreditCard className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
-          <TabsTrigger value="requirements" className="text-xs md:text-sm"><Shield className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Requirements</span></TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs md:text-sm"><Bell className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Notifications</span></TabsTrigger>
-          <TabsTrigger value="mpesa" className="text-xs md:text-sm"><Smartphone className="h-4 w-4 mr-1" /><span className="hidden sm:inline">M-Pesa</span></TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="flex w-max gap-1 p-1">
+            <TabsTrigger value="company" className="text-xs md:text-sm whitespace-nowrap"><Building className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Company</span></TabsTrigger>
+            <TabsTrigger value="loans" className="text-xs md:text-sm whitespace-nowrap"><DollarSign className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Defaults</span></TabsTrigger>
+            <TabsTrigger value="categories" className="text-xs md:text-sm whitespace-nowrap"><Package className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Categories</span></TabsTrigger>
+            <TabsTrigger value="products" className="text-xs md:text-sm whitespace-nowrap"><CreditCard className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
+            <TabsTrigger value="requirements" className="text-xs md:text-sm whitespace-nowrap"><Shield className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Requirements</span></TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs md:text-sm whitespace-nowrap"><Bell className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Notifications</span></TabsTrigger>
+            <TabsTrigger value="mpesa" className="text-xs md:text-sm whitespace-nowrap"><Smartphone className="h-4 w-4 mr-1" /><span className="hidden sm:inline">M-Pesa</span></TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="company" className="mt-4">
           <Card>

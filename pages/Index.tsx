@@ -37,6 +37,12 @@ export default function Index() {
             <a href="#benefits" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Benefits
             </a>
+            <Link to="/privacy" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Privacy
+            </Link>
+            <Link to="/terms" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Terms
+            </Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link to="/login">
@@ -84,8 +90,8 @@ export default function Index() {
                         <TrendingUp className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <p className="font-semibold text-foreground">Fast Approval</p>
-                        <p className="text-sm text-muted-foreground">Get approved in minutes</p>
+                        <p className="font-semibold text-foreground">Simple Application</p>
+                        <p className="text-sm text-muted-foreground">Apply and track in real-time</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -421,10 +427,23 @@ export default function Index() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-muted/30 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
-          <p>
-            &copy; 2026 LendHub. All rights reserved. Fast, Transparent, Accessible Lending.
-          </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
+            <p className="text-sm text-muted-foreground">
+              &copy; 2026 LendHub. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6 text-sm">
+              <Link to="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                Privacy Policy
+              </Link>
+              <Link to="/terms" className="text-muted-foreground hover:text-foreground transition-colors">
+                Terms of Service
+              </Link>
+            </div>
+          </div>
+          <div className="text-center text-sm text-muted-foreground border-t border-border pt-6">
+            <p>Fast, Transparent, Accessible Lending</p>
+          </div>
         </div>
       </footer>
     </div>

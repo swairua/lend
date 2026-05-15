@@ -373,27 +373,27 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
 
 /**
  * Download loan agreement as PDF
- * For browser implementation: converts HTML to PDF using a library like html2pdf or pdfkit
+ * Uses html2pdf.js library for client-side PDF generation
  */
-export function downloadLoanAgreementPDF(data: LoanAgreementData): void {
-  // This implementation uses html2pdf library
-  // Install: npm install html2pdf.js
-  
-  const element = document.createElement('div');
-  element.innerHTML = generateLoanAgreementHTML(data);
-  
-  // Check if html2pdf is available
-  if (typeof (window as any).html2pdf !== 'undefined') {
-    const opt = {
+export async function downloadLoanAgreementPDF(data: LoanAgreementData): Promise<void> {
+  try {
+    // Dynamically import html2pdf
+    const html2pdf = (await import('html2pdf.js')).default;
+
+    const element = document.createElement('div');
+    element.innerHTML = generateLoanAgreementHTML(data);
+
+    const opt: any = {
       margin: 0.5,
       filename: `Loan-Agreement-${data.loanId}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { orientation: 'portrait', unit: 'in', format: 'letter' }
     };
-    
-    (window as any).html2pdf().set(opt).from(element).save();
-  } else {
+
+    await html2pdf().set(opt).from(element).save();
+  } catch (error) {
+    console.error('Error generating PDF:', error);
     // Fallback: open HTML in new window for printing
     const printWindow = window.open('', '', 'height=900,width=900');
     if (printWindow) {

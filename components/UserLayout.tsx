@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { ChevronLeft, Home, FileText, Users, Package, Settings, BarChart3, User, LogOut, Menu, X, MessageSquare, CreditCard, DollarSign } from 'lucide-react';
+import { ChevronLeft, Home, FileText, Users, Package, Settings, BarChart3, User, LogOut, Menu, MessageSquare, CreditCard, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User {
@@ -105,11 +105,8 @@ export default function UserLayout({ children, user }: UserLayoutProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72">
-                <div className="p-4 border-b flex items-center justify-between">
+                <div className="p-4 border-b">
                   <h1 className="font-bold text-lg">{portalTitle}</h1>
-                  <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
                 </div>
                 <nav className="p-2 space-y-1">
                   {menuItems.map((item) => (
