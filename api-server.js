@@ -249,6 +249,15 @@ function initializeSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (loan_id) REFERENCES loans(id)
       );
+
+      CREATE TABLE IF NOT EXISTS settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key VARCHAR(255) NOT NULL UNIQUE,
+        value TEXT DEFAULT NULL,
+        setting_type VARCHAR(50) DEFAULT 'string',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // Seed demo users if they don't exist
@@ -1172,6 +1181,390 @@ app.get('/api/transactions', authenticate, (req, res) => {
   } catch (error) {
     console.error('Error fetching transactions:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch transactions' });
+  }
+});
+
+// ========== SETTINGS ENDPOINTS ==========
+
+// GET /api/admin/settings - Retrieve all settings
+app.get('/api/admin/settings', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const settings = db.prepare('SELECT key, value, setting_type FROM settings').all();
+    const configArray = [];
+    const configObj = {};
+
+    settings.forEach(setting => {
+      let parsedValue = setting.value;
+      if (setting.setting_type === 'json') {
+        try {
+          parsedValue = JSON.parse(setting.value);
+        } catch (e) {
+          parsedValue = setting.value;
+        }
+      } else if (setting.setting_type === 'boolean') {
+        parsedValue = setting.value === 'true' || setting.value === '1';
+      }
+      configObj[setting.key] = parsedValue;
+      configArray.push({
+        key_name: setting.key,
+        key_value: setting.value,
+        description: ''
+      });
+    });
+
+    res.json({ success: true, data: configArray });
+  } catch (error) {
+    console.error('Error fetching settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch settings' });
+  }
+});
+
+// POST /api/admin/settings/bulk - Update multiple settings
+app.post('/api/admin/settings/bulk', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  let settingsData = req.body;
+
+  // Handle both formats: array of {key_name, key_value} or object {key: value}
+  let settingsArray = [];
+
+  if (Array.isArray(settingsData?.settings)) {
+    settingsArray = settingsData.settings;
+  } else if (Array.isArray(settingsData)) {
+    settingsArray = settingsData;
+  } else if (typeof settingsData === 'object' && settingsData !== null) {
+    settingsArray = Object.entries(settingsData).map(([key, value]) => ({
+      key_name: key,
+      key_value: String(value)
+    }));
+  }
+
+  if (!settingsArray || settingsArray.length === 0) {
+    return res.status(400).json({ success: false, error: 'Settings data required' });
+  }
+
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO settings (key, value, setting_type, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        setting_type = excluded.setting_type,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+
+    settingsArray.forEach(setting => {
+      const key = setting.key_name || setting.key;
+      const value = setting.key_value || setting.value;
+
+      let settingType = 'string';
+      let settingValue = String(value);
+
+      if (typeof value === 'boolean') {
+        settingType = 'boolean';
+        settingValue = value ? '1' : '0';
+      } else if (typeof value === 'object' && value !== null) {
+        settingType = 'json';
+        settingValue = JSON.stringify(value);
+      }
+
+      stmt.run(key, settingValue, settingType);
+    });
+
+    res.json({ success: true, message: 'Settings updated' });
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to update settings' });
+  }
+});
+
+// PUT /api/admin/settings/:key - Update a single setting
+app.put('/api/admin/settings/:key', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { key } = req.params;
+  const { value } = req.body;
+
+  if (value === undefined) {
+    return res.status(400).json({ success: false, error: 'Value is required' });
+  }
+
+  try {
+    let settingType = 'string';
+    let settingValue = String(value);
+
+    if (typeof value === 'boolean') {
+      settingType = 'boolean';
+      settingValue = value ? '1' : '0';
+    } else if (typeof value === 'object' && value !== null) {
+      settingType = 'json';
+      settingValue = JSON.stringify(value);
+    }
+
+    db.prepare(`
+      INSERT INTO settings (key, value, setting_type, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        setting_type = excluded.setting_type,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(key, settingValue, settingType);
+
+    res.json({ success: true, message: 'Setting updated' });
+  } catch (error) {
+    console.error('Error updating setting:', error);
+    res.status(500).json({ success: false, error: 'Failed to update setting' });
+  }
+});
+
+// GET /api/mpesa/transaction/:id - Get M-Pesa transaction status
+app.get('/api/mpesa/transaction/:id', authenticate, (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const transaction = db.prepare(`
+      SELECT mt.*, l.borrower_id
+      FROM mpesa_transactions mt
+      LEFT JOIN loans l ON mt.loan_id = l.id
+      WHERE mt.id = ?
+    `).get(id);
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, error: 'Transaction not found' });
+    }
+
+    // Check authorization - user should be admin or the borrower for this loan
+    if (req.user.role !== 'admin') {
+      const borrower = db.prepare('SELECT user_id FROM borrowers WHERE id = ?').get(transaction.borrower_id);
+      if (!borrower || req.user.id !== borrower.user_id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: transaction.id,
+        phone_number: transaction.phone_number,
+        amount: transaction.amount,
+        status: transaction.status,
+        transaction_type: transaction.transaction_type,
+        mpesa_reference: transaction.mpesa_reference,
+        checkout_request_id: transaction.checkout_request_id,
+        response_code: transaction.response_code,
+        response_message: transaction.response_message,
+        created_at: transaction.created_at,
+        updated_at: transaction.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching transaction:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch transaction' });
+  }
+});
+
+// Admin Repayments - Record manual payment
+app.post('/api/admin/repayments', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { loan_id, amount, payment_method, reference_number } = req.body;
+
+  // Validation
+  if (!loan_id || !amount || !payment_method) {
+    return res.status(400).json({ success: false, error: 'loan_id, amount, and payment_method are required' });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ success: false, error: 'Amount must be greater than 0' });
+  }
+
+  if (['bank', 'cheque'].includes(payment_method) && !reference_number) {
+    return res.status(400).json({ success: false, error: 'reference_number is required for bank/cheque payments' });
+  }
+
+  try {
+    // Get loan details
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loan_id);
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    if (!['active', 'approved', 'disbursed'].includes(loan.status)) {
+      return res.status(400).json({ success: false, error: 'Loan is not in a valid state for payment' });
+    }
+
+    // Get total paid so far
+    const repaymentSum = db.prepare('SELECT COALESCE(SUM(amount), 0) as total_paid FROM repayments WHERE loan_id = ?').get(loan_id);
+    const totalPaid = parseFloat(repaymentSum.total_paid) || 0;
+    const outstandingTotal = loan.total_amount - totalPaid;
+
+    if (amount > outstandingTotal) {
+      return res.status(400).json({ success: false, error: `Amount exceeds outstanding balance of ${outstandingTotal}` });
+    }
+
+    // Calculate interest vs principal allocation
+    const interestPaid = db.prepare('SELECT COALESCE(SUM(interest_paid), 0) as total FROM repayments WHERE loan_id = ?').get(loan_id);
+    const principalPaid = db.prepare('SELECT COALESCE(SUM(principal_paid), 0) as total FROM repayments WHERE loan_id = ?').get(loan_id);
+
+    const totalInterestOutstanding = loan.interest_amount - (parseFloat(interestPaid.total) || 0);
+    let paidInterest = 0;
+    let paidPrincipal = 0;
+
+    if (amount >= totalInterestOutstanding) {
+      paidInterest = totalInterestOutstanding;
+      paidPrincipal = amount - totalInterestOutstanding;
+    } else {
+      paidInterest = amount;
+      paidPrincipal = 0;
+    }
+
+    // Insert repayment record
+    const stmt = db.prepare(`
+      INSERT INTO repayments (
+        loan_id, amount, principal_paid, interest_paid, payment_method, reference_number, paid_by, paid_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `);
+
+    const result = stmt.run(
+      loan_id,
+      amount,
+      paidPrincipal,
+      paidInterest,
+      payment_method,
+      reference_number || null,
+      req.user.id
+    );
+
+    // Check if loan is now fully paid
+    const newTotalPaid = totalPaid + amount;
+    if (newTotalPaid >= loan.total_amount) {
+      db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('completed', loan_id);
+    }
+
+    res.json({
+      success: true,
+      message: 'Payment recorded successfully',
+      data: {
+        repayment_id: result.lastInsertRowid,
+        loan_id: loan_id,
+        amount: amount,
+        principal_paid: paidPrincipal,
+        interest_paid: paidInterest,
+        payment_method: payment_method
+      }
+    });
+  } catch (error) {
+    console.error('Error recording repayment:', error);
+    res.status(500).json({ success: false, error: 'Failed to record repayment' });
+  }
+});
+
+// Admin Repayments - Get list
+app.get('/api/admin/repayments', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const { loan_id, search, page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let query = `
+      SELECT
+        r.id,
+        r.loan_id,
+        r.amount,
+        r.principal_paid,
+        r.interest_paid,
+        r.penalty_paid,
+        r.payment_method,
+        r.reference_number,
+        r.paid_by,
+        r.paid_at,
+        r.created_at,
+        u.name as borrower_name,
+        l.principal_amount,
+        l.total_amount,
+        l.status as loan_status
+      FROM repayments r
+      JOIN loans l ON r.loan_id = l.id
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    if (loan_id) {
+      query += ' AND r.loan_id = ?';
+      params.push(loan_id);
+    }
+
+    if (search) {
+      query += ' AND (u.name LIKE ? OR r.reference_number LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    query += ' ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const repayments = db.prepare(query).all(...params);
+
+    res.json({
+      success: true,
+      data: repayments
+    });
+  } catch (error) {
+    console.error('Error fetching repayments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch repayments' });
+  }
+});
+
+// Admin Repayments - Delete repayment
+app.delete('/api/admin/repayments/:id', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const repayment = db.prepare('SELECT * FROM repayments WHERE id = ?').get(id);
+    if (!repayment) {
+      return res.status(404).json({ success: false, error: 'Repayment not found' });
+    }
+
+    // Delete the repayment
+    db.prepare('DELETE FROM repayments WHERE id = ?').run(id);
+
+    // Recalculate loan status - if it was completed but now isn't, revert to active
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(repayment.loan_id);
+    const totalRepaidAfterDelete = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM repayments WHERE loan_id = ?').get(repayment.loan_id);
+
+    if (loan.status === 'completed' && totalRepaidAfterDelete.total < loan.total_amount) {
+      db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('active', repayment.loan_id);
+    }
+
+    res.json({
+      success: true,
+      message: 'Repayment deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting repayment:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete repayment' });
   }
 });
 
