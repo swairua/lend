@@ -41,14 +41,6 @@ app.use(express.json());
 
 // Initialize SQLite database
 const dbPath = path.join(__dirname, 'lending.db');
-// Remove old database if it exists (for fresh start during development)
-try {
-  if (fs.existsSync(dbPath)) {
-    fs.unlinkSync(dbPath);
-  }
-} catch (e) {
-  // Ignore errors
-}
 const db = new Database(dbPath);
 
 // Enable foreign keys

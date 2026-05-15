@@ -155,14 +155,19 @@
   }
 
   p {
-    @apply text-xs sm:text-sm md:text-base;
+    @apply text-sm sm:text-sm md:text-base lg:text-base;
   }
 
   label {
-    @apply text-xs sm:text-sm;
+    @apply text-xs sm:text-sm md:text-sm;
   }
 
   button {
-    @apply text-xs sm:text-sm;
+    @apply text-xs sm:text-sm md:text-base;
+  }
+
+  /* Table typography optimization */
+  td, th {
+    @apply text-xs sm:text-xs md:text-sm lg:text-base;
   }
 }
