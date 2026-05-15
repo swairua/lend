@@ -178,7 +178,7 @@ export const repaymentsApi = {
     payment_method: string;
     reference_number?: string;
   }) =>
-    request<{ success: boolean; message: string }>('/repayments', {
+    request<{ success: boolean; message: string }>('/admin/repayments', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
