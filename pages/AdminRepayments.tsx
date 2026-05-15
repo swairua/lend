@@ -1,14 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus } from 'lucide-react';
-import { adminApi, formatKES, formatDate, Loan } from '../types/api';
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2 } from 'lucide-react';
+import { adminApi, formatKES, formatDate } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
 
@@ -33,84 +32,15 @@ export default function AdminRepayments() {
   const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [addPaymentOpen, setAddPaymentOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [totalRepayments, setTotalRepayments] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [loans, setLoans] = useState<Loan[]>([]);
-  const [loadingLoans, setLoadingLoans] = useState(false);
-  const [searchingLoans, setSearchingLoans] = useState(false);
-  const [loanSearchTerm, setLoanSearchTerm] = useState('');
-  const [addPaymentLoading, setAddPaymentLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    loan_id: '',
-    amount: '',
-    principal_paid: '',
-    interest_paid: '',
-    payment_method: 'cash' as 'cash' | 'mpesa' | 'bank' | 'other',
-    reference_number: '',
-  });
   const { showAlert, confirm, AlertComponent } = useAlert();
-  const loanSearchTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     loadRepayments();
-    loadActiveLoans();
   }, []);
-
-  const loadActiveLoans = async () => {
-    setLoadingLoans(true);
-    try {
-      const response = await adminApi.getLoans();
-      if (response.data?.loans) {
-        const allLoans = normalizeList<Loan>(response.data.loans) as Loan[];
-        setLoans(allLoans);
-      }
-    } catch (error: any) {
-      console.error('Failed to load loans:', error);
-    } finally {
-      setLoadingLoans(false);
-    }
-  };
-
-  const handleLoanSearch = (searchTerm: string) => {
-    setLoanSearchTerm(searchTerm);
-
-    if (loanSearchTimeoutRef.current) {
-      clearTimeout(loanSearchTimeoutRef.current);
-    }
-
-    if (!searchTerm.trim()) {
-      loadActiveLoans();
-      return;
-    }
-
-    setSearchingLoans(true);
-    loanSearchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const response = await adminApi.getLoans();
-        if (response.data?.loans) {
-          const allLoans = normalizeList<Loan>(response.data.loans) as Loan[];
-          const search = searchTerm.toLowerCase();
-          const filtered = allLoans.filter(loan =>
-            String(loan.id).includes(search) ||
-            loan.borrower_name?.toLowerCase().includes(search) ||
-            loan.borrower_email?.toLowerCase().includes(search) ||
-            loan.product_name?.toLowerCase().includes(search) ||
-            loan.status?.toLowerCase().includes(search) ||
-            formatKES(loan.principal_amount).toLowerCase().includes(search) ||
-            formatKES(loan.balance || 0).toLowerCase().includes(search)
-          );
-          setLoans(filtered);
-        }
-      } catch (error: any) {
-        console.error('Failed to search loans:', error);
-      } finally {
-        setSearchingLoans(false);
-      }
-    }, 300);
-  };
 
   const loadRepayments = async () => {
     setLoading(true);
@@ -158,52 +88,6 @@ export default function AdminRepayments() {
     });
   };
 
-  const handleAddPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.loan_id || !formData.amount || !formData.principal_paid || !formData.interest_paid) {
-      showAlert({ type: 'error', message: 'Please fill in all required fields' });
-      return;
-    }
-
-    const amount = parseFloat(formData.amount);
-    const principal = parseFloat(formData.principal_paid);
-    const interest = parseFloat(formData.interest_paid);
-
-    if (amount <= 0 || principal < 0 || interest < 0) {
-      showAlert({ type: 'error', message: 'All amounts must be positive' });
-      return;
-    }
-
-    setAddPaymentLoading(true);
-    try {
-      await adminApi.createRepayment({
-        loan_id: parseInt(formData.loan_id),
-        amount,
-        principal_paid: principal,
-        interest_paid: interest,
-        payment_method: formData.payment_method,
-        reference_number: formData.reference_number || undefined,
-      });
-
-      showAlert({ type: 'success', message: 'Payment added successfully' });
-      setAddPaymentOpen(false);
-      setFormData({
-        loan_id: '',
-        amount: '',
-        principal_paid: '',
-        interest_paid: '',
-        payment_method: 'cash',
-        reference_number: '',
-      });
-      await loadRepayments();
-    } catch (error: any) {
-      showAlert({ type: 'error', message: error.message });
-    } finally {
-      setAddPaymentLoading(false);
-    }
-  };
-
   const filteredRepayments = repayments.filter(r => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
@@ -232,16 +116,10 @@ export default function AdminRepayments() {
           </Button>
           <h1 className="text-xl md:text-2xl font-bold">Repayments</h1>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="default" size="sm" onClick={() => setAddPaymentOpen(true)} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Payment
-          </Button>
-          <Button variant="outline" size="sm" onClick={loadRepayments} className="w-full sm:w-auto">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={loadRepayments} className="w-full sm:w-auto">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
       {error && (
@@ -345,156 +223,6 @@ export default function AdminRepayments() {
           )}
         </CardContent>
       </Card>
-
-      {/* Add Payment Dialog */}
-      <Dialog
-        open={addPaymentOpen}
-        onOpenChange={(open) => {
-          setAddPaymentOpen(open);
-          if (open) {
-            loadActiveLoans();
-          } else {
-            setLoanSearchTerm('');
-            setLoans([]);
-          }
-        }}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Add Payment</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddPayment} className="space-y-4">
-            <div>
-              <label className="text-xs md:text-sm font-medium text-muted-foreground">Loan *</label>
-              <Input
-                type="text"
-                placeholder="Search by loan ID, borrower, product, status, or amount..."
-                value={loanSearchTerm}
-                onChange={(e) => handleLoanSearch(e.target.value)}
-                className="mt-1"
-              />
-              {(loanSearchTerm || loans.length > 0 || loadingLoans) && (
-                <div className="mt-1 border rounded-md bg-white max-h-48 overflow-y-auto">
-                  {loadingLoans || searchingLoans ? (
-                    <div className="p-2 text-sm text-muted-foreground flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {loadingLoans ? 'Loading loans...' : 'Searching...'}
-                    </div>
-                  ) : loans.length > 0 ? (
-                    loans.map(loan => (
-                      <button
-                        key={loan.id}
-                        type="button"
-                        onClick={() => {
-                          const principalAmount = loan.principal_amount || 0;
-                          const interestAmount = loan.interest_amount || 0;
-                          const totalAmount = principalAmount + interestAmount;
-
-                          setFormData({
-                            ...formData,
-                            loan_id: loan.id.toString(),
-                            principal_paid: principalAmount.toString(),
-                            interest_paid: interestAmount.toString(),
-                            amount: totalAmount.toString(),
-                          });
-                          setLoanSearchTerm('');
-                          setLoans([]);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-b-0"
-                      >
-                        <div className="font-medium">#{loan.id} - {loan.borrower_name || 'N/A'}</div>
-                        <div className="text-xs text-muted-foreground">{loan.borrower_email || ''}</div>
-                        <div className="text-xs text-muted-foreground">Balance: {formatKES(loan.balance || 0)}</div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="p-2 text-sm text-muted-foreground">No active loans found</div>
-                  )}
-                </div>
-              )}
-              {formData.loan_id && (
-                <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                  Loan ID <strong>#{formData.loan_id}</strong> selected
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs md:text-sm font-medium text-muted-foreground">Payment Amount (Ksh) *</label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="Enter amount being paid"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                className="mt-1"
-                min="0"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Total amount for this payment</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs md:text-sm font-medium text-muted-foreground">Principal Paid (Ksh) *</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.principal_paid}
-                  onChange={(e) => setFormData({ ...formData, principal_paid: e.target.value })}
-                  className="mt-1"
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="text-xs md:text-sm font-medium text-muted-foreground">Interest Paid (Ksh) *</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.interest_paid}
-                  onChange={(e) => setFormData({ ...formData, interest_paid: e.target.value })}
-                  className="mt-1"
-                  min="0"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs md:text-sm font-medium text-muted-foreground">Payment Method *</label>
-              <Select value={formData.payment_method} onValueChange={(value: any) => setFormData({ ...formData, payment_method: value })}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="mpesa">M-Pesa</SelectItem>
-                  <SelectItem value="bank">Bank Transfer</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-xs md:text-sm font-medium text-muted-foreground">Reference Number</label>
-              <Input
-                type="text"
-                placeholder="e.g., cheque number, transaction ID"
-                value={formData.reference_number}
-                onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
-                className="mt-1"
-              />
-            </div>
-          </form>
-          <DialogFooter className="gap-2 flex-col sm:flex-row">
-            <Button variant="outline" onClick={() => setAddPaymentOpen(false)} className="w-full sm:w-auto">Cancel</Button>
-            <Button onClick={handleAddPayment} disabled={addPaymentLoading} className="w-full sm:w-auto">
-              {addPaymentLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Add Payment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Repayment Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
