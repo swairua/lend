@@ -6,10 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2 } from 'lucide-react';
-import { adminApi, formatKES, formatDate } from '../types/api';
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus } from 'lucide-react';
+import { adminApi, repaymentsApi, formatKES, formatDate } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Repayment {
   id: number;
@@ -32,10 +35,18 @@ export default function AdminRepayments() {
   const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [addPaymentDialogOpen, setAddPaymentDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [totalRepayments, setTotalRepayments] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    loan_id: '',
+    amount: '',
+    payment_method: 'cash',
+    reference_number: '',
+  });
   const { showAlert, confirm, AlertComponent } = useAlert();
 
   useEffect(() => {
@@ -88,6 +99,44 @@ export default function AdminRepayments() {
     });
   };
 
+  const handleAddPayment = async () => {
+    if (!paymentForm.loan_id || !paymentForm.amount) {
+      showAlert({ type: 'error', message: 'Please fill in loan ID and amount' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await repaymentsApi.record({
+        loan_id: parseInt(paymentForm.loan_id),
+        amount: parseFloat(paymentForm.amount),
+        payment_method: paymentForm.payment_method,
+        reference_number: paymentForm.reference_number || undefined,
+      });
+
+      showAlert({
+        type: 'success',
+        message: `Payment of ${formatKES(parseFloat(paymentForm.amount))} recorded successfully`,
+      });
+
+      setPaymentForm({
+        loan_id: '',
+        amount: '',
+        payment_method: 'cash',
+        reference_number: '',
+      });
+      setAddPaymentDialogOpen(false);
+      await loadRepayments();
+    } catch (err: any) {
+      showAlert({
+        type: 'error',
+        message: err.message || 'Failed to record payment',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredRepayments = repayments.filter(r => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
@@ -116,10 +165,16 @@ export default function AdminRepayments() {
           </Button>
           <h1 className="text-xl md:text-2xl font-bold">Repayments</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={loadRepayments} className="w-full sm:w-auto">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={loadRepayments} className="flex-1 sm:flex-none">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button size="sm" onClick={() => setAddPaymentDialogOpen(true)} className="flex-1 sm:flex-none">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Payment
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -284,7 +339,100 @@ export default function AdminRepayments() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
+      {/* Add Payment Dialog */}
+      <Dialog open={addPaymentDialogOpen} onOpenChange={setAddPaymentDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="loan_id" className="text-xs md:text-sm">
+                Loan ID *
+              </Label>
+              <Input
+                id="loan_id"
+                type="number"
+                placeholder="Enter loan ID"
+                value={paymentForm.loan_id}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, loan_id: e.target.value })
+                }
+                className="text-xs md:text-sm"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="amount" className="text-xs md:text-sm">
+                Amount *
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                placeholder="Enter amount"
+                value={paymentForm.amount}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, amount: e.target.value })
+                }
+                className="text-xs md:text-sm"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="method" className="text-xs md:text-sm">
+                Payment Method
+              </Label>
+              <Select
+                value={paymentForm.payment_method}
+                onValueChange={(value) =>
+                  setPaymentForm({ ...paymentForm, payment_method: value })
+                }
+              >
+                <SelectTrigger className="text-xs md:text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="mpesa">M-Pesa</SelectItem>
+                  <SelectItem value="bank">Bank Transfer</SelectItem>
+                  <SelectItem value="check">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="reference" className="text-xs md:text-sm">
+                Reference Number (optional)
+              </Label>
+              <Input
+                id="reference"
+                type="text"
+                placeholder="e.g., M-Pesa ref, cheque number"
+                value={paymentForm.reference_number}
+                onChange={(e) =>
+                  setPaymentForm({
+                    ...paymentForm,
+                    reference_number: e.target.value,
+                  })
+                }
+                className="text-xs md:text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAddPaymentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddPayment} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Record Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Custom Alert */}
       {AlertComponent}
     </div>
