@@ -250,6 +250,26 @@ function initializeSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS pdf_documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loan_id INTEGER NOT NULL,
+        document_type VARCHAR(50) NOT NULL,
+        repayment_id INTEGER DEFAULT NULL,
+        file_content BLOB NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (loan_id) REFERENCES loans(id),
+        FOREIGN KEY (repayment_id) REFERENCES repayments(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        setting_key VARCHAR(255) NOT NULL UNIQUE,
+        setting_value TEXT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // Seed demo users if they don't exist
@@ -1557,6 +1577,309 @@ app.delete('/api/admin/repayments/:id', authenticate, (req, res) => {
   } catch (error) {
     console.error('Error deleting repayment:', error);
     res.status(500).json({ success: false, error: 'Failed to delete repayment' });
+  }
+});
+
+// ===== PDF Generation Endpoints =====
+
+// Generate Receipt PDF
+app.post('/api/admin/generate-receipt', authenticate, async (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { loan_id, repayment_id } = req.body;
+
+  if (!loan_id || !repayment_id) {
+    return res.status(400).json({ success: false, error: 'loan_id and repayment_id are required' });
+  }
+
+  try {
+    // Get repayment details
+    const repayment = db.prepare('SELECT * FROM repayments WHERE id = ? AND loan_id = ?').get(repayment_id, loan_id);
+    if (!repayment) {
+      return res.status(404).json({ success: false, error: 'Repayment not found' });
+    }
+
+    // Get loan and borrower details
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loan_id);
+    const borrower = db.prepare('SELECT u.name, u.phone FROM borrowers b JOIN users u ON b.user_id = u.id WHERE b.id = ?').get(loan.borrower_id);
+
+    if (!borrower) {
+      return res.status(404).json({ success: false, error: 'Borrower not found' });
+    }
+
+    // Calculate remaining balance
+    const paidTotal = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM repayments WHERE loan_id = ?').get(loan_id);
+    const remainingBalance = loan.total_amount - (parseFloat(paidTotal.total) || 0);
+
+    // Prepare receipt data
+    const receiptData = {
+      loanId: loan_id,
+      borrowerName: borrower.name,
+      borrowerPhone: borrower.phone,
+      repaymentId: repayment_id,
+      amount: repayment.amount,
+      principalPaid: repayment.principal_paid || 0,
+      interestPaid: repayment.interest_paid || 0,
+      penaltyPaid: repayment.penalty_paid || 0,
+      paymentMethod: repayment.payment_method || 'cash',
+      referenceNumber: repayment.reference_number,
+      paidAt: repayment.paid_at,
+      remainingBalance: remainingBalance
+    };
+
+    // Import PDF generator
+    const { generateReceiptPDF } = await import('./utils/pdfGenerator.ts');
+    const pdfBuffer = await generateReceiptPDF(receiptData);
+
+    // Store PDF in database
+    const fileName = `receipt-${loan_id}-${repayment_id}-${Date.now()}.pdf`;
+    const stmt = db.prepare(`
+      INSERT INTO pdf_documents (loan_id, document_type, repayment_id, file_content, file_name)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(loan_id, 'receipt', repayment_id, pdfBuffer, fileName);
+
+    res.json({
+      success: true,
+      message: 'Receipt generated successfully',
+      data: {
+        document_id: result.lastInsertRowid,
+        fileName: fileName,
+        pdfUrl: `/api/documents/${result.lastInsertRowid}`
+      }
+    });
+  } catch (error) {
+    console.error('Error generating receipt:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate receipt' });
+  }
+});
+
+// Generate Invoice PDF
+app.post('/api/admin/generate-invoice', authenticate, async (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { loan_id } = req.body;
+
+  if (!loan_id) {
+    return res.status(400).json({ success: false, error: 'loan_id is required' });
+  }
+
+  try {
+    // Get loan details
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loan_id);
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    // Get borrower details
+    const borrower = db.prepare('SELECT u.name, u.phone, u.email FROM borrowers b JOIN users u ON b.user_id = u.id WHERE b.id = ?').get(loan.borrower_id);
+    if (!borrower) {
+      return res.status(404).json({ success: false, error: 'Borrower not found' });
+    }
+
+    // Calculate paid amounts
+    const paidAmounts = db.prepare(`
+      SELECT
+        COALESCE(SUM(principal_paid), 0) as principal_paid,
+        COALESCE(SUM(interest_paid), 0) as interest_paid,
+        COALESCE(SUM(amount), 0) as total_paid
+      FROM repayments WHERE loan_id = ?
+    `).get(loan_id);
+
+    const principalPaid = parseFloat(paidAmounts.principal_paid) || 0;
+    const interestPaid = parseFloat(paidAmounts.interest_paid) || 0;
+    const amountDue = loan.total_amount - parseFloat(paidAmounts.total_paid);
+
+    // Prepare invoice data
+    const invoiceData = {
+      loanId: loan_id,
+      borrowerName: borrower.name,
+      borrowerPhone: borrower.phone,
+      borrowerEmail: borrower.email,
+      principalAmount: loan.principal_amount,
+      interestAmount: loan.interest_amount || 0,
+      totalAmount: loan.total_amount,
+      termMonths: loan.term_months,
+      principalPaid: principalPaid,
+      interestPaid: interestPaid,
+      amountDue: amountDue,
+      dueDate: loan.due_date,
+      createdAt: new Date().toISOString()
+    };
+
+    // Import PDF generator
+    const { generateInvoicePDF } = await import('./utils/pdfGenerator.ts');
+    const pdfBuffer = await generateInvoicePDF(invoiceData);
+
+    // Store PDF in database
+    const fileName = `invoice-${loan_id}-${Date.now()}.pdf`;
+    const stmt = db.prepare(`
+      INSERT INTO pdf_documents (loan_id, document_type, file_content, file_name)
+      VALUES (?, ?, ?, ?)
+    `);
+    const result = stmt.run(loan_id, 'invoice', pdfBuffer, fileName);
+
+    res.json({
+      success: true,
+      message: 'Invoice generated successfully',
+      data: {
+        document_id: result.lastInsertRowid,
+        fileName: fileName,
+        pdfUrl: `/api/documents/${result.lastInsertRowid}`
+      }
+    });
+  } catch (error) {
+    console.error('Error generating invoice:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate invoice' });
+  }
+});
+
+// Download PDF Document
+app.get('/api/documents/:id', authenticate, (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const doc = db.prepare('SELECT * FROM pdf_documents WHERE id = ?').get(id);
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    // Check authorization: admin or the borrower who owns the loan
+    if (req.user.role !== 'admin') {
+      const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(doc.loan_id);
+      const borrower = db.prepare('SELECT user_id FROM borrowers WHERE id = ?').get(loan.borrower_id);
+      if (borrower.user_id !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.file_name}"`);
+    res.send(doc.file_content);
+  } catch (error) {
+    console.error('Error downloading document:', error);
+    res.status(500).json({ success: false, error: 'Failed to download document' });
+  }
+});
+
+// Get Admin Email Settings
+app.get('/api/admin/email-settings', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const settings = db.prepare(`
+      SELECT setting_key, setting_value FROM admin_settings
+      WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_from')
+    `).all();
+
+    const config = {};
+    settings.forEach(s => {
+      config[s.setting_key] = s.setting_value;
+    });
+
+    res.json({
+      success: true,
+      data: config
+    });
+  } catch (error) {
+    console.error('Error getting email settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to get email settings' });
+  }
+});
+
+// Update Admin Email Settings
+app.post('/api/admin/email-settings', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from } = req.body;
+
+  if (!smtp_host || !smtp_port || !smtp_user || !smtp_pass || !smtp_from) {
+    return res.status(400).json({ success: false, error: 'All SMTP settings are required' });
+  }
+
+  try {
+    // Use upsert pattern for settings
+    const settings = [
+      { key: 'smtp_host', value: smtp_host },
+      { key: 'smtp_port', value: smtp_port },
+      { key: 'smtp_user', value: smtp_user },
+      { key: 'smtp_pass', value: smtp_pass },
+      { key: 'smtp_from', value: smtp_from }
+    ];
+
+    settings.forEach(setting => {
+      const exists = db.prepare('SELECT id FROM admin_settings WHERE setting_key = ?').get(setting.key);
+      if (exists) {
+        db.prepare('UPDATE admin_settings SET setting_value = ? WHERE setting_key = ?').run(setting.value, setting.key);
+      } else {
+        db.prepare('INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)').run(setting.key, setting.value);
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Email settings saved successfully'
+    });
+  } catch (error) {
+    console.error('Error saving email settings:', error);
+    res.status(500).json({ success: false, error: 'Failed to save email settings' });
+  }
+});
+
+// Test Email Configuration
+app.post('/api/admin/email-settings/test', authenticate, async (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    // Get current settings
+    const settings = db.prepare(`
+      SELECT setting_key, setting_value FROM admin_settings
+      WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from')
+    `).all();
+
+    if (settings.length === 0) {
+      return res.status(400).json({ success: false, error: 'Email settings not configured' });
+    }
+
+    const config = {};
+    settings.forEach(s => {
+      config[s.setting_key] = s.setting_value;
+    });
+
+    // Import and configure email service
+    const emailService = (await import('./utils/emailService.ts')).default;
+    emailService.setConfig({
+      host: config.smtp_host,
+      port: parseInt(config.smtp_port),
+      secure: parseInt(config.smtp_port) === 465,
+      auth: {
+        user: config.smtp_user,
+        pass: config.smtp_pass
+      },
+      from: config.smtp_from
+    });
+
+    // Test connection
+    const result = await emailService.testConnection();
+    res.json(result);
+  } catch (error) {
+    console.error('Error testing email configuration:', error);
+    res.status(500).json({ success: false, error: 'Failed to test email configuration' });
   }
 });
 
