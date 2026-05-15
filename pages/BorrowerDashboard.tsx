@@ -81,13 +81,13 @@ export default function BorrowerDashboard() {
         <p className="text-sm text-muted-foreground">Welcome back, {user?.name}</p>
       </div>
         {/* Quick Apply Card */}
-        <Card className="bg-gradient-to-r from-green-600 to-green-700 text-white border-0">
+        <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm">Need funds?</p>
+                <p className="text-blue-100 text-sm">Need funds?</p>
                 <p className="text-xl font-bold mt-1">Apply for a loan</p>
-                <p className="text-green-100 text-xs mt-1">Apply and track your status</p>
+                <p className="text-blue-100 text-xs mt-1">Apply and track your loan status</p>
               </div>
               <Button asChild size="sm" className="bg-white text-green-700 hover:bg-green-50">
                 <Link to="/apply">
