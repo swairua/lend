@@ -161,22 +161,22 @@ export default function AdminRepayments() {
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.loan_id || !formData.amount || !formData.principal_paid || !formData.interest_paid) {
-      showAlert({ type: 'error', message: 'Please fill in all required fields' });
+    if (!formData.loan_id || !formData.principal_paid || !formData.interest_paid) {
+      showAlert({ type: 'error', message: 'Please fill in loan, principal paid, and interest paid' });
       return;
     }
 
-    const amount = parseFloat(formData.amount);
     const principal = parseFloat(formData.principal_paid);
     const interest = parseFloat(formData.interest_paid);
+    const calculatedTotal = principal + interest;
 
-    if (amount <= 0 || principal < 0 || interest < 0) {
-      showAlert({ type: 'error', message: 'Amounts must be positive' });
+    if (principal < 0 || interest < 0) {
+      showAlert({ type: 'error', message: 'Principal and interest amounts must be positive' });
       return;
     }
 
-    if (Math.abs(amount - (principal + interest)) > 0.01) {
-      showAlert({ type: 'error', message: 'Total amount must equal principal + interest' });
+    if (calculatedTotal <= 0) {
+      showAlert({ type: 'error', message: 'Total amount must be greater than 0' });
       return;
     }
 
@@ -184,7 +184,7 @@ export default function AdminRepayments() {
     try {
       await adminApi.createRepayment({
         loan_id: parseInt(formData.loan_id),
-        amount,
+        amount: calculatedTotal,
         principal_paid: principal,
         interest_paid: interest,
         payment_method: formData.payment_method,
@@ -424,19 +424,6 @@ export default function AdminRepayments() {
               )}
             </div>
 
-            <div>
-              <label className="text-xs md:text-sm font-medium text-muted-foreground">Total Amount (Ksh) *</label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                className="mt-1"
-                min="0"
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs md:text-sm font-medium text-muted-foreground">Principal Paid (Ksh) *</label>
@@ -445,7 +432,12 @@ export default function AdminRepayments() {
                   step="0.01"
                   placeholder="0.00"
                   value={formData.principal_paid}
-                  onChange={(e) => setFormData({ ...formData, principal_paid: e.target.value })}
+                  onChange={(e) => {
+                    const principal = e.target.value;
+                    const interest = formData.interest_paid;
+                    const total = interest ? (parseFloat(principal || '0') + parseFloat(interest)).toString() : '';
+                    setFormData({ ...formData, principal_paid: principal, amount: total });
+                  }}
                   className="mt-1"
                   min="0"
                 />
@@ -457,11 +449,29 @@ export default function AdminRepayments() {
                   step="0.01"
                   placeholder="0.00"
                   value={formData.interest_paid}
-                  onChange={(e) => setFormData({ ...formData, interest_paid: e.target.value })}
+                  onChange={(e) => {
+                    const interest = e.target.value;
+                    const principal = formData.principal_paid;
+                    const total = principal ? (parseFloat(principal) + parseFloat(interest || '0')).toString() : '';
+                    setFormData({ ...formData, interest_paid: interest, amount: total });
+                  }}
                   className="mt-1"
                   min="0"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="text-xs md:text-sm font-medium text-muted-foreground">Total Amount (Ksh)</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.amount}
+                disabled
+                className="mt-1 bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Auto-calculated from principal + interest</p>
             </div>
 
             <div>
