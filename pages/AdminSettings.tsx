@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { adminApi } from '../types/api';
-import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon } from 'lucide-react';
+import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 
 interface SystemConfig {
@@ -103,6 +103,15 @@ export default function AdminSettings() {
   const [productSaving, setProductSaving] = useState(false);
   const [mpesaCopied, setMpesaCopied] = useState(false);
   const [testingMpesa, setTestingMpesa] = useState(false);
+  const [emailSettings, setEmailSettings] = useState({
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_user: '',
+    smtp_pass: '',
+    smtp_from: '',
+  });
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailTesting, setEmailTesting] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
   const [config, setConfig] = useState<SystemConfig>({
     company_name: '',
@@ -146,6 +155,7 @@ export default function AdminSettings() {
     loadSettings();
     loadCategories();
     loadProducts();
+    loadEmailSettings();
   }, []);
 
   const loadSettings = async () => {
@@ -187,6 +197,24 @@ export default function AdminSettings() {
       setProducts(response.data?.data || response.data || []);
     } catch (error) {
       console.error('Failed to load products:', error);
+    }
+  };
+
+  const loadEmailSettings = async () => {
+    try {
+      const { pdfApi } = await import('../types/api');
+      const response: any = await pdfApi.getEmailSettings();
+      if (response.success && response.data) {
+        setEmailSettings({
+          smtp_host: response.data.smtp_host || '',
+          smtp_port: response.data.smtp_port || '587',
+          smtp_user: response.data.smtp_user || '',
+          smtp_pass: response.data.smtp_pass || '',
+          smtp_from: response.data.smtp_from || '',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load email settings:', error);
     }
   };
 
@@ -276,6 +304,47 @@ export default function AdminSettings() {
 
   const handleToggle = (key: keyof SystemConfig, checked: boolean) => {
     setConfig({ ...config, [key]: checked ? '1' : '0' });
+  };
+
+  const handleSaveEmailSettings = async () => {
+    if (!emailSettings.smtp_host || !emailSettings.smtp_port || !emailSettings.smtp_user || !emailSettings.smtp_pass || !emailSettings.smtp_from) {
+      showAlert({ type: 'warning', message: 'All email settings are required' });
+      return;
+    }
+
+    setEmailSaving(true);
+    try {
+      const { pdfApi } = await import('../types/api');
+      await pdfApi.updateEmailSettings(
+        emailSettings.smtp_host,
+        parseInt(emailSettings.smtp_port),
+        emailSettings.smtp_user,
+        emailSettings.smtp_pass,
+        emailSettings.smtp_from
+      );
+      showAlert({ type: 'success', message: 'Email settings saved successfully' });
+    } catch (error: any) {
+      showAlert({ type: 'error', message: error.message || 'Failed to save email settings' });
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const handleTestEmailSettings = async () => {
+    setEmailTesting(true);
+    try {
+      const { pdfApi } = await import('../types/api');
+      const result = await pdfApi.testEmailSettings();
+      if (result.success) {
+        showAlert({ type: 'success', message: result.message || 'Email connection successful!' });
+      } else {
+        showAlert({ type: 'error', message: result.message || 'Email connection failed' });
+      }
+    } catch (error: any) {
+      showAlert({ type: 'error', message: error.message || 'Failed to test email settings' });
+    } finally {
+      setEmailTesting(false);
+    }
   };
 
   // Category handlers
@@ -453,6 +522,7 @@ export default function AdminSettings() {
             <TabsTrigger value="products" className="text-xs md:text-sm whitespace-nowrap"><CreditCard className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
             <TabsTrigger value="requirements" className="text-xs md:text-sm whitespace-nowrap"><Shield className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Requirements</span></TabsTrigger>
             <TabsTrigger value="notifications" className="text-xs md:text-sm whitespace-nowrap"><Bell className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Notifications</span></TabsTrigger>
+            <TabsTrigger value="email" className="text-xs md:text-sm whitespace-nowrap"><Mail className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Email</span></TabsTrigger>
             <TabsTrigger value="mpesa" className="text-xs md:text-sm whitespace-nowrap"><Smartphone className="h-4 w-4 mr-1" /><span className="hidden sm:inline">M-Pesa</span></TabsTrigger>
           </TabsList>
         </div>
@@ -768,6 +838,87 @@ export default function AdminSettings() {
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Changes
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" />Email Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <strong>SMTP Setup:</strong> Configure your email settings to send receipts, invoices, and notifications to borrowers. Common providers: Gmail, Outlook, SendGrid.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>SMTP Host *</Label>
+                  <Input
+                    value={emailSettings.smtp_host}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_host: e.target.value })}
+                    placeholder="e.g., smtp.gmail.com"
+                  />
+                </div>
+                <div>
+                  <Label>SMTP Port *</Label>
+                  <Input
+                    type="number"
+                    value={emailSettings.smtp_port}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_port: e.target.value })}
+                    placeholder="e.g., 587 or 465"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Username/Email *</Label>
+                  <Input
+                    type="email"
+                    value={emailSettings.smtp_user}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_user: e.target.value })}
+                    placeholder="e.g., your-email@gmail.com"
+                  />
+                </div>
+                <div>
+                  <Label>Password/App Password *</Label>
+                  <Input
+                    type="password"
+                    value={emailSettings.smtp_pass}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_pass: e.target.value })}
+                    placeholder="Your SMTP password or app-specific password"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>From Address *</Label>
+                <Input
+                  type="email"
+                  value={emailSettings.smtp_from}
+                  onChange={(e) => setEmailSettings({ ...emailSettings, smtp_from: e.target.value })}
+                  placeholder="e.g., noreply@lendingapp.com"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button onClick={handleSaveEmailSettings} disabled={emailSaving}>
+                  {emailSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Email Settings
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleTestEmailSettings}
+                  disabled={emailTesting || !emailSettings.smtp_host || !emailSettings.smtp_user || !emailSettings.smtp_pass}
+                >
+                  {emailTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                  Test Connection
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
