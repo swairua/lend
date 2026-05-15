@@ -96,11 +96,15 @@ export default function Messages() {
   const loadMessages = async () => {
     setLoading(true);
     try {
-      const response = await messagesApi.getMessages(folder);
+      const response = await Promise.race([
+        messagesApi.getMessages(folder),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+      ]);
       const msgs = normalizeList<Message>(response);
       setMessages(msgs as Message[]);
     } catch (error) {
       console.error('Failed to load messages:', error);
+      setMessages([]);
     } finally {
       setLoading(false);
     }

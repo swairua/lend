@@ -229,7 +229,7 @@ export function Layout({ children, user }: LayoutProps) {
           </div>
           <div className="border-t border-border pt-8 text-center text-sm text-muted-foreground">
             <p>
-              &copy; 2024 LendHub. All rights reserved. Fast, Transparent,
+              &copy; 2026 LendHub. All rights reserved. Fast, Transparent,
               Accessible Lending.
             </p>
           </div>

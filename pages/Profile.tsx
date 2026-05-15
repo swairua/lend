@@ -121,6 +121,9 @@ export default function Profile() {
         business_name: form.business_name || undefined,
         business_type: form.business_type || undefined,
         monthly_income: form.monthly_income ? Number(form.monthly_income) : undefined,
+        national_id: form.national_id || undefined,
+        kra_pin: form.kra_pin || undefined,
+        tcc_number: form.tcc_number || undefined,
       });
 
       localStorage.setItem('user', JSON.stringify({
@@ -259,24 +262,42 @@ export default function Profile() {
           </CardHeader>
           <CardContent className="space-y-4">
             
-            {/* KYC Fields - Read Only for Borrowers */}
-            <div className="space-y-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">KYC Information (Admin-Managed)</p>
+            {/* KYC Fields */}
+            <div className="space-y-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">KYC Information</p>
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">National ID / Passport *</Label>
-                  <Input value={form.national_id} disabled className="bg-white text-sm" />
+                  <Label htmlFor="national_id" className="text-xs text-muted-foreground">National ID / Passport *</Label>
+                  <Input
+                    id="national_id"
+                    value={form.national_id}
+                    onChange={(e) => setForm({ ...form, national_id: e.target.value })}
+                    placeholder="Enter your ID number"
+                    className="text-sm"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">KRA PIN *</Label>
-                  <Input value={form.kra_pin || "Not set"} disabled className="bg-white text-sm" />
+                  <Label htmlFor="kra_pin" className="text-xs text-muted-foreground">KRA PIN *</Label>
+                  <Input
+                    id="kra_pin"
+                    value={form.kra_pin}
+                    onChange={(e) => setForm({ ...form, kra_pin: e.target.value })}
+                    placeholder="Enter your KRA PIN"
+                    className="text-sm"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">TCC Number * (Renewed Annually)</Label>
-                  <Input value={form.tcc_number || "Not set"} disabled className="bg-white text-sm" />
+                  <Label htmlFor="tcc_number" className="text-xs text-muted-foreground">TCC Number * (Renewed Annually)</Label>
+                  <Input
+                    id="tcc_number"
+                    value={form.tcc_number}
+                    onChange={(e) => setForm({ ...form, tcc_number: e.target.value })}
+                    placeholder="Enter your TCC number"
+                    className="text-sm"
+                  />
                 </div>
               </div>
-              <p className="text-xs text-amber-700">These mandatory fields can only be updated by an administrator.</p>
+              <p className="text-xs text-blue-700">Please provide accurate KYC information. Admin will verify these details.</p>
             </div>
 
             
