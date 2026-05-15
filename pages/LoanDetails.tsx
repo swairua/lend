@@ -3,9 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import InvoiceReceipt from "../components/InvoiceReceipt";
 import LoanStatusTimeline from "../components/LoanStatusTimeline";
-import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from "../types/api";
+import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel, pdfApi } from "../types/api";
 import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
 import { calculateAPR } from "../utils/aprCalculator";
 import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
@@ -81,10 +80,9 @@ export default function LoanDetails() {
   const [loading, setLoading] = useState(true);
   const [loan, setLoan] = useState<any>(null);
   const [error, setError] = useState("");
-  const [showInvoice, setShowInvoice] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [selectedRepayment, setSelectedRepayment] = useState<any>(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   useEffect(() => { loadLoan(); }, [loanId]);
@@ -165,6 +163,55 @@ export default function LoanDetails() {
     }
   };
 
+  const handleDownloadInvoice = async () => {
+    try {
+      setDownloadingInvoice(true);
+      const res = await pdfApi.generateInvoice(loan.id);
+      if (res.success && res.data?.pdfUrl) {
+        const link = document.createElement('a');
+        link.href = res.data.pdfUrl;
+        link.download = res.data.fileName || `Invoice_Loan${loan.id}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert('Failed to generate invoice. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to download invoice:', err);
+      alert('Failed to download invoice. Please try again.');
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
+
+  const handleDownloadReceipt = async () => {
+    try {
+      setDownloadingReceipt(true);
+      if (!loan.repayments?.length) {
+        alert('No repayment records available.');
+        return;
+      }
+      const latestRepayment = loan.repayments[loan.repayments.length - 1];
+      const res = await pdfApi.generateReceipt(loan.id, latestRepayment.id);
+      if (res.success && res.data?.pdfUrl) {
+        const link = document.createElement('a');
+        link.href = res.data.pdfUrl;
+        link.download = res.data.fileName || `Receipt_Loan${loan.id}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert('Failed to generate receipt. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to download receipt:', err);
+      alert('Failed to download receipt. Please try again.');
+    } finally {
+      setDownloadingReceipt(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -186,18 +233,49 @@ export default function LoanDetails() {
       )}
 
       {/* Invoice / Receipt / Schedule / PDF Buttons */}
-      <div className="flex gap-2 flex-wrap">
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowInvoice(true)}>
-          <FileText className="h-4 w-4 mr-1" /> Invoice
+      <div className="grid grid-cols-2 gap-2 md:flex md:gap-2 md:flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={handleDownloadInvoice}
+          disabled={downloadingInvoice}
+        >
+          {downloadingInvoice ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-1" />
+            </>
+          )}
+          <span className="hidden sm:inline">Invoice</span>
         </Button>
         {(loan.repayments?.length > 0) && (
-          <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedRepayment(loan.repayments[loan.repayments.length - 1]); setShowReceipt(true); }}>
-            <Receipt className="h-4 w-4 mr-1" /> Receipt
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={handleDownloadReceipt}
+            disabled={downloadingReceipt}
+          >
+            {downloadingReceipt ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-1" />
+              </>
+            )}
+            <span className="hidden sm:inline">Receipt</span>
           </Button>
         )}
         {loan.status === "active" && (
           <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate(`/loans/${loan.id}/repayment-schedule`)}>
-            <Calendar className="h-4 w-4 mr-1" /> Schedule
+            <Calendar className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Schedule</span>
           </Button>
         )}
         <Button
@@ -209,13 +287,14 @@ export default function LoanDetails() {
         >
           {downloadingPDF ? (
             <>
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating...
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             </>
           ) : (
             <>
-              <Download className="h-4 w-4 mr-1" /> Agreement
+              <Download className="h-4 w-4 mr-1" />
             </>
           )}
+          <span className="hidden sm:inline">Agreement</span>
         </Button>
       </div>
 
@@ -334,9 +413,6 @@ export default function LoanDetails() {
         </Card>
       )}
 
-      {/* Invoice / Receipt Modals */}
-      <InvoiceReceipt open={showInvoice} onClose={() => setShowInvoice(false)} type="invoice" loan={loan} userName={user?.name} />
-      <InvoiceReceipt open={showReceipt} onClose={() => setShowReceipt(false)} type="receipt" loan={loan} repayment={selectedRepayment} userName={user?.name} />
     </div>
   );
 }

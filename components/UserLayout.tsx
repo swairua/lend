@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { ChevronLeft, Home, FileText, Users, Package, Settings, BarChart3, User, LogOut, Menu, MessageSquare, CreditCard, DollarSign } from 'lucide-react';
+import { ChevronLeft, Home, FileText, Users, Package, Settings, BarChart3, User, LogOut, Menu, MessageSquare, CreditCard, DollarSign, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface User {
@@ -21,6 +21,7 @@ const userMenuItems = [
   { label: 'Dashboard', href: '/dashboard', icon: Home },
   { label: 'My Loans', href: '/loans', icon: FileText },
   { label: 'Apply', href: '/apply', icon: CreditCard },
+  { label: 'Payments', href: '/payments', icon: History },
   { label: 'Messages', href: '/messages', icon: MessageSquare },
   { label: 'Profile', href: '/profile', icon: User },
 ];

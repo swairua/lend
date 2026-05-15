@@ -31,6 +31,7 @@ import RepaymentSchedule from "./pages/RepaymentSchedule";
 import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import BorrowerPayments from "./pages/BorrowerPayments";
 import UserLayout from "./components/UserLayout";
 import PrivateRoute from "./components/PrivateRoute";
 
@@ -58,6 +59,7 @@ const AppRoutes = () => {
       <Route path="/loans" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><BorrowerLoans /></UserLayout></PrivateRoute>} />
       <Route path="/loans/:loanId" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><LoanDetails /></UserLayout></PrivateRoute>} />
       <Route path="/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><RepaymentSchedule /></UserLayout></PrivateRoute>} />
+      <Route path="/payments" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><BorrowerPayments /></UserLayout></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><UserLayout user={user}><Profile /></UserLayout></PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute><UserLayout user={user}><Messages /></UserLayout></PrivateRoute>} />
       <Route path="/messages/:messageId" element={<PrivateRoute><UserLayout user={user}><Messages /></UserLayout></PrivateRoute>} />
