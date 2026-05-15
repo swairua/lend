@@ -2,8 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FieldGroup } from "@/components/FieldGroup";
 import { productsApi, loansApi, formatKES } from "../types/api";
 import { calculateAPR } from "../utils/aprCalculator";
 import { debounce } from "@/utils/debounce";
@@ -13,7 +13,7 @@ import { LoanEstimateSummary } from "@/components/LoanEstimateSummary";
 import { LoanReviewSummary } from "@/components/LoanReviewSummary";
 import { LoanWizardStepper } from "@/components/LoanWizardStepper";
 import { PageTitle } from "@/components/PageTitle";
-import { Loader2, CheckCircle, ArrowRight, AlertCircle, CreditCard, Info } from "lucide-react";
+import { Loader2, CheckCircle, ArrowRight, AlertCircle, CreditCard, Info, ArrowLeft } from "lucide-react";
 import { useAlert } from "@/hooks/use-alert";
 
 export default function ApplyLoan() {
@@ -266,24 +266,21 @@ export default function ApplyLoan() {
               <CardTitle className="text-base flex items-center gap-2"><Info className="h-4 w-4" /> Additional Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="purpose">Loan Purpose</Label>
+              <FieldGroup label="Loan Purpose">
                 <Textarea id="purpose" placeholder="What will you use this loan for?" value={form.purpose}
                   onChange={(e) => setForm(f => ({ ...f, purpose: e.target.value }))} className="min-h-[80px]" />
-              </div>
+              </FieldGroup>
               {selectedProduct?.requires_security && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="security">Security Details <span className="text-red-500">*</span></Label>
+                <FieldGroup label="Security Details" required>
                   <Textarea id="security" placeholder="Describe the collateral/security for this loan" value={form.security_details}
                     onChange={(e) => setForm(f => ({ ...f, security_details: e.target.value }))} className="min-h-[80px]" />
-                </div>
+                </FieldGroup>
               )}
               {selectedProduct?.requires_guarantor && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="guarantor">Guarantor Details <span className="text-red-500">*</span></Label>
+                <FieldGroup label="Guarantor Details" required>
                   <Textarea id="guarantor" placeholder="Guarantor full name, phone, relationship" value={form.guarantor_details}
                     onChange={(e) => setForm(f => ({ ...f, guarantor_details: e.target.value }))} className="min-h-[80px]" />
-                </div>
+                </FieldGroup>
               )}
             </CardContent>
           </Card>

@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { SectionCard } from '@/components/SectionCard';
+import { FieldGroup } from '@/components/FieldGroup';
 import { Loader2, Lock } from 'lucide-react';
 
 interface PasswordFormData {
@@ -28,8 +28,7 @@ export function PasswordChangeForm({ form, onChange, onSubmit, saving = false }:
     <form onSubmit={onSubmit} className="mt-6">
       <SectionCard icon={Lock} title="Change Password" description="Update your password">
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Current Password</Label>
+          <FieldGroup label="Current Password">
             <Input
               id="currentPassword"
               type="password"
@@ -37,10 +36,9 @@ export function PasswordChangeForm({ form, onChange, onSubmit, saving = false }:
               onChange={(e) => handleChange('currentPassword', e.target.value)}
               placeholder="Enter current password"
             />
-          </div>
+          </FieldGroup>
 
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">New Password</Label>
+          <FieldGroup label="New Password">
             <Input
               id="newPassword"
               type="password"
@@ -48,10 +46,9 @@ export function PasswordChangeForm({ form, onChange, onSubmit, saving = false }:
               onChange={(e) => handleChange('newPassword', e.target.value)}
               placeholder="Enter new password"
             />
-          </div>
+          </FieldGroup>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+          <FieldGroup label="Confirm New Password">
             <Input
               id="confirmPassword"
               type="password"
@@ -59,7 +56,7 @@ export function PasswordChangeForm({ form, onChange, onSubmit, saving = false }:
               onChange={(e) => handleChange('confirmPassword', e.target.value)}
               placeholder="Confirm new password"
             />
-          </div>
+          </FieldGroup>
 
           <Button type="submit" variant="outline" className="w-full" disabled={saving || !isValid}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
