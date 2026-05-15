@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus, Check, ChevronsUpDown } from 'lucide-react';
-import { adminApi, repaymentsApi, formatKES, formatDate, loansApi } from '../types/api';
+import { adminApi, repaymentsApi, formatKES, formatDate } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
 import { Label } from '@/components/ui/label';
@@ -118,7 +118,7 @@ export default function AdminRepayments() {
   const searchLoans = async (query: string) => {
     setLoadingLoans(true);
     try {
-      const response = await loansApi.getLoans({ status: 'active', limit: 50 });
+      const response = await adminApi.getLoans({ status: 'active', limit: 50 });
       const loansData = Array.isArray(response.data?.loans) ? response.data.loans : [];
 
       const filtered = loansData.filter(loan => {
