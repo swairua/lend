@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { loansApi, formatKES } from '@/utils/api';
 import { normalizeList } from '@/utils/normalize';
-import { AppLayout } from '@/components/layouts/AppLayout';
 import { useAuthenticatedUser } from '@/hooks/useAuthenticatedUser';
 import { PageTitle } from '@/components/PageTitle';
 import { StatCard } from '@/components/StatCard';
@@ -52,17 +51,14 @@ export default function BorrowerDashboard() {
 
   if (authLoading || loading) {
     return (
-      <AppLayout user={user}>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   return (
-    <AppLayout user={user}>
-      <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-2xl mx-auto">
         <PageTitle title="Dashboard" subtitle={`Welcome back, ${user?.name}`} />
 
         {/* Quick Apply Card */}
@@ -163,6 +159,5 @@ export default function BorrowerDashboard() {
           </Card>
         )}
       </div>
-    </AppLayout>
-  );
-}
+    );
+  }

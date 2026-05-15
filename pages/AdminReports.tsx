@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { adminApi, loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
+import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Download, FileText, Users, Wallet, TrendingUp, BarChart3, Calendar, Filter } from 'lucide-react';
 
 interface ReportLoan {
@@ -45,15 +46,18 @@ export default function AdminReports() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-    
-    if (!token || !storedUser || storedUser.role !== 'admin') {
-      navigate('/login');
-      return;
-    }
-    
-    loadReport();
+    const loadAndValidate = async () => {
+      const token = await secureStorage.getToken();
+      const storedUser = await secureStorage.getUser();
+
+      if (!token || !storedUser || storedUser.role !== 'admin') {
+        navigate('/login');
+        return;
+      }
+
+      loadReport();
+    };
+    loadAndValidate();
   }, [navigate, activeReport, statusFilter]);
 
   const loadReport = async () => {

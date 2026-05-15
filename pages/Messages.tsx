@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { messagesApi, formatDate, adminApi, authApi } from '../types/api';
+import { secureStorage } from '@/utils/secureStorage';
 import { normalizeList } from '../utils/normalize';
 import { Mail, MailOpen, Trash2, Send, Search, Archive, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -52,10 +53,9 @@ export default function Messages() {
 
   const loadUserAndBorrowers = async () => {
     try {
-      // Get current user from localStorage
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
+      // Get current user from secureStorage
+      const user = await secureStorage.getUser();
+      if (user) {
         setCurrentUser(user);
 
         // If admin, load borrowers list

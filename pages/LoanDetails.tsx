@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import LoanStatusTimeline from "../components/LoanStatusTimeline";
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel, pdfApi } from "../types/api";
+import { secureStorage } from "@/utils/secureStorage";
 import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
 import { calculateAPR } from "../utils/aprCalculator";
 import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
@@ -83,9 +84,16 @@ export default function LoanDetails() {
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const [user, setUser] = useState<any>({});
 
-  useEffect(() => { loadLoan(); }, [loanId]);
+  useEffect(() => {
+    const loadUser = async () => {
+      const storedUser = await secureStorage.getUser();
+      setUser(storedUser || {});
+    };
+    loadUser();
+    loadLoan();
+  }, [loanId]);
 
   const loadLoan = async () => {
     if (!loanId) { setError("No loan ID provided"); setLoading(false); return; }
