@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { adminApi, formatKES, formatDate, Loan } from '../types/api';
 import { normalizeList } from '../utils/normalize';
-import { Loader2, Eye, Check, X, DollarSign, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
+import { Loader2, Eye, Check, X, Wallet, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 
 
@@ -340,7 +340,7 @@ export default function AdminLoans() {
                       )}
                       {loan.status === 'approved' && (
                         <Button size="sm" variant="ghost" className="text-blue-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleDisburse(loan.id)} title="Disburse">
-                          <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
+                          <Wallet className="h-3 w-3 md:h-4 md:w-4" />
                         </Button>
                       )}
                       {loan.status === 'active' && (
