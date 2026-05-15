@@ -96,7 +96,7 @@ export default function LoanDetails() {
         </div>
       )}
 
-      {/* Invoice / Receipt Buttons */}
+      {/* Invoice / Receipt / Schedule Buttons */}
       <div className="flex gap-2">
         <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowInvoice(true)}>
           <FileText className="h-4 w-4 mr-1" /> Invoice
@@ -104,6 +104,11 @@ export default function LoanDetails() {
         {(loan.repayments?.length > 0) && (
           <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedRepayment(loan.repayments[loan.repayments.length - 1]); setShowReceipt(true); }}>
             <Receipt className="h-4 w-4 mr-1" /> Receipt
+          </Button>
+        )}
+        {loan.status === "active" && (
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate(`/loans/${loan.id}/repayment-schedule`)}>
+            <Calendar className="h-4 w-4 mr-1" /> Schedule
           </Button>
         )}
       </div>
