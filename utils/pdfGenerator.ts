@@ -1,202 +1,264 @@
+// Server-side PDF generation using pdfkit
 import PDFDocument from 'pdfkit';
-import { ReceiptData, InvoiceData } from './pdfTemplates.js';
 
-export async function generateReceiptPDF(receiptData: ReceiptData): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 40 });
-    const chunks: Buffer[] = [];
+interface ReceiptData {
+  loanId: number;
+  borrowerName: string;
+  borrowerPhone: string;
+  repaymentId: number;
+  amount: number;
+  principalPaid: number;
+  interestPaid: number;
+  penaltyPaid: number;
+  paymentMethod: string;
+  referenceNumber: string | null;
+  paidAt: string;
+  remainingBalance: number;
+}
 
-    doc.on('data', chunk => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
+interface InvoiceData {
+  loanId: number;
+  borrowerName: string;
+  borrowerPhone: string;
+  borrowerEmail: string;
+  principalAmount: number;
+  interestAmount: number;
+  totalAmount: number;
+  termMonths: number;
+  principalPaid: number;
+  interestPaid: number;
+  amountDue: number;
+  dueDate: string | null;
+  createdAt: string;
+}
 
-    // Header
-    doc.fontSize(24).font('Helvetica-Bold').text('PAYMENT RECEIPT', { align: 'center' });
-    doc.fontSize(11).font('Helvetica').text('Transaction Record', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.moveTo(40, doc.y).lineTo(doc.page.width - 40, doc.y).stroke();
-    doc.moveDown(0.5);
+function formatCurrency(amount: number): string {
+  return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
-    // Borrower Information
-    doc.fontSize(10).font('Helvetica-Bold').text('BORROWER INFORMATION');
-    doc.fontSize(9).font('Helvetica');
-    drawInfoRow(doc, 'Name:', receiptData.borrowerName);
-    if (receiptData.borrowerPhone) {
-      drawInfoRow(doc, 'Phone:', receiptData.borrowerPhone);
-    }
-    drawInfoRow(doc, 'Loan ID:', `#${receiptData.loanId}`);
-    doc.moveDown(0.3);
-
-    // Payment Details
-    doc.fontSize(10).font('Helvetica-Bold').text('PAYMENT DETAILS');
-    doc.fontSize(9).font('Helvetica');
-    drawInfoRow(doc, 'Receipt No:', `#RCP-${receiptData.repaymentId}`);
-    const paidAt = new Date(receiptData.paidAt);
-    const formattedDate = paidAt.toLocaleDateString('en-US', {
+function formatDate(dateString: string): string {
+  try {
+    return new Date(dateString).toLocaleDateString('en-KE', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-    drawInfoRow(doc, 'Payment Date:', formattedDate);
-    drawInfoRow(doc, 'Payment Method:', receiptData.paymentMethod);
-    if (receiptData.referenceNumber) {
-      drawInfoRow(doc, 'Reference:', receiptData.referenceNumber);
-    }
-    doc.moveDown(0.5);
-
-    // Amount Section
-    doc.rect(40, doc.y, doc.page.width - 80, 110).fill('#f0f4f8');
-    doc.fillColor('black');
-    const amountY = doc.y + 10;
-    doc.fontSize(9).font('Helvetica').text('Principal Paid:', 50, amountY);
-    doc.text(`KES ${formatNumber(receiptData.principalPaid)}`, doc.page.width - 100, amountY, { align: 'right' });
-    
-    doc.text('Interest Paid:', 50, amountY + 20);
-    doc.text(`KES ${formatNumber(receiptData.interestPaid)}`, doc.page.width - 100, amountY + 20, { align: 'right' });
-    
-    if (receiptData.penaltyPaid > 0) {
-      doc.text('Penalty Paid:', 50, amountY + 40);
-      doc.text(`KES ${formatNumber(receiptData.penaltyPaid)}`, doc.page.width - 100, amountY + 40, { align: 'right' });
-      
-      doc.font('Helvetica-Bold').text('Total Paid:', 50, amountY + 70);
-      doc.text(`KES ${formatNumber(receiptData.amount)}`, doc.page.width - 100, amountY + 70, { align: 'right' });
-    } else {
-      doc.font('Helvetica-Bold').text('Total Paid:', 50, amountY + 40);
-      doc.text(`KES ${formatNumber(receiptData.amount)}`, doc.page.width - 100, amountY + 40, { align: 'right' });
-    }
-    doc.moveDown(7);
-
-    // Remaining Balance
-    doc.fontSize(9).font('Helvetica');
-    drawInfoRow(doc, 'Remaining Balance:', `KES ${formatNumber(receiptData.remainingBalance)}`);
-    doc.moveDown(1);
-
-    // Receipt ID
-    doc.rect(40, doc.y, doc.page.width - 80, 30).fill('#e8f4f8');
-    doc.fillColor('#2c3e50');
-    doc.fontSize(9).font('Helvetica').text(`Receipt ID: #RCP-${receiptData.repaymentId}-${Date.now()}`, 50, doc.y + 8, { width: doc.page.width - 100 });
-    doc.fillColor('black');
-    doc.moveDown(2.5);
-
-    // Footer
-    doc.moveDown(0.5);
-    doc.fontSize(8).text('This is an electronically generated receipt. Thank you for your payment.', { align: 'center' });
-    doc.text('For inquiries, please contact our support team.', { align: 'center' });
-
-    doc.end();
-  });
+  } catch {
+    return dateString;
+  }
 }
 
-export async function generateInvoicePDF(invoiceData: InvoiceData): Promise<Buffer> {
+export function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 40 });
-    const chunks: Buffer[] = [];
+    try {
+      const doc = new PDFDocument();
+      const buffers: Buffer[] = [];
 
-    doc.on('data', chunk => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
+      doc.on('data', (chunk: Buffer) => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', reject);
 
-    // Header
-    doc.fontSize(24).font('Helvetica-Bold').text('LOAN INVOICE', { align: 'center' });
-    doc.fontSize(11).font('Helvetica').text('Outstanding Balance Statement', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.moveTo(40, doc.y).lineTo(doc.page.width - 40, doc.y).stroke();
-    doc.moveDown(0.5);
+      // Header
+      doc.fontSize(24).font('Helvetica-Bold').text('LENDING PLATFORM', { align: 'center' });
+      doc.fontSize(18).text('Payment Receipt', { align: 'center' });
+      doc.fontSize(10).fillColor('#666666').text(`Receipt #${data.repaymentId}`, { align: 'center' });
+      doc.fillColor('black');
 
-    // Borrower Information
-    doc.fontSize(10).font('Helvetica-Bold').text('BORROWER INFORMATION');
-    doc.fontSize(9).font('Helvetica');
-    drawInfoRow(doc, 'Name:', invoiceData.borrowerName);
-    if (invoiceData.borrowerPhone) {
-      drawInfoRow(doc, 'Phone:', invoiceData.borrowerPhone);
+      doc.moveTo(50, 100).lineTo(550, 100).stroke();
+      doc.moveDown(0.5);
+
+      // Borrower Information
+      doc.fontSize(12).font('Helvetica-Bold').text('Borrower Information');
+      doc.fontSize(10).font('Helvetica').moveDown(0.3);
+
+      const col1X = 50;
+      const col2X = 300;
+      const lineHeight = 20;
+      let y = doc.y;
+
+      doc.text('Name:', col1X, y);
+      doc.text(data.borrowerName, col2X, y);
+      y += lineHeight;
+
+      doc.text('Phone:', col1X, y);
+      doc.text(data.borrowerPhone || 'N/A', col2X, y);
+      y += lineHeight;
+
+      doc.text('Loan ID:', col1X, y);
+      doc.text(`LOAN-${data.loanId}`, col2X, y);
+
+      doc.moveTo(50, y + 15).lineTo(550, y + 15).stroke();
+      doc.moveDown(1);
+
+      // Payment Details
+      doc.fontSize(12).font('Helvetica-Bold').text('Payment Details');
+      doc.fontSize(10).font('Helvetica').moveDown(0.3);
+
+      y = doc.y;
+      doc.text('Payment Date:', col1X, y);
+      doc.text(formatDate(data.paidAt), col2X, y);
+      y += lineHeight;
+
+      doc.text('Payment Method:', col1X, y);
+      doc.text(data.paymentMethod.toUpperCase(), col2X, y);
+      y += lineHeight;
+
+      if (data.referenceNumber) {
+        doc.text('Reference:', col1X, y);
+        doc.text(data.referenceNumber, col2X, y);
+      }
+
+      doc.moveTo(50, y + 15).lineTo(550, y + 15).stroke();
+      doc.moveDown(1);
+
+      // Payment Breakdown
+      doc.fontSize(12).font('Helvetica-Bold').text('Payment Breakdown');
+      doc.fontSize(10).font('Helvetica').moveDown(0.3);
+
+      y = doc.y;
+      doc.text('Principal Paid:', col1X, y);
+      doc.text(formatCurrency(data.principalPaid), col2X, y, { align: 'right', width: 200 });
+      y += lineHeight;
+
+      doc.text('Interest Paid:', col1X, y);
+      doc.text(formatCurrency(data.interestPaid), col2X, y, { align: 'right', width: 200 });
+      y += lineHeight;
+
+      doc.text('Penalty/Late Fee:', col1X, y);
+      doc.text(formatCurrency(data.penaltyPaid), col2X, y, { align: 'right', width: 200 });
+      y += lineHeight;
+
+      doc.moveTo(50, y + 5).lineTo(550, y + 5).stroke();
+      y += 10;
+
+      doc.font('Helvetica-Bold').fontSize(12).text('Total Paid:', col1X, y);
+      doc.text(formatCurrency(data.amount), col2X, y, { align: 'right', width: 200 });
+
+      doc.moveDown(2);
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+
+      // Footer
+      doc.moveDown(1);
+      doc.fontSize(9).fillColor('#666666').text('This is an automatically generated receipt. Please keep this for your records.', { align: 'center' });
+      doc.text(`Generated on ${formatDate(new Date().toISOString())}`, { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
     }
-    if (invoiceData.borrowerEmail) {
-      drawInfoRow(doc, 'Email:', invoiceData.borrowerEmail);
-    }
-    drawInfoRow(doc, 'Loan ID:', `#${invoiceData.loanId}`);
-    doc.moveDown(0.3);
-
-    // Loan Details
-    doc.fontSize(10).font('Helvetica-Bold').text('LOAN DETAILS');
-    doc.fontSize(9).font('Helvetica');
-    drawInfoRow(doc, 'Loan Duration:', `${invoiceData.termMonths} months`);
-    const createdDate = new Date(invoiceData.createdAt);
-    const formattedDate = createdDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    drawInfoRow(doc, 'Invoice Date:', formattedDate);
-    if (invoiceData.dueDate) {
-      const dueDate = new Date(invoiceData.dueDate);
-      const formattedDueDate = dueDate.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      drawInfoRow(doc, 'Due Date:', formattedDueDate);
-    }
-    doc.moveDown(0.5);
-
-    // Amount Section
-    doc.rect(40, doc.y, doc.page.width - 80, 160).fill('#f0f4f8');
-    doc.fillColor('black');
-    const amountY = doc.y + 10;
-    doc.fontSize(9).font('Helvetica');
-    
-    let currentY = amountY;
-    doc.text('Principal Amount:', 50, currentY);
-    doc.text(`KES ${formatNumber(invoiceData.principalAmount)}`, doc.page.width - 100, currentY, { align: 'right' });
-    
-    currentY += 20;
-    doc.text('Interest Amount:', 50, currentY);
-    doc.text(`KES ${formatNumber(invoiceData.interestAmount)}`, doc.page.width - 100, currentY, { align: 'right' });
-    
-    currentY += 20;
-    doc.font('Helvetica-Bold');
-    doc.text('Total Loan Amount:', 50, currentY);
-    doc.text(`KES ${formatNumber(invoiceData.totalAmount)}`, doc.page.width - 100, currentY, { align: 'right' });
-    
-    currentY += 25;
-    doc.font('Helvetica');
-    doc.text('Principal Paid:', 50, currentY);
-    doc.text(`KES ${formatNumber(invoiceData.principalPaid)}`, doc.page.width - 100, currentY, { align: 'right' });
-    
-    currentY += 20;
-    doc.text('Interest Paid:', 50, currentY);
-    doc.text(`KES ${formatNumber(invoiceData.interestPaid)}`, doc.page.width - 100, currentY, { align: 'right' });
-    
-    currentY += 25;
-    doc.font('Helvetica-Bold').fontSize(10);
-    doc.text('AMOUNT DUE:', 50, currentY);
-    doc.text(`KES ${formatNumber(invoiceData.amountDue)}`, doc.page.width - 100, currentY, { align: 'right' });
-    
-    doc.moveDown(8.5);
-
-    // Invoice ID
-    doc.rect(40, doc.y, doc.page.width - 80, 30).fill('#e8f4f8');
-    doc.fillColor('#2c3e50').fontSize(9).font('Helvetica');
-    doc.text(`Invoice ID: #INV-${invoiceData.loanId}-${Date.now()}`, 50, doc.y + 8, { width: doc.page.width - 100 });
-    doc.fillColor('black');
-    doc.moveDown(2.5);
-
-    // Footer
-    doc.moveDown(0.5);
-    doc.fontSize(8).text('This invoice represents your outstanding loan balance.', { align: 'center' });
-    doc.text('Please make payment as per the agreed schedule. Contact us for any clarifications.', { align: 'center' });
-
-    doc.end();
   });
 }
 
-function drawInfoRow(doc: any, label: string, value: string): void {
-  const x1 = 50;
-  const x2 = doc.page.width - 90;
-  doc.text(label, x1, doc.y);
-  doc.text(value, x2, doc.y - doc.currentLineHeight(), { align: 'right' });
-  doc.moveDown(0.35);
-}
+export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument();
+      const buffers: Buffer[] = [];
 
-function formatNumber(num: number): string {
-  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      doc.on('data', (chunk: Buffer) => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', reject);
+
+      // Header
+      doc.fontSize(24).font('Helvetica-Bold').text('LENDING PLATFORM', { align: 'center' });
+      doc.fontSize(18).text('Loan Invoice', { align: 'center' });
+      doc.fontSize(10).fillColor('#666666').text(`Invoice #INV-${data.loanId}`, { align: 'center' });
+      doc.fillColor('black');
+
+      doc.moveTo(50, 100).lineTo(550, 100).stroke();
+      doc.moveDown(0.5);
+
+      // Alert if amount due
+      if (data.amountDue > 0) {
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#991b1b');
+        doc.text(`⚠️ Amount Due: ${formatCurrency(data.amountDue)}`, { align: 'left' });
+        doc.fillColor('black').moveDown(0.5);
+      }
+
+      // Borrower Information
+      doc.fontSize(12).font('Helvetica-Bold').text('Borrower Information');
+      doc.fontSize(10).font('Helvetica').moveDown(0.3);
+
+      const col1X = 50;
+      const col2X = 300;
+      const lineHeight = 20;
+      let y = doc.y;
+
+      doc.text('Name:', col1X, y);
+      doc.text(data.borrowerName, col2X, y);
+      y += lineHeight;
+
+      doc.text('Email:', col1X, y);
+      doc.text(data.borrowerEmail, col2X, y);
+      y += lineHeight;
+
+      doc.text('Phone:', col1X, y);
+      doc.text(data.borrowerPhone || 'N/A', col2X, y);
+      y += lineHeight;
+
+      doc.text('Loan ID:', col1X, y);
+      doc.text(`LOAN-${data.loanId}`, col2X, y);
+
+      doc.moveTo(50, y + 15).lineTo(550, y + 15).stroke();
+      doc.moveDown(1);
+
+      // Loan Summary
+      doc.fontSize(12).font('Helvetica-Bold').text('Loan Summary');
+      doc.fontSize(10).font('Helvetica').moveDown(0.3);
+
+      y = doc.y;
+      doc.text('Loan Term:', col1X, y);
+      doc.text(`${data.termMonths} months`, col2X, y);
+      y += lineHeight;
+
+      doc.text('Due Date:', col1X, y);
+      doc.text(data.dueDate ? formatDate(data.dueDate) : 'N/A', col2X, y);
+      y += lineHeight;
+
+      doc.moveTo(50, y + 10).lineTo(550, y + 10).stroke();
+      doc.moveDown(1);
+
+      // Financial Summary
+      doc.fontSize(12).font('Helvetica-Bold').text('Financial Summary');
+      doc.fontSize(10).font('Helvetica').moveDown(0.3);
+
+      y = doc.y;
+      doc.text('Principal Amount:', col1X, y);
+      doc.text(formatCurrency(data.principalAmount), col2X, y, { align: 'right', width: 200 });
+      y += lineHeight;
+
+      doc.text('Interest Charges:', col1X, y);
+      doc.text(formatCurrency(data.interestAmount), col2X, y, { align: 'right', width: 200 });
+      y += lineHeight;
+
+      doc.text('Total Loan Amount:', col1X, y);
+      doc.font('Helvetica-Bold').text(formatCurrency(data.totalAmount), col2X, y, { align: 'right', width: 200 });
+      y += lineHeight;
+
+      doc.font('Helvetica');
+      doc.moveTo(50, y + 5).lineTo(550, y + 5).stroke();
+      y += 10;
+
+      doc.text('Amount Paid:', col1X, y);
+      doc.text(formatCurrency(data.principalPaid + data.interestPaid), col2X, y, { align: 'right', width: 200 });
+      y += lineHeight;
+
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('#2563eb');
+      doc.text('Balance Due:', col1X, y);
+      doc.text(formatCurrency(data.amountDue), col2X, y, { align: 'right', width: 200 });
+
+      doc.fillColor('black');
+      doc.moveDown(2);
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+
+      // Footer
+      doc.moveDown(1);
+      doc.fontSize(9).fillColor('#666666').text('Please remit payment for the balance due to complete this loan.', { align: 'center' });
+      doc.text(`Generated on ${formatDate(new Date().toISOString())}`, { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
 }

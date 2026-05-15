@@ -1,234 +1,129 @@
-// PDF Templates for Receipts and Invoices
-// Generates HTML content for both browser printing and server-side PDF generation
+// PDF Template Generators for both client and server use
+import { Loan, Repayment } from '../types/api';
 
-export interface ReceiptData {
-  loanId: number;
+interface ReceiptData {
+  repayment: Repayment & { loan_id: number };
+  loan: Loan;
   borrowerName: string;
-  borrowerPhone?: string;
-  repaymentId: number;
-  amount: number;
-  principalPaid: number;
-  interestPaid: number;
-  penaltyPaid: number;
-  paymentMethod: string;
-  referenceNumber?: string;
-  paidAt: string;
-  remainingBalance: number;
+  borrowerEmail: string;
 }
 
-export interface InvoiceData {
-  loanId: number;
+interface InvoiceData {
+  loan: Loan;
   borrowerName: string;
-  borrowerPhone?: string;
-  borrowerEmail?: string;
-  principalAmount: number;
-  interestAmount: number;
-  totalAmount: number;
-  termMonths: number;
-  principalPaid: number;
-  interestPaid: number;
-  amountDue: number;
-  dueDate?: string;
-  createdAt: string;
+  borrowerEmail: string;
+  totalPaid: number;
+  balance: number;
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES',
+  }).format(amount);
+}
+
+function formatDate(dateString: string): string {
+  return new Intl.DateTimeFormat('en-KE', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(dateString));
 }
 
 export function generateReceiptHTML(data: ReceiptData): string {
-  const paidAt = new Date(data.paidAt);
-  const formattedDate = paidAt.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
+  const { repayment, loan, borrowerName, borrowerEmail } = data;
+  const receiptDate = formatDate(repayment.paid_at);
+  
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Payment Receipt</title>
       <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-          color: #333;
-        }
-        .receipt-container {
-          border: 1px solid #ddd;
-          padding: 30px;
-          background-color: #f9f9f9;
-        }
-        .header {
-          text-align: center;
-          border-bottom: 2px solid #2c3e50;
-          padding-bottom: 20px;
-          margin-bottom: 30px;
-        }
-        .header h1 {
-          margin: 0;
-          color: #2c3e50;
-          font-size: 28px;
-          font-weight: 600;
-        }
-        .header p {
-          margin: 5px 0 0 0;
-          color: #666;
-          font-size: 14px;
-        }
-        .content {
-          margin: 20px 0;
-        }
-        .section {
-          margin: 20px 0;
-        }
-        .section-title {
-          font-weight: 600;
-          color: #2c3e50;
-          margin-bottom: 10px;
-          font-size: 14px;
-        }
-        .info-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 8px 0;
-          border-bottom: 1px solid #eee;
-          font-size: 14px;
-        }
-        .info-row label {
-          font-weight: 500;
-          color: #666;
-        }
-        .info-row span {
-          color: #333;
-        }
-        .amount-section {
-          background-color: #f0f4f8;
-          padding: 20px;
-          border-radius: 4px;
-          margin: 20px 0;
-        }
-        .amount-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 10px 0;
-          font-size: 14px;
-        }
-        .amount-row label {
-          font-weight: 500;
-          color: #666;
-        }
-        .amount-row.total {
-          border-top: 2px solid #2c3e50;
-          padding-top: 15px;
-          margin-top: 10px;
-        }
-        .amount-row.total label,
-        .amount-row.total span {
-          font-weight: 600;
-          font-size: 16px;
-          color: #2c3e50;
-        }
-        .currency {
-          font-weight: 600;
-        }
-        .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 1px solid #ddd;
-          text-align: center;
-          color: #666;
-          font-size: 12px;
-        }
-        .receipt-id {
-          text-align: center;
-          margin-top: 20px;
-          padding: 10px;
-          background-color: #e8f4f8;
-          border-radius: 4px;
-          font-size: 12px;
-          color: #2c3e50;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+        .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
+        .receipt-no { color: #666; font-size: 12px; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .label { color: #666; }
+        .amount { font-weight: bold; text-align: right; }
+        .total-row { border-top: 1px solid #ddd; padding-top: 10px; font-weight: bold; font-size: 16px; }
+        .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+        .summary { background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
       </style>
     </head>
     <body>
-      <div class="receipt-container">
+      <div class="container">
         <div class="header">
-          <h1>PAYMENT RECEIPT</h1>
-          <p>Transaction Record</p>
+          <div class="logo">LENDING PLATFORM</div>
+          <div class="title">Payment Receipt</div>
+          <div class="receipt-no">Receipt #${repayment.id}</div>
         </div>
 
-        <div class="content">
-          <div class="section">
-            <div class="section-title">BORROWER INFORMATION</div>
-            <div class="info-row">
-              <label>Name:</label>
-              <span>${escapeHtml(data.borrowerName)}</span>
-            </div>
-            ${data.borrowerPhone ? `<div class="info-row">
-              <label>Phone:</label>
-              <span>${escapeHtml(data.borrowerPhone)}</span>
-            </div>` : ''}
-            <div class="info-row">
-              <label>Loan ID:</label>
-              <span>#${data.loanId}</span>
-            </div>
+        <div class="section">
+          <div class="section-title">Borrower Information</div>
+          <div class="row">
+            <span class="label">Name:</span>
+            <span>${borrowerName}</span>
           </div>
-
-          <div class="section">
-            <div class="section-title">PAYMENT DETAILS</div>
-            <div class="info-row">
-              <label>Receipt No:</label>
-              <span>#RCP-${data.repaymentId}</span>
-            </div>
-            <div class="info-row">
-              <label>Payment Date:</label>
-              <span>${formattedDate}</span>
-            </div>
-            <div class="info-row">
-              <label>Payment Method:</label>
-              <span>${escapeHtml(data.paymentMethod)}</span>
-            </div>
-            ${data.referenceNumber ? `<div class="info-row">
-              <label>Reference:</label>
-              <span>${escapeHtml(data.referenceNumber)}</span>
-            </div>` : ''}
+          <div class="row">
+            <span class="label">Email:</span>
+            <span>${borrowerEmail}</span>
           </div>
-
-          <div class="amount-section">
-            <div class="amount-row">
-              <label>Principal Paid:</label>
-              <span class="currency">KES ${formatNumber(data.principalPaid)}</span>
-            </div>
-            <div class="amount-row">
-              <label>Interest Paid:</label>
-              <span class="currency">KES ${formatNumber(data.interestPaid)}</span>
-            </div>
-            ${data.penaltyPaid > 0 ? `<div class="amount-row">
-              <label>Penalty Paid:</label>
-              <span class="currency">KES ${formatNumber(data.penaltyPaid)}</span>
-            </div>` : ''}
-            <div class="amount-row total">
-              <label>Total Paid:</label>
-              <span class="currency">KES ${formatNumber(data.amount)}</span>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="info-row">
-              <label>Remaining Balance:</label>
-              <span class="currency">KES ${formatNumber(data.remainingBalance)}</span>
-            </div>
+          <div class="row">
+            <span class="label">Loan ID:</span>
+            <span>LOAN-${loan.id}</span>
           </div>
         </div>
 
-        <div class="receipt-id">
-          Receipt ID: #RCP-${data.repaymentId}-${Date.now()}
+        <div class="section">
+          <div class="section-title">Payment Details</div>
+          <div class="summary">
+            <div class="row">
+              <span class="label">Payment Date:</span>
+              <span>${receiptDate}</span>
+            </div>
+            <div class="row">
+              <span class="label">Payment Method:</span>
+              <span>${repayment.payment_method.toUpperCase()}</span>
+            </div>
+            ${repayment.reference_number ? `
+            <div class="row">
+              <span class="label">Reference:</span>
+              <span>${repayment.reference_number}</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Payment Breakdown</div>
+          <div class="row">
+            <span class="label">Principal Paid:</span>
+            <span class="amount">${formatCurrency(repayment.principal_paid)}</span>
+          </div>
+          <div class="row">
+            <span class="label">Interest Paid:</span>
+            <span class="amount">${formatCurrency(repayment.interest_paid)}</span>
+          </div>
+          <div class="row">
+            <span class="label">Penalty/Late Fee:</span>
+            <span class="amount">${formatCurrency(repayment.penalty_paid)}</span>
+          </div>
+          <div class="row total-row">
+            <span>Total Paid:</span>
+            <span class="amount">${formatCurrency(repayment.amount)}</span>
+          </div>
         </div>
 
         <div class="footer">
-          <p>This is an electronically generated receipt. Thank you for your payment.</p>
-          <p>For inquiries, please contact our support team.</p>
+          <p>This is an automatically generated receipt. Please keep this for your records.</p>
+          <p>Generated on ${formatDate(new Date().toISOString())}</p>
         </div>
       </div>
     </body>
@@ -237,232 +132,131 @@ export function generateReceiptHTML(data: ReceiptData): string {
 }
 
 export function generateInvoiceHTML(data: InvoiceData): string {
-  const createdDate = new Date(data.createdAt);
-  const formattedDate = createdDate.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
+  const { loan, borrowerName, borrowerEmail, totalPaid, balance } = data;
+  const dueDate = loan.due_date ? formatDate(loan.due_date) : 'N/A';
+  
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Loan Invoice</title>
       <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-          color: #333;
-        }
-        .invoice-container {
-          border: 1px solid #ddd;
-          padding: 30px;
-          background-color: #f9f9f9;
-        }
-        .header {
-          text-align: center;
-          border-bottom: 2px solid #2c3e50;
-          padding-bottom: 20px;
-          margin-bottom: 30px;
-        }
-        .header h1 {
-          margin: 0;
-          color: #2c3e50;
-          font-size: 28px;
-          font-weight: 600;
-        }
-        .header p {
-          margin: 5px 0 0 0;
-          color: #666;
-          font-size: 14px;
-        }
-        .content {
-          margin: 20px 0;
-        }
-        .section {
-          margin: 20px 0;
-        }
-        .section-title {
-          font-weight: 600;
-          color: #2c3e50;
-          margin-bottom: 10px;
-          font-size: 14px;
-        }
-        .info-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 8px 0;
-          border-bottom: 1px solid #eee;
-          font-size: 14px;
-        }
-        .info-row label {
-          font-weight: 500;
-          color: #666;
-        }
-        .info-row span {
-          color: #333;
-        }
-        .amount-section {
-          background-color: #f0f4f8;
-          padding: 20px;
-          border-radius: 4px;
-          margin: 20px 0;
-        }
-        .amount-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 10px 0;
-          font-size: 14px;
-        }
-        .amount-row label {
-          font-weight: 500;
-          color: #666;
-        }
-        .amount-row.total {
-          border-top: 2px solid #2c3e50;
-          padding-top: 15px;
-          margin-top: 10px;
-        }
-        .amount-row.total label,
-        .amount-row.total span {
-          font-weight: 600;
-          font-size: 16px;
-          color: #2c3e50;
-        }
-        .amount-row.due {
-          background-color: #fff3cd;
-          margin: 10px -20px -20px -20px;
-          padding: 15px 20px;
-          border-radius: 0 0 4px 4px;
-        }
-        .amount-row.due label,
-        .amount-row.due span {
-          font-weight: 600;
-          color: #856404;
-        }
-        .currency {
-          font-weight: 600;
-        }
-        .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 1px solid #ddd;
-          text-align: center;
-          color: #666;
-          font-size: 12px;
-        }
-        .invoice-id {
-          text-align: center;
-          margin-top: 20px;
-          padding: 10px;
-          background-color: #e8f4f8;
-          border-radius: 4px;
-          font-size: 12px;
-          color: #2c3e50;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+        .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
+        .invoice-no { color: #666; font-size: 12px; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .label { color: #666; }
+        .amount { font-weight: bold; text-align: right; }
+        .total-row { border-top: 2px solid #2563eb; padding-top: 10px; font-weight: bold; font-size: 16px; color: #2563eb; }
+        .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+        .summary { background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
+        .alert { background-color: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 5px; margin-bottom: 20px; }
+        .alert-text { color: #991b1b; font-size: 14px; }
       </style>
     </head>
     <body>
-      <div class="invoice-container">
+      <div class="container">
         <div class="header">
-          <h1>LOAN INVOICE</h1>
-          <p>Outstanding Balance Statement</p>
+          <div class="logo">LENDING PLATFORM</div>
+          <div class="title">Loan Invoice</div>
+          <div class="invoice-no">Invoice #INV-${loan.id}</div>
         </div>
 
-        <div class="content">
-          <div class="section">
-            <div class="section-title">BORROWER INFORMATION</div>
-            <div class="info-row">
-              <label>Name:</label>
-              <span>${escapeHtml(data.borrowerName)}</span>
-            </div>
-            ${data.borrowerPhone ? `<div class="info-row">
-              <label>Phone:</label>
-              <span>${escapeHtml(data.borrowerPhone)}</span>
-            </div>` : ''}
-            ${data.borrowerEmail ? `<div class="info-row">
-              <label>Email:</label>
-              <span>${escapeHtml(data.borrowerEmail)}</span>
-            </div>` : ''}
-            <div class="info-row">
-              <label>Loan ID:</label>
-              <span>#${data.loanId}</span>
-            </div>
-          </div>
+        ${balance > 0 ? `
+        <div class="alert">
+          <div class="alert-text">⚠️ Amount Due: ${formatCurrency(balance)}</div>
+        </div>
+        ` : ''}
 
-          <div class="section">
-            <div class="section-title">LOAN DETAILS</div>
-            <div class="info-row">
-              <label>Loan Duration:</label>
-              <span>${data.termMonths} months</span>
-            </div>
-            <div class="info-row">
-              <label>Invoice Date:</label>
-              <span>${formattedDate}</span>
-            </div>
-            ${data.dueDate ? `<div class="info-row">
-              <label>Due Date:</label>
-              <span>${new Date(data.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            </div>` : ''}
+        <div class="section">
+          <div class="section-title">Borrower Information</div>
+          <div class="row">
+            <span class="label">Name:</span>
+            <span>${borrowerName}</span>
           </div>
+          <div class="row">
+            <span class="label">Email:</span>
+            <span>${borrowerEmail}</span>
+          </div>
+          <div class="row">
+            <span class="label">Loan ID:</span>
+            <span>LOAN-${loan.id}</span>
+          </div>
+        </div>
 
-          <div class="amount-section">
-            <div class="amount-row">
-              <label>Principal Amount:</label>
-              <span class="currency">KES ${formatNumber(data.principalAmount)}</span>
+        <div class="section">
+          <div class="section-title">Loan Summary</div>
+          <div class="summary">
+            <div class="row">
+              <span class="label">Product:</span>
+              <span>${loan.product_name || 'N/A'}</span>
             </div>
-            <div class="amount-row">
-              <label>Interest Amount:</label>
-              <span class="currency">KES ${formatNumber(data.interestAmount)}</span>
+            <div class="row">
+              <span class="label">Status:</span>
+              <span>${loan.status.toUpperCase()}</span>
             </div>
-            <div class="amount-row total">
-              <label>Total Loan Amount:</label>
-              <span class="currency">KES ${formatNumber(data.totalAmount)}</span>
+            <div class="row">
+              <span class="label">Loan Term:</span>
+              <span>${loan.term_months} months</span>
             </div>
-            <div class="amount-row">
-              <label>Principal Paid:</label>
-              <span class="currency">KES ${formatNumber(data.principalPaid)}</span>
-            </div>
-            <div class="amount-row">
-              <label>Interest Paid:</label>
-              <span class="currency">KES ${formatNumber(data.interestPaid)}</span>
-            </div>
-            <div class="amount-row due">
-              <label>AMOUNT DUE:</label>
-              <span class="currency">KES ${formatNumber(data.amountDue)}</span>
+            <div class="row">
+              <span class="label">Due Date:</span>
+              <span>${dueDate}</span>
             </div>
           </div>
         </div>
 
-        <div class="invoice-id">
-          Invoice ID: #INV-${data.loanId}-${Date.now()}
+        <div class="section">
+          <div class="section-title">Financial Summary</div>
+          <div class="row">
+            <span class="label">Principal Amount:</span>
+            <span class="amount">${formatCurrency(loan.principal_amount)}</span>
+          </div>
+          <div class="row">
+            <span class="label">Interest Charges:</span>
+            <span class="amount">${formatCurrency(loan.interest_amount)}</span>
+          </div>
+          <div class="row">
+            <span class="label">Processing Fee:</span>
+            <span class="amount">${formatCurrency(loan.processing_fee)}</span>
+          </div>
+          ${loan.asset_transfer_fee > 0 ? `
+          <div class="row">
+            <span class="label">Asset Transfer Fee:</span>
+            <span class="amount">${formatCurrency(loan.asset_transfer_fee)}</span>
+          </div>
+          ` : ''}
+          ${loan.tracking_system_fee > 0 ? `
+          <div class="row">
+            <span class="label">Tracking System Fee:</span>
+            <span class="amount">${formatCurrency(loan.tracking_system_fee)}</span>
+          </div>
+          ` : ''}
+          <div class="row" style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 10px;">
+            <span class="label">Total Loan Amount:</span>
+            <span class="amount">${formatCurrency(loan.total_amount)}</span>
+          </div>
+          <div class="row">
+            <span class="label">Amount Paid:</span>
+            <span class="amount">${formatCurrency(totalPaid)}</span>
+          </div>
+          <div class="row total-row">
+            <span>Balance Due:</span>
+            <span class="amount">${formatCurrency(balance)}</span>
+          </div>
         </div>
 
         <div class="footer">
-          <p>This invoice represents your outstanding loan balance.</p>
-          <p>Please make payment as per the agreed schedule. Contact us for any clarifications.</p>
+          <p>Please remit payment for the balance due to complete this loan.</p>
+          <p>Generated on ${formatDate(new Date().toISOString())}</p>
         </div>
       </div>
     </body>
     </html>
   `;
-}
-
-function escapeHtml(text: string): string {
-  const map: { [key: string]: string } = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-function formatNumber(num: number): string {
-  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
