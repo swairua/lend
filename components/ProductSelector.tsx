@@ -38,7 +38,7 @@ export function ProductSelector({
       {products.length > 0 ? (
         <FieldGroup
           label="Product"
-          helper={selectedProductId && products.find((p) => p.id === selectedProductId)?.description}
+          helper={selectedProductId ? (products.find((p) => p.id === selectedProductId)?.description || undefined) : undefined}
         >
           <Select value={selectedProductId ? String(selectedProductId) : ''} onValueChange={onProductChange}>
             <SelectTrigger>
