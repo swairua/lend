@@ -351,7 +351,9 @@ export default function AdminRepayments() {
         open={addPaymentOpen}
         onOpenChange={(open) => {
           setAddPaymentOpen(open);
-          if (!open) {
+          if (open) {
+            loadActiveLoans();
+          } else {
             setLoanSearchTerm('');
             setLoans([]);
           }
@@ -371,12 +373,12 @@ export default function AdminRepayments() {
                 onChange={(e) => handleLoanSearch(e.target.value)}
                 className="mt-1"
               />
-              {(loanSearchTerm || loans.length > 0) && (
+              {(loanSearchTerm || loans.length > 0 || loadingLoans) && (
                 <div className="mt-1 border rounded-md bg-white max-h-48 overflow-y-auto">
-                  {searchingLoans ? (
+                  {loadingLoans || searchingLoans ? (
                     <div className="p-2 text-sm text-muted-foreground flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Searching...
+                      {loadingLoans ? 'Loading loans...' : 'Searching...'}
                     </div>
                   ) : loans.length > 0 ? (
                     loans.map(loan => (
@@ -396,7 +398,7 @@ export default function AdminRepayments() {
                       </button>
                     ))
                   ) : (
-                    <div className="p-2 text-sm text-muted-foreground">No loans found</div>
+                    <div className="p-2 text-sm text-muted-foreground">No active loans found</div>
                   )}
                 </div>
               )}
