@@ -17,6 +17,7 @@ interface User {
   email: string;
   phone: string;
   role: string;
+  borrower_id?: number;
 }
 
 interface BorrowerProfile {
@@ -190,7 +191,7 @@ export default function Profile() {
           <ProfilePhoto
             name={user?.name}
             currentUrl={photoUrl}
-            borrowerId={user?.id}
+            borrowerId={user?.borrower_id}
             onUploaded={(url) => setPhotoUrl(url)}
           />
         </div>
@@ -374,7 +375,7 @@ export default function Profile() {
 
 
       {/* Documents Section */}
-      <DocumentsPanel borrowerId={user?.id} />
+      <DocumentsPanel borrowerId={user?.borrower_id} />
 
       {/* Change Password */}
       <form onSubmit={handleChangePassword} className="mt-6">
