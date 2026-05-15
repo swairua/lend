@@ -91,8 +91,8 @@ export default function Profile() {
           monthly_income: userData.monthly_income || '',
         }));
 
-        // Load saved profile photo from server
-        if (userData.photo_url) {
+        // Load saved profile photo from server (if field exists)
+        if (userData?.photo_url) {
           setPhotoUrl(userData.photo_url);
         }
 
