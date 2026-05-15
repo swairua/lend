@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { adminApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
+import { secureStorage } from '../utils/secureStorage';
 import { Loader2, Users, DollarSign, TrendingUp, FileText, CreditCard, AlertTriangle, LogOut, Home, Settings, BarChart3, Calendar, Activity, PieChart, Wallet, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 interface DashboardStats {
@@ -35,16 +36,19 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-    
-    if (!token || !storedUser || storedUser.role !== 'admin') {
-      navigate('/login');
-      return;
-    }
-    
-    setUser(storedUser);
-    loadDashboard();
+    const checkAuth = async () => {
+      const token = await secureStorage.getToken();
+      const storedUser = await secureStorage.getUser();
+
+      if (!token || !storedUser || storedUser.role !== 'admin') {
+        navigate('/login');
+        return;
+      }
+
+      setUser(storedUser);
+      loadDashboard();
+    };
+    checkAuth();
   }, [navigate]);
 
   const loadDashboard = async () => {
@@ -59,9 +63,8 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const handleLogout = async () => {
+    await secureStorage.clear();
     navigate('/login');
   };
 

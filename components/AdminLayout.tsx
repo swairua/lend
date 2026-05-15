@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ChevronLeft, Home, FileText, Users, Package, Settings, BarChart3, User, LogOut, Menu, X, MessageSquare, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { secureStorage } from '../utils/secureStorage';
 
 interface User {
   id: number;
@@ -35,9 +36,8 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const handleLogout = async () => {
+    await secureStorage.clear();
     navigate('/login');
   };
 
