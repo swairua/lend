@@ -80,8 +80,31 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
                   <Badge variant="secondary" className="text-xs mt-0.5">{docLabel(doc.doc_type)}</Badge>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setViewDoc(doc)}><Eye className="h-3.5 w-3.5" /></Button>
-                  {!readOnly && <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDelete(doc.id)} disabled={deleting === doc.id}>{deleting === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}</Button>}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    onClick={() => setViewDoc(doc)}
+                    aria-label={`View ${doc.original_name}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  {!readOnly && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-red-500 hover:text-red-600"
+                      onClick={() => handleDelete(doc.id)}
+                      disabled={deleting === doc.id}
+                      aria-label={`Delete ${doc.original_name}`}
+                    >
+                      {deleting === doc.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
               );

@@ -1,18 +1,15 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
-import { normalizeList } from '../utils/normalize';
-import { Loader2, Plus, FileText, CreditCard, Calendar, ChevronRight } from 'lucide-react';
-import LoanStatusTimeline from '../components/LoanStatusTimeline';
-
-// Loan type stabilized via API; kept loose for now
+import { loansApi, formatKES, formatDate } from '@/utils/api';
+import { normalizeList } from '@/utils/normalize';
+import { filterLoansByStatus } from '@/utils/loanUtils';
+import { Loader2, Plus, Calendar } from 'lucide-react';
+import { LoanCard } from '@/components/LoanCard';
 
 export default function BorrowerLoans() {
   const navigate = useNavigate();
-  const { loanId } = useParams();
   const [loading, setLoading] = useState(true);
   const [loans, setLoans] = useState<any[]>([]);
   const [filter, setFilter] = useState('all');
@@ -34,11 +31,7 @@ export default function BorrowerLoans() {
     }
   };
 
-  const filteredLoans = loans.filter(l => {
-    if (filter === 'all') return true;
-    if (filter === 'active') return l.status === 'active' || l.status === 'approved';
-    return l.status === filter;
-  });
+  const filteredLoans = useMemo(() => filterLoansByStatus(loans, filter), [loans, filter]);
 
   if (loading) {
     return (
@@ -85,59 +78,26 @@ export default function BorrowerLoans() {
       ) : (
         <div className="space-y-3">
           {filteredLoans.map((loan) => (
-            <Card key={loan.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/loans/${loan.id}`)}>
-              <CardContent className="p-3 md:p-4">
-                <div className="flex justify-between items-start gap-2 mb-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-base md:text-lg">{formatKES(loan.principal_amount)}</p>
-                    <p className="text-xs md:text-sm text-muted-foreground truncate">{loan.product_name || 'Loan'}</p>
-                  </div>
-                  <Badge className={`${getStatusColor(loan.status)} text-xs flex-shrink-0`}>
-                    {getStatusLabel(loan.status)}
-                  </Badge>
+            <div key={loan.id}>
+              <LoanCard loan={loan} onClick={() => navigate(`/loans/${loan.id}`)} />
+              {loan.status === 'pending' && (
+                <div className="text-xs text-yellow-600 p-1.5 bg-yellow-50 rounded -mt-2 mb-3">
+                  ⏳ Pending review · Expected decision by {formatDate(new Date(new Date(loan.created_at).getTime() + 3 * 24 * 60 * 60 * 1000))}
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-xs md:text-sm mb-2">
-                  <div>
-                    <span className="text-xs text-muted-foreground">Applied</span>
-                    <p className="font-medium text-foreground text-xs">{formatDate(loan.created_at)}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Term</span>
-                    <p className="font-medium text-foreground text-xs">{loan.term_months}m</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Decision by</span>
-                    <p className="font-medium text-foreground text-xs">
-                      {formatDate(new Date(new Date(loan.created_at).getTime() + 3 * 24 * 60 * 60 * 1000))}
-                    </p>
-                  </div>
+              )}
+              {loan.status === 'active' && (
+                <div className="flex justify-center pt-2 pb-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-32 text-xs"
+                    onClick={() => navigate(`/loans/${loan.id}/repayment-schedule`)}
+                  >
+                    <Calendar className="h-3 w-3 mr-1" /> View Schedule
+                  </Button>
                 </div>
-                {loan.status === 'pending' && (
-                  <div className="text-xs text-yellow-600 p-1.5 bg-yellow-50 rounded">
-                    ⏳ Pending review · Expected decision by {formatDate(new Date(new Date(loan.created_at).getTime() + 3 * 24 * 60 * 60 * 1000))}
-                  </div>
-                )}
-                {loan.status === 'active' && (
-                  <div className="mt-2 pt-2 border-t">
-                    <div className="flex justify-between text-xs md:text-sm mb-2">
-                      <span>Balance</span>
-                      <span className="font-medium text-orange-600">{formatKES(loan.balance || 0)}</span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/loans/${loan.id}/repayment-schedule`);
-                      }}
-                    >
-                      <Calendar className="h-3 w-3 mr-1" /> View Schedule
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              )}
+            </div>
           ))}
         </div>
       )}

@@ -46,9 +46,16 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
 
   const isImg = (url: string) => /\\.(jpg|jpeg|png|gif|webp)$/i.test(url);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.key === "Enter" || e.key === " ") && !uploading) {
+      e.preventDefault();
+      inputRef.current?.click();
+    }
+  };
+
   return (
-    <div className={"space-y-2" + (compact ? " text-xs" : "")}>
-      <p className="text-sm font-medium text-gray-700">{label}</p>
+    <div className={`space-y-2${compact ? " text-xs" : ""}`}>
+      <label className="text-sm font-medium text-gray-700">{label}</label>
       {uploaded ? (
         <div className="relative border rounded-lg overflow-hidden bg-gray-50">
           {isImg(uploaded) ? (
@@ -56,35 +63,84 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
           ) : (
             <div className="flex items-center gap-2 p-3">
               <FileText className="h-5 w-5 text-blue-500 flex-shrink-0" />
-              <a href={uploaded} target="_blank" rel="noreferrer" className="text-blue-600 text-sm hover:underline truncate flex-1">{fileName || "View Document"}</a>
+              <a
+                href={uploaded}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 text-sm hover:underline focus:outline-none focus:ring-2 focus:ring-primary rounded truncate flex-1"
+                aria-label={`View uploaded ${label}`}
+              >
+                {fileName || "View Document"}
+              </a>
             </div>
           )}
           <div className="absolute top-1 right-1 flex gap-1">
-            <span className="bg-green-500 text-white rounded-full p-0.5"><CheckCircle2 className="h-3 w-3" /></span>
-            <button type="button" onClick={() => { setUploaded(null); setFileName(""); }} className="bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5"><X className="h-3 w-3" /></button>
+            <span className="bg-green-500 text-white rounded-full p-0.5" aria-label="Upload successful">
+              <CheckCircle2 className="h-3 w-3" />
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setUploaded(null);
+                setFileName("");
+              }}
+              aria-label="Remove uploaded file"
+              className="bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-red-400"
+            >
+              <X className="h-3 w-3" />
+            </button>
           </div>
         </div>
       ) : (
         <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          role="button"
+          tabIndex={uploading ? -1 : 0}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
           onDragLeave={() => setDragging(false)}
-          onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            const f = e.dataTransfer.files[0];
+            if (f) handleFile(f);
+          }}
           onClick={() => !uploading && inputRef.current?.click()}
-          className={"border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors " + (dragging ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-300 hover:bg-gray-50") + (compact ? " p-3 gap-1" : " p-8 gap-2")}
+          onKeyDown={handleKeyDown}
+          aria-label={`Upload ${label}`}
+          className={`border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+            dragging ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+          }${compact ? " p-3 gap-1" : " p-8 gap-2"}${uploading ? " opacity-75 cursor-not-allowed" : ""}`}
         >
           {uploading ? (
-            <><Loader2 className="h-6 w-6 animate-spin text-blue-500" /><p className="text-xs text-gray-500">Uploading...</p></>
+            <>
+              <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+              <p className="text-xs text-gray-500">Uploading...</p>
+            </>
           ) : (
             <>
-              <UploadCloud className={(compact ? "h-6 w-6" : "h-10 w-10") + " text-gray-300"} />
-              <p className={(compact ? "text-xs" : "text-sm") + " text-gray-500 text-center"}>Drop file here or <span className="text-blue-600 font-medium">click to browse</span></p>
+              <UploadCloud className={`${compact ? "h-6 w-6" : "h-10 w-10"} text-gray-300`} />
+              <p className={`${compact ? "text-xs" : "text-sm"} text-gray-500 text-center`}>
+                Drop file here or <span className="text-blue-600 font-medium">click to browse</span>
+              </p>
               <p className="text-xs text-gray-400">{accept}</p>
             </>
           )}
         </div>
       )}
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-      <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+      {error && <p className="text-xs text-red-500 mt-1" role="alert">{error}</p>}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+        aria-hidden="true"
+      />
     </div>
   );
 }
