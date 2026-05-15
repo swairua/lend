@@ -29,6 +29,8 @@ import AdminSettings from "./pages/AdminSettings";
 import AdminRepayments from "./pages/AdminRepayments";
 import RepaymentSchedule from "./pages/RepaymentSchedule";
 import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import UserLayout from "./components/UserLayout";
 import PrivateRoute from "./components/PrivateRoute";
 
@@ -47,6 +49,8 @@ const AppRoutes = () => {
       {/* Public Pages */}
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
 
       {/* All Authenticated Pages with Layout */}
       <Route path="/dashboard" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><BorrowerDashboard /></UserLayout></PrivateRoute>} />

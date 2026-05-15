@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import InvoiceReceipt from "../components/InvoiceReceipt";
 import LoanStatusTimeline from "../components/LoanStatusTimeline";
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from "../types/api";
-import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
+import { calculateAPR } from "../utils/aprCalculator";
+import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
 
 const GRACE_DAYS = 7;
 const LATE_FEE_RATE = 0.02;
@@ -82,6 +84,7 @@ export default function LoanDetails() {
   const [showInvoice, setShowInvoice] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedRepayment, setSelectedRepayment] = useState<any>(null);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   useEffect(() => { loadLoan(); }, [loanId]);
@@ -111,6 +114,57 @@ export default function LoanDetails() {
   const { isLate, daysOverdue, lateFee } = calcLatePayment(loan);
   const schedule = generateSchedule(loan);
 
+  const handleDownloadPDF = async () => {
+    try {
+      setDownloadingPDF(true);
+      const aprResult = calculateAPR({
+        principalAmount: loan.principal_amount,
+        interestRate: loan.interest_rate,
+        loanTermMonths: loan.term_months,
+        processingFeePercent: loan.processing_fee > 0 ? (loan.processing_fee / loan.principal_amount) * 100 : 0,
+        assetTransferFee: loan.asset_transfer_fee || 0,
+        trackingSystemFee: loan.tracking_system_fee || 0,
+      });
+
+      await downloadLoanAgreementPDF({
+        loanId: loan.id,
+        borrowerName: user.name,
+        borrowerEmail: user.email,
+        borrowerPhone: user.phone || '',
+        borrowerIdNumber: loan.national_id || 'N/A',
+        borrowerAddress: loan.address || 'N/A',
+        loanAmount: loan.principal_amount,
+        principalAmount: loan.principal_amount,
+        interestRate: loan.interest_rate,
+        loanTermMonths: loan.term_months,
+        monthlyPayment: loan.total_amount / loan.term_months,
+        processingFee: loan.processing_fee,
+        assetTransferFee: loan.asset_transfer_fee || 0,
+        trackingSystemFee: loan.tracking_system_fee || 0,
+        totalFees: (loan.processing_fee || 0) + (loan.asset_transfer_fee || 0) + (loan.tracking_system_fee || 0),
+        totalRepayableAmount: loan.total_amount,
+        disbursementDate: formatDate(loan.disbursed_at || loan.approved_at),
+        maturityDate: loan.due_date,
+        firstPaymentDueDate: new Date(loan.disbursed_at || loan.approved_at || loan.created_at).toLocaleDateString('en-KE'),
+        apr: aprResult.apr,
+        lateFeePenalty: 2.5,
+        loanProductName: loan.product_name || 'Loan',
+        assetDescription: loan.asset_description || 'Asset(s)',
+        assetValue: loan.asset_value,
+        securityDetails: loan.security_details || 'As per agreement',
+        companyName: 'LendHub',
+        companyAddress: 'P.O. Box XXXX, Nairobi, Kenya',
+        companyPhone: '+254 (0) 700 000 000',
+        companyEmail: 'support@lendhub.io',
+      });
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -131,8 +185,8 @@ export default function LoanDetails() {
         </div>
       )}
 
-      {/* Invoice / Receipt / Schedule Buttons */}
-      <div className="flex gap-2">
+      {/* Invoice / Receipt / Schedule / PDF Buttons */}
+      <div className="flex gap-2 flex-wrap">
         <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowInvoice(true)}>
           <FileText className="h-4 w-4 mr-1" /> Invoice
         </Button>
@@ -146,6 +200,23 @@ export default function LoanDetails() {
             <Calendar className="h-4 w-4 mr-1" /> Schedule
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={handleDownloadPDF}
+          disabled={downloadingPDF}
+        >
+          {downloadingPDF ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-1" /> Agreement
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Summary Card */}
@@ -180,7 +251,25 @@ export default function LoanDetails() {
       <Card>
         <CardHeader className="p-3 md:p-4 pb-1"><CardTitle className="text-xs md:text-sm">Loan Details</CardTitle></CardHeader>
         <CardContent className="p-3 md:p-4 pt-0 space-y-2">
-          {[{label:"Applied",value:formatDate(loan.created_at)},{label:"Term",value:loan.term_months+" months"},{label:"Interest Rate",value:(loan.interest_rate||0)+"% p.a."},{label:"Total Repayable",value:formatKES(loan.total_amount)},{label:"Due Date",value:formatDate(loan.due_date)},{label:"Disbursed",value:formatDate(loan.disbursed_at)}].map(row => row.value && row.value !== "N/A" ? (
+          {[
+            {label:"Applied",value:formatDate(loan.created_at)},
+            {label:"Term",value:loan.term_months+" months"},
+            {label:"Interest Rate",value:(loan.interest_rate||0)+"% p.a."},
+            {label:"Annual Percentage Rate (APR)",value:(() => {
+              const aprResult = calculateAPR({
+                principalAmount: loan.principal_amount,
+                interestRate: loan.interest_rate,
+                loanTermMonths: loan.term_months,
+                processingFeePercent: loan.processing_fee > 0 ? (loan.processing_fee / loan.principal_amount) * 100 : 0,
+                assetTransferFee: loan.asset_transfer_fee || 0,
+                trackingSystemFee: loan.tracking_system_fee || 0,
+              });
+              return aprResult.apr.toFixed(2) + "% APR";
+            })()},
+            {label:"Total Repayable",value:formatKES(loan.total_amount)},
+            {label:"Due Date",value:formatDate(loan.due_date)},
+            {label:"Disbursed",value:formatDate(loan.disbursed_at)}
+          ].map(row => row.value && row.value !== "N/A" ? (
             <div key={row.label} className="flex justify-between gap-2 text-xs md:text-sm">
               <span className="text-muted-foreground">{row.label}</span>
               <span className="text-right font-medium">{row.value}</span>
