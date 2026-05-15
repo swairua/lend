@@ -90,8 +90,8 @@ export default function Index() {
                         <TrendingUp className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <p className="font-semibold text-foreground">Fast Approval</p>
-                        <p className="text-sm text-muted-foreground">Get approved in minutes</p>
+                        <p className="font-semibold text-foreground">Simple Application</p>
+                        <p className="text-sm text-muted-foreground">Apply and track in real-time</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
