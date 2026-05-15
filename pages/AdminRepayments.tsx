@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus, Check, ChevronsUpDown } from 'lucide-react';
-import { adminApi, repaymentsApi, formatKES, formatDate } from '../types/api';
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus, Check, ChevronsUpDown, Download } from 'lucide-react';
+import { adminApi, repaymentsApi, formatKES, formatDate, pdfApi } from '../types/api';
+import { useToast } from '@/hooks/use-toast';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
 import { Label } from '@/components/ui/label';
@@ -39,6 +40,7 @@ interface LoanOption {
 
 export default function AdminRepayments() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
@@ -49,6 +51,7 @@ export default function AdminRepayments() {
   const [totalAmount, setTotalAmount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<number | null>(null);
   const [loanSearchTerm, setLoanSearchTerm] = useState('');
   const [loans, setLoans] = useState<LoanOption[]>([]);
   const [loanPopoverOpen, setLoanPopoverOpen] = useState(false);
@@ -139,6 +142,27 @@ export default function AdminRepayments() {
       setLoans([]);
     } finally {
       setLoadingLoans(false);
+    }
+  };
+
+  const handleDownloadReceipt = async (loanId: number, repaymentId: number) => {
+    setDownloadingReceiptId(repaymentId);
+    try {
+      const result = await pdfApi.generateReceipt(loanId, repaymentId);
+      const blob = await pdfApi.downloadDocument(result.data.document_id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.data.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Success', description: 'Receipt downloaded successfully' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDownloadingReceiptId(null);
     }
   };
 
@@ -316,6 +340,19 @@ export default function AdminRepayments() {
                     <div className="flex items-center justify-center gap-0.5">
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => { setSelectedRepayment(repayment); setDialogOpen(true); }}>
                         <Eye className="h-3 w-3 md:h-4 md:w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2 text-blue-600 hover:text-blue-700"
+                        onClick={() => handleDownloadReceipt(repayment.loan_id, repayment.id)}
+                        disabled={downloadingReceiptId === repayment.id}
+                      >
+                        {downloadingReceiptId === repayment.id ? (
+                          <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-3 w-3 md:h-4 md:w-4" />
+                        )}
                       </Button>
                       <Button size="sm" variant="ghost" className="text-red-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleDelete(repayment.id)}>
                         <Trash2 className="h-3 w-3 md:h-4 md:w-4" />

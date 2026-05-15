@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { adminApi, formatKES, formatDate, Loan } from '../types/api';
+import { adminApi, formatKES, formatDate, Loan, pdfApi } from '../types/api';
 import { normalizeList } from '../utils/normalize';
-import { Loader2, Eye, Check, X, Wallet, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
+import { Loader2, Eye, Check, X, Wallet, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar, FileText } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface LoanCounts {
@@ -40,6 +41,7 @@ const getStatusLabel = (status: string) => {
 
 export default function AdminLoans() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [counts, setCounts] = useState<LoanCounts>({ all: 0, pending: 0, approved: 0, active: 0, completed: 0, rejected: 0, defaulted: 0 });
@@ -51,6 +53,7 @@ export default function AdminLoans() {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<number | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
@@ -161,6 +164,27 @@ export default function AdminLoans() {
         setActionLoading(false);
       }
     });
+  };
+
+  const handleGenerateInvoice = async (loanId: number) => {
+    setDownloadingInvoiceId(loanId);
+    try {
+      const result = await pdfApi.generateInvoice(loanId);
+      const blob = await pdfApi.downloadDocument(result.data.document_id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.data.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Success', description: 'Invoice downloaded successfully' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
   };
 
   const handleMarkDefaulted = async (loanId: number) => {
@@ -345,6 +369,20 @@ export default function AdminLoans() {
                       )}
                       {loan.status === 'active' && (
                         <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-green-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2"
+                            onClick={() => handleGenerateInvoice(loan.id)}
+                            title="Generate Invoice"
+                            disabled={downloadingInvoiceId === loan.id}
+                          >
+                            {downloadingInvoiceId === loan.id ? (
+                              <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                            ) : (
+                              <FileText className="h-3 w-3 md:h-4 md:w-4" />
+                            )}
+                          </Button>
                           <Button size="sm" variant="ghost" className="text-blue-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => navigate(`/admin/loans/${loan.id}/repayment-schedule`)} title="Repayment Schedule">
                             <Calendar className="h-3 w-3 md:h-4 md:w-4" />
                           </Button>

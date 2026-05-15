@@ -521,3 +521,48 @@ export const uploadsApi = {
   deleteDocument: (id: number) =>
     request<{ success: boolean }>("/uploads/" + id, { method: "DELETE" }),
 };
+
+// ==================== PDF Documents ====================
+export const pdfApi = {
+  generateReceipt: (loanId: number, repaymentId: number) =>
+    request<{ success: boolean; message: string; data: { document_id: number; fileName: string; pdfUrl: string } }>(
+      '/admin/generate-receipt',
+      {
+        method: 'POST',
+        body: JSON.stringify({ loan_id: loanId, repayment_id: repaymentId }),
+      }
+    ),
+
+  generateInvoice: (loanId: number) =>
+    request<{ success: boolean; message: string; data: { document_id: number; fileName: string; pdfUrl: string } }>(
+      '/admin/generate-invoice',
+      {
+        method: 'POST',
+        body: JSON.stringify({ loan_id: loanId }),
+      }
+    ),
+
+  downloadDocument: (documentId: number) =>
+    fetch(`${API_BASE}/documents/${documentId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    }).then(res => {
+      if (!res.ok) throw new Error('Failed to download document');
+      return res.blob();
+    }),
+
+  getEmailSettings: () =>
+    request<{ success: boolean; data: any }>('/admin/email-settings'),
+
+  updateEmailSettings: (smtp_host: string, smtp_port: number, smtp_user: string, smtp_pass: string, smtp_from: string) =>
+    request<{ success: boolean; message: string }>('/admin/email-settings', {
+      method: 'POST',
+      body: JSON.stringify({ smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from }),
+    }),
+
+  testEmailSettings: () =>
+    request<{ success: boolean; message: string }>('/admin/email-settings/test', {
+      method: 'POST',
+    }),
+};
