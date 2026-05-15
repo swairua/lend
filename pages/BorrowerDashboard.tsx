@@ -76,9 +76,9 @@ export default function BorrowerDashboard() {
 
   return (
     <div className="space-y-4 max-w-md mx-auto">
-      <div>
-        <h1 className="text-xl font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Welcome back, {user?.name}</p>
+      <div className="space-y-1">
+        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold">Dashboard</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, {user?.name}</p>
       </div>
         {/* Quick Apply Card */}
         <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0">

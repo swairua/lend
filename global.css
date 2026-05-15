@@ -163,11 +163,11 @@
   }
 
   button {
-    @apply text-xs sm:text-sm md:text-base;
+    @apply text-xs sm:text-base md:text-base;
   }
 
-  /* Table typography optimization */
+  /* Table typography optimization - improved mobile readability */
   td, th {
-    @apply text-xs sm:text-xs md:text-sm lg:text-base;
+    @apply text-xs sm:text-sm md:text-sm lg:text-base;
   }
 }

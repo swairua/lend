@@ -177,11 +177,11 @@ export default function Profile() {
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-2xl">
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-2 mb-6 min-w-0">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-bold">My Profile</h1>
+        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold truncate">My Profile</h1>
       </div>
 
       <form onSubmit={handleSaveProfile} className="space-y-6">
