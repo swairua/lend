@@ -205,6 +205,50 @@ function initializeSchema() {
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (borrower_id) REFERENCES borrowers(id)
       );
+
+      CREATE TABLE IF NOT EXISTS mpesa_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loan_id INTEGER NOT NULL,
+        repayment_id INTEGER DEFAULT NULL,
+        phone_number VARCHAR(20) NOT NULL,
+        amount DECIMAL(12, 2) NOT NULL,
+        transaction_type VARCHAR(50) NOT NULL,
+        mpesa_reference VARCHAR(100) DEFAULT NULL,
+        checkout_request_id VARCHAR(100) DEFAULT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        response_code VARCHAR(50) DEFAULT NULL,
+        response_message TEXT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (loan_id) REFERENCES loans(id),
+        FOREIGN KEY (repayment_id) REFERENCES repayments(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS sms_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        borrower_id INTEGER NOT NULL,
+        loan_id INTEGER DEFAULT NULL,
+        message_type VARCHAR(50) NOT NULL,
+        recipient_phone VARCHAR(20) NOT NULL,
+        message_text TEXT NOT NULL,
+        sms_status VARCHAR(50) DEFAULT 'pending',
+        provider_reference VARCHAR(100) DEFAULT NULL,
+        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (borrower_id) REFERENCES borrowers(id),
+        FOREIGN KEY (loan_id) REFERENCES loans(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS transaction_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loan_id INTEGER DEFAULT NULL,
+        transaction_type VARCHAR(100) NOT NULL,
+        transaction_reference VARCHAR(100) DEFAULT NULL,
+        amount DECIMAL(12, 2) DEFAULT NULL,
+        status VARCHAR(50) NOT NULL,
+        details TEXT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (loan_id) REFERENCES loans(id)
+      );
     `);
 
     // Seed demo users if they don't exist
@@ -579,6 +623,445 @@ app.delete('/api/uploads/:id', authenticate, (req, res) => {
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(uploadsDir));
+
+// ========== M-PESA ENDPOINTS ==========
+
+// POST /api/mpesa/payment - Initiate STK Push for repayment
+app.post('/api/mpesa/payment', authenticate, (req, res) => {
+  const { loan_id, amount, phone_number } = req.body;
+
+  if (!loan_id || !amount || !phone_number) {
+    return res.status(400).json({ success: false, error: 'loan_id, amount, and phone_number required' });
+  }
+
+  try {
+    // Validate loan exists and is active
+    const loan = db.prepare('SELECT l.*, b.user_id FROM loans l JOIN borrowers b ON l.borrower_id = b.id WHERE l.id = ?').get(loan_id);
+
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    if (loan.user_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (loan.status !== 'active' && loan.status !== 'approved') {
+      return res.status(400).json({ success: false, error: 'Loan is not active or approved' });
+    }
+
+    // Create M-Pesa transaction record
+    const checkoutRequestId = 'ws_CO_' + Date.now() + '_' + Math.random().toString(36).substring(7);
+    const mpesaRef = 'MPE_' + Date.now();
+
+    const result = db.prepare(`
+      INSERT INTO mpesa_transactions (
+        loan_id, phone_number, amount, transaction_type,
+        checkout_request_id, mpesa_reference, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(loan_id, phone_number, amount, 'stk_push', checkoutRequestId, mpesaRef, 'pending');
+
+    // Log transaction
+    db.prepare(`
+      INSERT INTO transaction_logs (
+        loan_id, transaction_type, transaction_reference,
+        amount, status, details
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      loan_id,
+      'mpesa_stk_push',
+      mpesaRef,
+      amount,
+      'initiated',
+      JSON.stringify({ phone: phone_number, request_id: checkoutRequestId })
+    );
+
+    // In production: Call M-Pesa API to initiate STK push
+    // For now, return success response
+    res.json({
+      success: true,
+      data: {
+        id: result.lastInsertRowid,
+        checkout_request_id: checkoutRequestId,
+        mpesa_reference: mpesaRef,
+        phone_number,
+        amount,
+        status: 'pending',
+        message: 'STK push initiated. Please enter your M-Pesa PIN to complete payment.'
+      }
+    });
+  } catch (error) {
+    console.error('M-Pesa payment error:', error);
+    res.status(500).json({ success: false, error: 'Failed to initiate payment' });
+  }
+});
+
+// POST /api/mpesa/disburse - B2C disbursement to borrower
+app.post('/api/mpesa/disburse', authenticate, (req, res) => {
+  const { loan_id, phone_number } = req.body;
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  if (!loan_id || !phone_number) {
+    return res.status(400).json({ success: false, error: 'loan_id and phone_number required' });
+  }
+
+  try {
+    // Validate loan and get disbursement amount
+    const loan = db.prepare(`
+      SELECT l.* FROM loans l WHERE l.id = ? AND l.status IN (?, ?)
+    `).get(loan_id, 'approved', 'pending');
+
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found or not ready for disbursement' });
+    }
+
+    // Calculate actual disbursement (principal + fees - deductions)
+    const disbursementAmount = loan.principal_amount - (loan.processing_fee || 0);
+
+    const mpesaRef = 'DISBURSE_' + Date.now();
+    const transactionId = 'B2C_' + Math.random().toString(36).substring(7).toUpperCase();
+
+    // Create transaction record
+    const result = db.prepare(`
+      INSERT INTO mpesa_transactions (
+        loan_id, phone_number, amount, transaction_type,
+        mpesa_reference, status
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(loan_id, phone_number, disbursementAmount, 'b2c_disburse', mpesaRef, 'pending');
+
+    // Update loan status to disbursed
+    db.prepare(`
+      UPDATE loans SET status = ?, disbursed_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run('disbursed', loan_id);
+
+    // Log transaction
+    db.prepare(`
+      INSERT INTO transaction_logs (
+        loan_id, transaction_type, transaction_reference,
+        amount, status, details
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      loan_id,
+      'mpesa_b2c_disburse',
+      mpesaRef,
+      disbursementAmount,
+      'initiated',
+      JSON.stringify({ phone: phone_number, transaction_id: transactionId })
+    );
+
+    // In production: Call M-Pesa B2C API
+    res.json({
+      success: true,
+      data: {
+        id: result.lastInsertRowid,
+        mpesa_reference: mpesaRef,
+        transaction_id: transactionId,
+        phone_number,
+        amount: disbursementAmount,
+        status: 'pending',
+        message: 'Disbursement initiated. Funds will be sent to borrower shortly.'
+      }
+    });
+  } catch (error) {
+    console.error('M-Pesa disburse error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process disbursement' });
+  }
+});
+
+// POST /api/mpesa/callback - Webhook handler for payment notifications
+app.post('/api/mpesa/callback', (req, res) => {
+  // M-Pesa callback data
+  const callbackData = req.body;
+
+  try {
+    // For STK Push responses
+    if (callbackData.Body && callbackData.Body.stkCallback) {
+      const stkCallback = callbackData.Body.stkCallback;
+      const checkoutRequestId = stkCallback.CheckoutRequestID;
+      const resultCode = stkCallback.ResultCode;
+      const resultDesc = stkCallback.ResultDesc;
+
+      // Find transaction by checkout request ID
+      const transaction = db.prepare(`
+        SELECT * FROM mpesa_transactions WHERE checkout_request_id = ?
+      `).get(checkoutRequestId);
+
+      if (transaction) {
+        if (resultCode === 0) {
+          // Payment successful
+          const callbackMetadata = stkCallback.CallbackMetadata?.Item || [];
+          const mpesaReceiptNumber = callbackMetadata.find(item => item.Name === 'MpesaReceiptNumber')?.Value || '';
+          const transactionDate = callbackMetadata.find(item => item.Name === 'TransactionDate')?.Value || '';
+          const phoneNumber = callbackMetadata.find(item => item.Name === 'PhoneNumber')?.Value || '';
+
+          // Update transaction
+          db.prepare(`
+            UPDATE mpesa_transactions SET
+              status = ?, mpesa_reference = ?, response_code = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).run('success', mpesaReceiptNumber, resultCode, transaction.id);
+
+          // Create repayment record
+          const repaymentResult = db.prepare(`
+            INSERT INTO repayments (
+              loan_id, amount, principal_paid, interest_paid,
+              payment_method, reference_number, paid_at
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `).run(
+            transaction.loan_id,
+            transaction.amount,
+            transaction.amount,
+            0,
+            'mpesa',
+            mpesaReceiptNumber
+          );
+
+          // Update M-Pesa transaction with repayment link
+          db.prepare(`
+            UPDATE mpesa_transactions SET repayment_id = ? WHERE id = ?
+          `).run(repaymentResult.lastInsertRowid, transaction.id);
+
+          // Log transaction
+          db.prepare(`
+            INSERT INTO transaction_logs (
+              loan_id, transaction_type, transaction_reference,
+              amount, status, details
+            ) VALUES (?, ?, ?, ?, ?, ?)
+          `).run(
+            transaction.loan_id,
+            'mpesa_payment_received',
+            mpesaReceiptNumber,
+            transaction.amount,
+            'completed',
+            JSON.stringify({ phone: phoneNumber, date: transactionDate })
+          );
+
+          // Check if loan is fully paid
+          const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(transaction.loan_id);
+          const totalRepaid = db.prepare(`
+            SELECT COALESCE(SUM(amount), 0) as total FROM repayments WHERE loan_id = ?
+          `).get(transaction.loan_id).total;
+
+          if (totalRepaid >= loan.total_amount) {
+            db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('completed', transaction.loan_id);
+          }
+        } else {
+          // Payment failed
+          db.prepare(`
+            UPDATE mpesa_transactions SET
+              status = ?, response_code = ?, response_message = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).run('failed', resultCode, resultDesc, transaction.id);
+
+          db.prepare(`
+            INSERT INTO transaction_logs (
+              loan_id, transaction_type, status, details
+            ) VALUES (?, ?, ?, ?)
+          `).run(
+            transaction.loan_id,
+            'mpesa_payment_failed',
+            'failed',
+            JSON.stringify({ code: resultCode, message: resultDesc })
+          );
+        }
+      }
+    }
+
+    // Acknowledge receipt to M-Pesa
+    res.json({
+      ResultCode: 0,
+      ResultDesc: 'Accepted'
+    });
+  } catch (error) {
+    console.error('M-Pesa callback error:', error);
+    res.json({
+      ResultCode: 1,
+      ResultDesc: 'Error processing callback'
+    });
+  }
+});
+
+// ========== SMS ENDPOINTS ==========
+
+// POST /api/sms/send - Send SMS to borrower
+app.post('/api/sms/send', authenticate, (req, res) => {
+  const { borrower_id, loan_id, message_type, phone_number, custom_message } = req.body;
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  if (!borrower_id || !phone_number || !message_type) {
+    return res.status(400).json({ success: false, error: 'borrower_id, phone_number, and message_type required' });
+  }
+
+  try {
+    // Validate borrower exists
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE id = ?').get(borrower_id);
+    if (!borrower) {
+      return res.status(404).json({ success: false, error: 'Borrower not found' });
+    }
+
+    // Generate SMS message based on type
+    let messageText = custom_message;
+    if (!messageText) {
+      const loan = loan_id ? db.prepare('SELECT * FROM loans WHERE id = ?').get(loan_id) : null;
+
+      switch (message_type) {
+        case 'loan_approved':
+          messageText = `Congratulations! Your loan of KES ${loan?.principal_amount || 'X'} has been approved. Check your account for details.`;
+          break;
+        case 'loan_disbursed':
+          messageText = `Your loan has been disbursed. The amount will be sent to your phone shortly. Check your M-Pesa.`;
+          break;
+        case 'payment_reminder':
+          const nextRepayment = loan ? db.prepare(`
+            SELECT * FROM repayments WHERE loan_id = ? AND principal_paid > 0 ORDER BY paid_at DESC LIMIT 1
+          `).get(loan_id) : null;
+          messageText = `Payment reminder: You have an upcoming loan repayment. Please make payment to avoid penalties.`;
+          break;
+        case 'payment_received':
+          messageText = `We have received your payment. Your loan account has been updated.`;
+          break;
+        case 'default_notice':
+          messageText = `Important: Your loan repayment is overdue. Please pay immediately to avoid further penalties.`;
+          break;
+        default:
+          if (!messageText) {
+            return res.status(400).json({ success: false, error: 'message_type unknown and no custom message provided' });
+          }
+      }
+    }
+
+    // Create SMS log
+    const result = db.prepare(`
+      INSERT INTO sms_logs (
+        borrower_id, loan_id, message_type, recipient_phone,
+        message_text, sms_status
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(borrower_id, loan_id || null, message_type, phone_number, messageText, 'pending');
+
+    // In production: Integrate with SMS provider (e.g., Twilio, Africa's Talking)
+    // For now, simulate sending and mark as sent
+    setTimeout(() => {
+      db.prepare(`
+        UPDATE sms_logs SET sms_status = ?, provider_reference = ? WHERE id = ?
+      `).run('sent', 'SMS_' + Date.now(), result.lastInsertRowid);
+    }, 100);
+
+    res.json({
+      success: true,
+      data: {
+        id: result.lastInsertRowid,
+        phone_number,
+        message_type,
+        status: 'pending',
+        message_length: messageText.length,
+        message: 'SMS queued for sending'
+      }
+    });
+  } catch (error) {
+    console.error('SMS send error:', error);
+    res.status(500).json({ success: false, error: 'Failed to send SMS' });
+  }
+});
+
+// GET /api/sms/logs - Get SMS logs
+app.get('/api/sms/logs', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const borrower_id = req.query.borrower_id ? parseInt(req.query.borrower_id) : null;
+  const loan_id = req.query.loan_id ? parseInt(req.query.loan_id) : null;
+
+  try {
+    let query = `
+      SELECT
+        id, borrower_id, loan_id, message_type, recipient_phone,
+        message_text, sms_status, provider_reference, sent_at
+      FROM sms_logs
+    `;
+    const params = [];
+
+    const conditions = [];
+    if (borrower_id) {
+      conditions.push('borrower_id = ?');
+      params.push(borrower_id);
+    }
+    if (loan_id) {
+      conditions.push('loan_id = ?');
+      params.push(loan_id);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY sent_at DESC LIMIT 100';
+    const logs = db.prepare(query).all(...params);
+
+    res.json({
+      success: true,
+      data: logs
+    });
+  } catch (error) {
+    console.error('Error fetching SMS logs:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch SMS logs' });
+  }
+});
+
+// GET /api/transactions - Get transaction history
+app.get('/api/transactions', authenticate, (req, res) => {
+  const loan_id = req.query.loan_id ? parseInt(req.query.loan_id) : null;
+
+  try {
+    let query = `
+      SELECT
+        id, loan_id, transaction_type, transaction_reference,
+        amount, status, details, created_at
+      FROM transaction_logs
+    `;
+    const params = [];
+
+    if (loan_id) {
+      query += ' WHERE loan_id = ?';
+      params.push(loan_id);
+    }
+
+    // Filter by user if not admin
+    if (req.user.role !== 'admin') {
+      const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+      if (!borrower) {
+        return res.json({ success: true, data: [] });
+      }
+      const baseQuery = query;
+      query = `
+        SELECT tl.* FROM transaction_logs tl
+        JOIN loans l ON tl.loan_id = l.id
+        WHERE l.borrower_id = ?
+      `;
+      if (loan_id) {
+        query += ' AND tl.loan_id = ?';
+      }
+      params.unshift(borrower.id);
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT 100';
+    const transactions = db.prepare(query).all(...params);
+
+    res.json({
+      success: true,
+      data: transactions
+    });
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch transactions' });
+  }
+});
 
 // Catch-all for unimplemented endpoints
 app.all('*', (req, res) => {
