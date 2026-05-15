@@ -266,18 +266,18 @@ export default function ApplyLoan() {
               <CardTitle className="text-base flex items-center gap-2"><Info className="h-4 w-4" /> Additional Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FieldGroup label="Loan Purpose">
+              <FieldGroup label="Loan Purpose" id="purpose">
                 <Textarea id="purpose" placeholder="What will you use this loan for?" value={form.purpose}
                   onChange={(e) => setForm(f => ({ ...f, purpose: e.target.value }))} className="min-h-[80px]" />
               </FieldGroup>
               {selectedProduct?.requires_security && (
-                <FieldGroup label="Security Details" required>
+                <FieldGroup label="Security Details" required id="security">
                   <Textarea id="security" placeholder="Describe the collateral/security for this loan" value={form.security_details}
                     onChange={(e) => setForm(f => ({ ...f, security_details: e.target.value }))} className="min-h-[80px]" />
                 </FieldGroup>
               )}
               {selectedProduct?.requires_guarantor && (
-                <FieldGroup label="Guarantor Details" required>
+                <FieldGroup label="Guarantor Details" required id="guarantor">
                   <Textarea id="guarantor" placeholder="Guarantor full name, phone, relationship" value={form.guarantor_details}
                     onChange={(e) => setForm(f => ({ ...f, guarantor_details: e.target.value }))} className="min-h-[80px]" />
                 </FieldGroup>

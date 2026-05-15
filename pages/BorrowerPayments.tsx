@@ -153,6 +153,7 @@ export default function BorrowerPayments() {
         <CardContent className="p-3 md:p-4 pt-0">
           <div className="overflow-x-auto">
             <ResponsiveTable>
+              <caption className="sr-only">Payment history showing all loan repayments with dates, amounts, and payment methods</caption>
               <ResponsiveTableHeader>
                 <ResponsiveTableHead className="hidden md:table-cell">Loan</ResponsiveTableHead>
                 <ResponsiveTableHead>Date</ResponsiveTableHead>

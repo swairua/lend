@@ -20,9 +20,9 @@ export function ProductSelector({
 }: ProductSelectorProps) {
   return (
     <div className="space-y-5">
-      <FieldGroup label="Category">
+      <FieldGroup label="Category" id="loan_category">
         <Select value={selectedCategory} onValueChange={onCategoryChange}>
-          <SelectTrigger>
+          <SelectTrigger id="loan_category">
             <SelectValue placeholder="Select category" />
           </SelectTrigger>
           <SelectContent>
@@ -38,10 +38,11 @@ export function ProductSelector({
       {products.length > 0 ? (
         <FieldGroup
           label="Product"
+          id="loan_product"
           helper={selectedProductId ? (products.find((p) => p.id === selectedProductId)?.description || undefined) : undefined}
         >
           <Select value={selectedProductId ? String(selectedProductId) : ''} onValueChange={onProductChange}>
-            <SelectTrigger>
+            <SelectTrigger id="loan_product">
               <SelectValue placeholder="Select product" />
             </SelectTrigger>
             <SelectContent>
