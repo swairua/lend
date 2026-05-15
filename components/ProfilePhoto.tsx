@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { Loader2, Camera, User } from "lucide-react";
-import { uploadsApi, getFileUrl } from "../utils/api";
+import { Loader2, Camera } from "lucide-react";
+import { uploadsApi, getFileUrl } from "@/utils/api";
 
 interface ProfilePhotoProps {
   name?: string;
@@ -24,34 +24,60 @@ export default function ProfilePhoto({ name, currentUrl, borrowerId, onUploaded,
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setError(""); setUploading(true);
+    setError("");
+    setUploading(true);
     try {
       const res = await uploadsApi.upload(file, "profile_photo", borrowerId);
       const url = getFileUrl(res.data?.file_url || "");
       setPhoto(url);
       onUploaded?.(url);
-    } catch (err: any) { setError(err.message || "Upload failed"); }
-    finally { setUploading(false); }
+    } catch (err: any) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if ((e.key === "Enter" || e.key === " ") && !uploading) {
+      e.preventDefault();
+      inputRef.current?.click();
+    }
   };
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <div
-        className={dim + " relative rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center cursor-pointer group border-4 border-white shadow-lg"}
+      <button
+        type="button"
         onClick={() => !uploading && inputRef.current?.click()}
+        onKeyDown={handleKeyDown}
+        aria-label={uploading ? "Uploading profile photo" : "Upload profile photo"}
+        className={`${dim} relative rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center cursor-pointer group border-4 border-white shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${uploading ? "opacity-75" : ""}`}
+        disabled={uploading}
       >
         {photo ? (
-          <img src={photo} alt={name || "Profile"} className="w-full h-full object-cover" />
+          <img src={photo} alt={name || "Profile photo"} className="w-full h-full object-cover" />
         ) : (
-          <span className={textSize + " font-bold text-white"}>{initials}</span>
+          <span className={`${textSize} font-bold text-white`}>{initials}</span>
         )}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          {uploading ? <Loader2 className={iconSize + " text-white animate-spin"} /> : <Camera className={iconSize + " text-white"} />}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center justify-center">
+          {uploading ? (
+            <Loader2 className={`${iconSize} text-white animate-spin`} />
+          ) : (
+            <Camera className={`${iconSize} text-white`} />
+          )}
         </div>
-      </div>
+      </button>
       <p className="text-xs text-muted-foreground">{uploading ? "Uploading..." : "Click to change photo"}</p>
       {error && <p className="text-xs text-red-500">{error}</p>}
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleChange}
+        aria-hidden="true"
+      />
     </div>
   );
 }

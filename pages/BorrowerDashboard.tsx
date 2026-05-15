@@ -2,13 +2,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../utils/api';
-import { normalizeList } from '../utils/normalize';
+import { loansApi, formatKES } from '@/utils/api';
+import { normalizeList } from '@/utils/normalize';
 import { AppLayout } from '@/components/layouts/AppLayout';
 import { useAuthenticatedUser } from '@/hooks/useAuthenticatedUser';
 import { PageTitle } from '@/components/PageTitle';
 import { StatCard } from '@/components/StatCard';
+import { LoanSummaryCard } from '@/components/LoanSummaryCard';
 import { Loader2, Plus, TrendingUp, User, AlertCircle } from 'lucide-react';
 
 export default function BorrowerDashboard() {
@@ -101,23 +101,11 @@ export default function BorrowerDashboard() {
             </div>
             <div className="space-y-2">
               {activeLoans.slice(0, 3).map((loan) => (
-                <Card key={loan.id} className="cursor-pointer hover:shadow-md" onClick={() => navigate(`/loans/${loan.id}`)}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">{loan.product_name}</p>
-                        <p className="text-xs text-muted-foreground">{loan.category_name || 'Loan'}</p>
-                      </div>
-                      <Badge className={`text-[10px] ${getStatusColor(loan.status)}`}>
-                        {getStatusLabel(loan.status)}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="font-bold text-sm">{formatKES(loan.principal_amount)}</span>
-                      <span className="text-xs text-muted-foreground">Due: {formatDate(loan.due_date)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+                <LoanSummaryCard
+                  key={loan.id}
+                  loan={loan}
+                  onClick={() => navigate(`/loans/${loan.id}`)}
+                />
               ))}
             </div>
           </div>
