@@ -67,7 +67,7 @@ export default function AdminReports() {
         setLoans(loans as any);
         
         const totalDisbursed = loans
-          .filter((l: any) => l && (l.status === 'active' || l.status === 'disbursed'))
+          .filter((l: any) => l && (l.status === 'active' || l.status === 'disbursed' || l.status === 'completed'))
           .reduce((sum: number, l: any) => sum + Number(l?.principal_amount || 0), 0);
         const totalOutstanding = loans
           .reduce((sum: number, l: any) => sum + Number(l?.balance || 0), 0);
