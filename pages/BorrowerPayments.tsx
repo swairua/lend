@@ -195,6 +195,7 @@ export default function BorrowerPayments() {
                         size="sm"
                         onClick={() => handleDownloadReceipt(repayment)}
                         disabled={downloadingReceiptId === repayment.id}
+                        aria-label="Download receipt"
                       >
                         {downloadingReceiptId === repayment.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
