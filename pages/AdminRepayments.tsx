@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { Loader2, ChevronLeft, ChevronRight, RefreshCw, DollarSign, Eye, Trash2 } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2 } from 'lucide-react';
 import { adminApi, formatKES, formatDate } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
@@ -136,7 +136,7 @@ export default function AdminRepayments() {
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center gap-2 md:gap-3">
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                <Wallet className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-base md:text-2xl font-bold truncate">{formatKES(totalAmount)}</p>
@@ -149,7 +149,7 @@ export default function AdminRepayments() {
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center gap-2 md:gap-3">
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                <Wallet className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
               </div>
               <div>
                 <p className="text-base md:text-2xl font-bold">{totalRepayments}</p>

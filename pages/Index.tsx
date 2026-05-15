@@ -423,7 +423,7 @@ export default function Index() {
       <footer className="border-t border-border bg-muted/30 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
           <p>
-            &copy; 2024 LendHub. All rights reserved. Fast, Transparent, Accessible Lending.
+            &copy; 2026 LendHub. All rights reserved. Fast, Transparent, Accessible Lending.
           </p>
         </div>
       </footer>

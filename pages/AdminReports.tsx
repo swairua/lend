@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { adminApi, loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
-import { Loader2, Download, FileText, Users, DollarSign, TrendingUp, BarChart3, Calendar, Filter } from 'lucide-react';
+import { Loader2, Download, FileText, Users, Wallet, TrendingUp, BarChart3, Calendar, Filter } from 'lucide-react';
 
 interface ReportLoan {
   id: number;
@@ -195,7 +195,7 @@ export default function AdminReports() {
             Loan Portfolio
           </TabsTrigger>
           <TabsTrigger value="collection" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
+            <Wallet className="h-4 w-4" />
             Collection
           </TabsTrigger>
           <TabsTrigger value="borrowers" className="flex items-center gap-2">

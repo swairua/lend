@@ -292,6 +292,51 @@ function initializeSchema() {
       console.log('✓ Loan categories seeded');
     }
 
+    // Seed demo loan products if they don't exist
+    const productCount = db.prepare('SELECT COUNT(*) as count FROM loan_products').get().count;
+    if (productCount === 0) {
+      const assetCategory = db.prepare('SELECT id FROM loan_categories WHERE code = ?').get('ASSET');
+      const microCategory = db.prepare('SELECT id FROM loan_categories WHERE code = ?').get('MICRO');
+
+      db.prepare(`
+        INSERT INTO loan_products (
+          category_id, name, description, min_amount, max_amount,
+          min_term_months, max_term_months, interest_rate, interest_type,
+          processing_fee_percent, asset_transfer_fee, late_fee_percent
+        ) VALUES
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        assetCategory?.id, 'Asset-Backed Loans', 'Quick loans with asset security', 50000, 2000000,
+        6, 60, 19.5, 'flat', 4, 7000, 2.5,
+        microCategory?.id, 'Micro Loans', 'Small personal loans', 5000, 200000,
+        3, 12, 25, 'flat', 5, 0, 3
+      );
+      console.log('✓ Loan products seeded');
+    }
+
+    // Seed demo loans if they don't exist
+    const loanCount = db.prepare('SELECT COUNT(*) as count FROM loans').get().count;
+    if (loanCount === 0) {
+      const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = (SELECT id FROM users WHERE email = ?)').get('borrower@lending.com');
+      const assetProduct = db.prepare('SELECT id FROM loan_products WHERE name = ?').get('Asset-Backed Loans');
+
+      if (borrower && assetProduct) {
+        db.prepare(`
+          INSERT INTO loans (
+            borrower_id, product_id, principal_amount, interest_amount,
+            processing_fee, total_amount, term_months, status,
+            approved_by, approved_at, disbursed_at, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `).run(
+          borrower.id, assetProduct.id, 500000, 97500,
+          20000, 617500, 12, 'active',
+          (db.prepare('SELECT id FROM users WHERE role = ?').get('admin'))?.id || 1
+        );
+        console.log('✓ Demo loans seeded');
+      }
+    }
+
     console.log('✓ Database schema initialized');
   } catch (error) {
     console.error('Database initialization error:', error.message);
