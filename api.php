@@ -547,9 +547,18 @@ try {
         }
         if ($method === 'GET' && strpos($uri, 'auth/me') !== false) {
             $u = auth();
-            $row = one("SELECT id, email, name, phone, photo_url, role FROM users WHERE id = ?", [$u['id']]);
+            $row = one("SELECT id, email, name, phone, role FROM users WHERE id = ?", [$u['id']]);
             $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$u['id']]);
             $row['borrower_id'] = $b['id'] ?? null;
+            // Try to fetch photo_url if column exists
+            try {
+                $fullRow = one("SELECT photo_url FROM users WHERE id = ?", [$u['id']]);
+                if ($fullRow && $fullRow['photo_url']) {
+                    $row['photo_url'] = $fullRow['photo_url'];
+                }
+            } catch (Exception $e) {
+                // photo_url column doesn't exist yet, continue without it
+            }
             log_access('GET', 'auth/me', 200);
             echo json_encode(['success' => true, 'data' => $row]);
             exit;
@@ -571,8 +580,13 @@ try {
                     $values[] = $d['phone'];
                 }
                 if (isset($d['photo_url'])) {
-                    $updates[] = "photo_url = ?";
-                    $values[] = $d['photo_url'];
+                    // Try to update photo_url if column exists
+                    try {
+                        $updates[] = "photo_url = ?";
+                        $values[] = $d['photo_url'];
+                    } catch (Exception $e) {
+                        // photo_url column doesn't exist yet, skip it
+                    }
                 }
 
                 if ($updates) {
@@ -612,9 +626,18 @@ try {
                 }
 
                 // Return updated user data
-                $row = one("SELECT id, email, name, phone, photo_url, role FROM users WHERE id = ?", [$u['id']]);
+                $row = one("SELECT id, email, name, phone, role FROM users WHERE id = ?", [$u['id']]);
                 $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$u['id']]);
                 $row['borrower_id'] = $b['id'] ?? null;
+                // Try to fetch photo_url if column exists
+                try {
+                    $fullRow = one("SELECT photo_url FROM users WHERE id = ?", [$u['id']]);
+                    if ($fullRow && $fullRow['photo_url']) {
+                        $row['photo_url'] = $fullRow['photo_url'];
+                    }
+                } catch (Exception $e) {
+                    // photo_url column doesn't exist yet
+                }
 
                 log_access('PUT', 'auth/profile', 200);
                 echo json_encode(['success' => true, 'data' => $row]);

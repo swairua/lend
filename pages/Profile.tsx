@@ -17,6 +17,7 @@ interface User {
   email: string;
   phone: string;
   role: string;
+  borrower_id?: number;
 }
 
 interface BorrowerProfile {
@@ -91,8 +92,8 @@ export default function Profile() {
           monthly_income: userData.monthly_income || '',
         }));
 
-        // Load saved profile photo from server
-        if (userData.photo_url) {
+        // Load saved profile photo from server (if field exists)
+        if (userData?.photo_url) {
           setPhotoUrl(userData.photo_url);
         }
 
@@ -190,7 +191,7 @@ export default function Profile() {
           <ProfilePhoto
             name={user?.name}
             currentUrl={photoUrl}
-            borrowerId={user?.id}
+            borrowerId={user?.borrower_id}
             onUploaded={(url) => setPhotoUrl(url)}
           />
         </div>
@@ -374,7 +375,7 @@ export default function Profile() {
 
 
       {/* Documents Section */}
-      <DocumentsPanel borrowerId={user?.id} />
+      <DocumentsPanel borrowerId={user?.borrower_id} />
 
       {/* Change Password */}
       <form onSubmit={handleChangePassword} className="mt-6">
