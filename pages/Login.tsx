@@ -168,11 +168,6 @@ export default function Login() {
               </button>
             </div>
 
-            {/* Demo credentials hint */}
-            <div className="mt-4 p-2 bg-muted rounded-lg text-xs text-muted-foreground">
-              <p className="font-medium">Demo:</p>
-              <p>Admin: admin@lending.com / Pass123</p>
-            </div>
           </CardContent>
         </Card>
 

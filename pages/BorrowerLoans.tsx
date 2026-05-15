@@ -87,7 +87,7 @@ export default function BorrowerLoans() {
             <Card key={loan.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/loans/${loan.id}`)}>
               <CardContent className="p-3 md:p-4">
                 <div className="flex justify-between items-start gap-2 mb-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-bold text-base md:text-lg">{formatKES(loan.principal_amount)}</p>
                     <p className="text-xs md:text-sm text-muted-foreground truncate">{loan.product_name || 'Loan'}</p>
                   </div>
@@ -95,10 +95,21 @@ export default function BorrowerLoans() {
                     {getStatusLabel(loan.status)}
                   </Badge>
                 </div>
-                <div className="flex justify-between text-xs md:text-sm text-muted-foreground">
-                  <span>{loan.term_months} months</span>
-                  <span className="hidden sm:inline">{formatDate(loan.created_at)}</span>
+                <div className="grid grid-cols-2 gap-2 text-xs md:text-sm text-muted-foreground mb-2">
+                  <div>
+                    <span className="text-xs text-muted-foreground">Applied:</span>
+                    <p className="font-medium text-foreground">{formatDate(loan.created_at)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Term:</span>
+                    <p className="font-medium text-foreground">{loan.term_months} months</p>
+                  </div>
                 </div>
+                {loan.status === 'pending' && (
+                  <div className="text-xs text-yellow-600 p-1.5 bg-yellow-50 rounded">
+                    ⏳ Pending review · Expected decision by {formatDate(new Date(new Date(loan.created_at).getTime() + 3 * 24 * 60 * 60 * 1000))}
+                  </div>
+                )}
                 {loan.status === 'active' && (
                   <div className="mt-2 pt-2 border-t">
                     <div className="flex justify-between text-xs md:text-sm">

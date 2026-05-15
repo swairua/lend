@@ -253,22 +253,30 @@ export default function AdminDashboard() {
                   <CardDescription>Last 6 months</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-40 flex items-end gap-2">
-                    {(stats?.monthly_disbursements || []).map((month: any, i: number) => {
-                      const maxTotal = Math.max(...(stats?.monthly_disbursements?.map((m: any) => m.total) || [1]));
-                      const height = maxTotal > 0 ? (month.total / maxTotal) * 100 : 0;
-                      return (
-                        <div key={i} className="flex-1 bg-primary/20 rounded-t" style={{ height: `${height}%` }}>
-                          <div className="w-full bg-primary rounded-t" style={{ height: '100%' }} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                    {(stats?.monthly_disbursements || []).map((month: any, i: number) => (
-                      <span key={i}>{month.month?.split('-')[1] || ''}</span>
-                    ))}
-                  </div>
+                  {(stats?.monthly_disbursements || []).length === 0 ? (
+                    <div className="h-40 flex items-center justify-center text-muted-foreground">
+                      No disbursements this period
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-40 flex items-end gap-2">
+                        {stats?.monthly_disbursements.map((month: any, i: number) => {
+                          const maxTotal = Math.max(...stats.monthly_disbursements.map((m: any) => m.total));
+                          const height = maxTotal > 0 ? (month.total / maxTotal) * 100 : 0;
+                          return (
+                            <div key={i} className="flex-1 bg-primary/20 rounded-t" style={{ height: `${height}%` }}>
+                              <div className="w-full bg-primary rounded-t" style={{ height: '100%' }} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                        {stats?.monthly_disbursements.map((month: any, i: number) => (
+                          <span key={i}>{month.month?.split('-')[1] || ''}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

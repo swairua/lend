@@ -87,7 +87,7 @@ export default function BorrowerDashboard() {
               <div>
                 <p className="text-green-100 text-sm">Need funds?</p>
                 <p className="text-xl font-bold mt-1">Apply for a loan</p>
-                <p className="text-green-100 text-xs mt-1">Quick approval in minutes</p>
+                <p className="text-green-100 text-xs mt-1">Apply and track your status</p>
               </div>
               <Button asChild size="sm" className="bg-white text-green-700 hover:bg-green-50">
                 <Link to="/apply">

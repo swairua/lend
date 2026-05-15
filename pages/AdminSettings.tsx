@@ -363,13 +363,13 @@ export default function AdminSettings() {
       )}
 
       <Tabs defaultValue="company" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="company"><Building className="h-4 w-4 mr-1" />Company</TabsTrigger>
-          <TabsTrigger value="loans"><DollarSign className="h-4 w-4 mr-1" />Loan Defaults</TabsTrigger>
-          <TabsTrigger value="categories"><Package className="h-4 w-4 mr-1" />Categories</TabsTrigger>
-          <TabsTrigger value="products"><CreditCard className="h-4 w-4 mr-1" />Products</TabsTrigger>
-          <TabsTrigger value="requirements"><Shield className="h-4 w-4 mr-1" />Requirements</TabsTrigger>
-          <TabsTrigger value="notifications"><Bell className="h-4 w-4 mr-1" />Notifications</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 overflow-x-auto">
+          <TabsTrigger value="company" className="text-xs md:text-sm"><Building className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Company</span></TabsTrigger>
+          <TabsTrigger value="loans" className="text-xs md:text-sm"><DollarSign className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Defaults</span></TabsTrigger>
+          <TabsTrigger value="categories" className="text-xs md:text-sm"><Package className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Categories</span></TabsTrigger>
+          <TabsTrigger value="products" className="text-xs md:text-sm"><CreditCard className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
+          <TabsTrigger value="requirements" className="text-xs md:text-sm"><Shield className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Requirements</span></TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs md:text-sm"><Bell className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Notifications</span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="company" className="mt-4">
