@@ -308,12 +308,6 @@ export const adminApi = {
     );
   },
 
-  createRepayment: (data: { loan_id: number; amount: number; principal_paid: number; interest_paid: number; payment_method: string; reference_number?: string }) =>
-    request<{ success: boolean; message: string }>('/admin/repayments', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
   deleteRepayment: (id: number) =>
     request<{ success: boolean }>(`/admin/repayments/${id}`, {
       method: 'DELETE',
