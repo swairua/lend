@@ -51,7 +51,7 @@ const ResponsiveTableRow = React.forwardRef<
     ref={ref}
     className={cn(
       "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-      "block mb-3 p-2 border border-gray-200 rounded-lg md:table-row md:border-b md:border-0 md:mb-0 md:p-0 md:rounded-none",
+      "block mb-2 p-2 border border-gray-200 rounded-lg md:table-row md:border-b md:border-0 md:mb-0 md:p-3 lg:p-4 md:rounded-none",
       className,
     )}
     {...props}
@@ -82,8 +82,8 @@ const ResponsiveTableCell = React.forwardRef<
     ref={ref}
     className={cn(
       "align-middle [&:has([role=checkbox])]:pr-0",
-      "block md:table-cell mb-1 md:mb-0 relative md:static px-2 py-1 md:px-3 md:py-2",
-      label ? "pl-20 md:pl-3" : "",
+      "block md:table-cell mb-1 md:mb-0 relative md:static px-2 py-1 md:px-3 md:py-2 lg:px-4",
+      label ? "pl-20 md:pl-3 lg:pl-4" : "",
       className,
     )}
     {...props}
