@@ -1,9 +1,8 @@
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SectionCard } from '@/components/SectionCard';
+import { FieldGroup } from '@/components/FieldGroup';
 import { Loader2, User, Briefcase } from 'lucide-react';
 
 interface ProfileFormData {
@@ -36,24 +35,20 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
       {/* Personal Information */}
       <SectionCard icon={User} title="Personal Information" description="Update your personal details">
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
+          <FieldGroup label="Full Name" id="name">
             <Input
               id="name"
               value={form.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="Your full name"
             />
-          </div>
+          </FieldGroup>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" value={userEmail || ''} disabled className="bg-muted" />
-            <p className="text-xs text-muted-foreground">Contact admin to change email</p>
-          </div>
+          <FieldGroup label="Email" helper="Contact admin to change email" id="email">
+            <Input id="email" value={userEmail || ''} disabled className="bg-muted" aria-describedby="email-helper" />
+          </FieldGroup>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
+          <FieldGroup label="Phone Number" id="phone">
             <Input
               id="phone"
               type="tel"
@@ -61,7 +56,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
               onChange={(e) => handleChange('phone', e.target.value)}
               placeholder="+254 700 000000"
             />
-          </div>
+          </FieldGroup>
         </div>
       </SectionCard>
 
@@ -69,51 +64,39 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
       <SectionCard icon={Briefcase} title="Business Information" description="Your loan application details">
         <div className="space-y-4">
           {/* KYC Fields */}
-          <div className="space-y-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">KYC Information</p>
-            <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="national_id" className="text-xs text-muted-foreground">
-                  National ID / Passport *
-                </Label>
-                <Input
-                  id="national_id"
-                  value={form.national_id}
-                  onChange={(e) => handleChange('national_id', e.target.value)}
-                  placeholder="Enter your ID number"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="kra_pin" className="text-xs text-muted-foreground">
-                  KRA PIN *
-                </Label>
-                <Input
-                  id="kra_pin"
-                  value={form.kra_pin}
-                  onChange={(e) => handleChange('kra_pin', e.target.value)}
-                  placeholder="Enter your KRA PIN"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="tcc_number" className="text-xs text-muted-foreground">
-                  TCC Number * (Renewed Annually)
-                </Label>
-                <Input
-                  id="tcc_number"
-                  value={form.tcc_number}
-                  onChange={(e) => handleChange('tcc_number', e.target.value)}
-                  placeholder="Enter your TCC number"
-                  className="text-sm"
-                />
-              </div>
-            </div>
+          <fieldset className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+            <legend className="text-xs font-semibold text-blue-800 uppercase tracking-wide">KYC Information</legend>
+            <FieldGroup label="National ID / Passport" required id="national_id">
+              <Input
+                id="national_id"
+                value={form.national_id}
+                onChange={(e) => handleChange('national_id', e.target.value)}
+                placeholder="Enter your ID number"
+                className="text-sm"
+              />
+            </FieldGroup>
+            <FieldGroup label="KRA PIN" required id="kra_pin">
+              <Input
+                id="kra_pin"
+                value={form.kra_pin}
+                onChange={(e) => handleChange('kra_pin', e.target.value)}
+                placeholder="Enter your KRA PIN"
+                className="text-sm"
+              />
+            </FieldGroup>
+            <FieldGroup label="TCC Number (Renewed Annually)" required id="tcc_number">
+              <Input
+                id="tcc_number"
+                value={form.tcc_number}
+                onChange={(e) => handleChange('tcc_number', e.target.value)}
+                placeholder="Enter your TCC number"
+                className="text-sm"
+              />
+            </FieldGroup>
             <p className="text-xs text-blue-700">Please provide accurate KYC information. Admin will verify these details.</p>
-          </div>
+          </fieldset>
 
-          <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
+          <FieldGroup label="Address" id="address">
             <Textarea
               id="address"
               value={form.address}
@@ -121,31 +104,28 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
               placeholder="Your physical address"
               className="min-h-[80px]"
             />
-          </div>
+          </FieldGroup>
 
-          <div className="space-y-2">
-            <Label htmlFor="business_name">Business Name</Label>
+          <FieldGroup label="Business Name" id="business_name">
             <Input
               id="business_name"
               value={form.business_name}
               onChange={(e) => handleChange('business_name', e.target.value)}
               placeholder="Your business name (if any)"
             />
-          </div>
+          </FieldGroup>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="business_type">Business Type</Label>
+            <FieldGroup label="Business Type" id="business_type">
               <Input
                 id="business_type"
                 value={form.business_type}
                 onChange={(e) => handleChange('business_type', e.target.value)}
                 placeholder="e.g., Retail, Services"
               />
-            </div>
+            </FieldGroup>
 
-            <div className="space-y-2">
-              <Label htmlFor="monthly_income">Monthly Income (KES)</Label>
+            <FieldGroup label="Monthly Income (KES)" id="monthly_income">
               <Input
                 id="monthly_income"
                 type="number"
@@ -153,7 +133,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
                 onChange={(e) => handleChange('monthly_income', e.target.value)}
                 placeholder="50000"
               />
-            </div>
+            </FieldGroup>
           </div>
         </div>
       </SectionCard>

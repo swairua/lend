@@ -1,4 +1,3 @@
-import { Label } from '@/components/ui/label';
 import { formatKES } from '@/utils/api';
 
 interface LoanAmountTermSelectorProps {
@@ -20,10 +19,9 @@ export function LoanAmountTermSelector({
 
   return (
     <>
-      {/* Amount */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <Label>Loan Amount</Label>
+          <label className="text-sm font-medium">Loan Amount</label>
           <span className="text-lg font-bold text-primary">{formatKES(amount)}</span>
         </div>
         <input
@@ -42,10 +40,9 @@ export function LoanAmountTermSelector({
         </div>
       </div>
 
-      {/* Term */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <Label>Loan Term</Label>
+          <label className="text-sm font-medium">Loan Term</label>
           <span className="text-lg font-bold text-primary">
             {termMonths} month{termMonths > 1 ? 's' : ''}
           </span>

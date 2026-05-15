@@ -1,4 +1,4 @@
-import { Label } from '@/components/ui/label';
+import { FieldGroup } from '@/components/FieldGroup';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ProductSelectorProps {
@@ -20,9 +20,7 @@ export function ProductSelector({
 }: ProductSelectorProps) {
   return (
     <div className="space-y-5">
-      {/* Category */}
-      <div className="space-y-1.5">
-        <Label>Category</Label>
+      <FieldGroup label="Category">
         <Select value={selectedCategory} onValueChange={onCategoryChange}>
           <SelectTrigger>
             <SelectValue placeholder="Select category" />
@@ -35,12 +33,13 @@ export function ProductSelector({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </FieldGroup>
 
-      {/* Product */}
       {products.length > 0 ? (
-        <div className="space-y-1.5">
-          <Label>Product</Label>
+        <FieldGroup
+          label="Product"
+          helper={selectedProductId ? (products.find((p) => p.id === selectedProductId)?.description || undefined) : undefined}
+        >
           <Select value={selectedProductId ? String(selectedProductId) : ''} onValueChange={onProductChange}>
             <SelectTrigger>
               <SelectValue placeholder="Select product" />
@@ -53,12 +52,7 @@ export function ProductSelector({
               ))}
             </SelectContent>
           </Select>
-          {selectedProductId && products.find((p) => p.id === selectedProductId)?.description && (
-            <p className="text-xs text-muted-foreground">
-              {products.find((p) => p.id === selectedProductId)?.description}
-            </p>
-          )}
-        </div>
+        </FieldGroup>
       ) : selectedCategory ? (
         <div className="text-center py-4 text-sm text-muted-foreground">No products available in this category.</div>
       ) : null}

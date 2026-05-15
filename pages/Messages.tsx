@@ -284,7 +284,7 @@ export default function Messages() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{selectedMessage.subject}</CardTitle>
-                <Button variant="ghost" onClick={() => setSelectedMessage(null)}>×</Button>
+                <Button variant="ghost" onClick={() => setSelectedMessage(null)} aria-label="Close message">×</Button>
               </div>
               <p className="text-sm text-muted-foreground">
                 From: {selectedMessage.sender_name || 'System'} • {formatDate(selectedMessage.created_at)}
@@ -303,6 +303,7 @@ export default function Messages() {
                 <Button
                   variant="destructive"
                   onClick={() => handleDeleteMessage(selectedMessage.id)}
+                  aria-label="Delete message"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
