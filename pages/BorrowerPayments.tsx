@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { Loader2, ArrowLeft, Download } from 'lucide-react';
+import { PageTitle } from '@/components/PageTitle';
+import { Loader2, Download } from 'lucide-react';
 import { loansApi, formatKES, formatDate, pdfApi } from '../types/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -111,12 +112,7 @@ export default function BorrowerPayments() {
   if (repayments.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/loans')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold">Payment History</h1>
-        </div>
+        <PageTitle title="Payment History" onBackClick={() => navigate('/loans')} />
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground mb-4">No payment history yet</p>
@@ -129,13 +125,7 @@ export default function BorrowerPayments() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/loans')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold">Payment History</h1>
-      </div>
+      <PageTitle title="Payment History" onBackClick={() => navigate('/loans')} />
 
       {/* Summary Card */}
       <Card className="bg-gradient-to-r from-primary/10 to-primary/5">
@@ -205,6 +195,7 @@ export default function BorrowerPayments() {
                         size="sm"
                         onClick={() => handleDownloadReceipt(repayment)}
                         disabled={downloadingReceiptId === repayment.id}
+                        aria-label="Download receipt"
                       >
                         {downloadingReceiptId === repayment.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

@@ -6,9 +6,10 @@ import ProfilePhoto from "@/components/ProfilePhoto";
 import DocumentsPanel from "@/components/DocumentsPanel";
 import { ProfileForm } from "@/components/ProfileForm";
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
+import { PageTitle } from '@/components/PageTitle';
 import { authApi, formatKES } from '@/utils/api';
 import { secureStorage } from '@/utils/secureStorage';
-import { Loader2, ArrowLeft, Banknote } from 'lucide-react';
+import { Loader2, Banknote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthenticatedUser } from '@/hooks/useAuthenticatedUser';
 
@@ -177,12 +178,7 @@ export default function Profile() {
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-2xl">
-      <div className="flex items-center gap-2 mb-6 min-w-0">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} aria-label="Go back">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold truncate">My Profile</h1>
-      </div>
+      <PageTitle title="My Profile" onBackClick={() => navigate(-1)} />
 
       {/* Profile Photo */}
       <div className="flex justify-center mb-6">

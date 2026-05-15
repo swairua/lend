@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageTitle } from '@/components/PageTitle';
 import { messagesApi, formatDate, adminApi, authApi } from '../types/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { normalizeList } from '../utils/normalize';
@@ -178,14 +179,11 @@ export default function Messages() {
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="flex items-center justify-between mb-6 gap-2 min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <Mail className="h-6 w-6 flex-shrink-0" />
-          <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold truncate">Messages</h1>
-          {unreadCount > 0 && (
-            <Badge variant="destructive">{unreadCount} unread</Badge>
-          )}
-        </div>
-        <Button onClick={() => setComposeOpen(true)}>
+        <PageTitle title="Messages" />
+        {unreadCount > 0 && (
+          <Badge variant="destructive" className="ml-auto">{unreadCount} unread</Badge>
+        )}
+        <Button onClick={() => setComposeOpen(true)} className="ml-auto">
           <Send className="h-4 w-4 mr-2" />
           New Message
         </Button>
