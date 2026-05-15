@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
+import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../utils/api';
 import { secureStorage } from '../utils/secureStorage';
 import { normalizeList } from '../utils/normalize';
 import { Loader2, Plus, FileText, CreditCard, TrendingUp, User, AlertCircle } from 'lucide-react';
