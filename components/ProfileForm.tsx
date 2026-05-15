@@ -35,7 +35,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
       {/* Personal Information */}
       <SectionCard icon={User} title="Personal Information" description="Update your personal details">
         <div className="space-y-4">
-          <FieldGroup label="Full Name">
+          <FieldGroup label="Full Name" id="name">
             <Input
               id="name"
               value={form.name}
@@ -44,11 +44,11 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
             />
           </FieldGroup>
 
-          <FieldGroup label="Email" helper="Contact admin to change email">
-            <Input id="email" value={userEmail || ''} disabled className="bg-muted" />
+          <FieldGroup label="Email" helper="Contact admin to change email" id="email">
+            <Input id="email" value={userEmail || ''} disabled className="bg-muted" aria-describedby="email-helper" />
           </FieldGroup>
 
-          <FieldGroup label="Phone Number">
+          <FieldGroup label="Phone Number" id="phone">
             <Input
               id="phone"
               type="tel"
@@ -64,9 +64,9 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
       <SectionCard icon={Briefcase} title="Business Information" description="Your loan application details">
         <div className="space-y-4">
           {/* KYC Fields */}
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
-            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">KYC Information</p>
-            <FieldGroup label="National ID / Passport" required>
+          <fieldset className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+            <legend className="text-xs font-semibold text-blue-800 uppercase tracking-wide">KYC Information</legend>
+            <FieldGroup label="National ID / Passport" required id="national_id">
               <Input
                 id="national_id"
                 value={form.national_id}
@@ -75,7 +75,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
                 className="text-sm"
               />
             </FieldGroup>
-            <FieldGroup label="KRA PIN" required>
+            <FieldGroup label="KRA PIN" required id="kra_pin">
               <Input
                 id="kra_pin"
                 value={form.kra_pin}
@@ -84,7 +84,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
                 className="text-sm"
               />
             </FieldGroup>
-            <FieldGroup label="TCC Number (Renewed Annually)" required>
+            <FieldGroup label="TCC Number (Renewed Annually)" required id="tcc_number">
               <Input
                 id="tcc_number"
                 value={form.tcc_number}
@@ -94,9 +94,9 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
               />
             </FieldGroup>
             <p className="text-xs text-blue-700">Please provide accurate KYC information. Admin will verify these details.</p>
-          </div>
+          </fieldset>
 
-          <FieldGroup label="Address">
+          <FieldGroup label="Address" id="address">
             <Textarea
               id="address"
               value={form.address}
@@ -106,7 +106,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
             />
           </FieldGroup>
 
-          <FieldGroup label="Business Name">
+          <FieldGroup label="Business Name" id="business_name">
             <Input
               id="business_name"
               value={form.business_name}
@@ -116,7 +116,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
           </FieldGroup>
 
           <div className="grid grid-cols-2 gap-4">
-            <FieldGroup label="Business Type">
+            <FieldGroup label="Business Type" id="business_type">
               <Input
                 id="business_type"
                 value={form.business_type}
@@ -125,7 +125,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
               />
             </FieldGroup>
 
-            <FieldGroup label="Monthly Income (KES)">
+            <FieldGroup label="Monthly Income (KES)" id="monthly_income">
               <Input
                 id="monthly_income"
                 type="number"

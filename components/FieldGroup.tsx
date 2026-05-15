@@ -4,18 +4,28 @@ interface FieldGroupProps {
   error?: string;
   helper?: string;
   required?: boolean;
+  htmlFor?: string;
+  id?: string;
 }
 
-export function FieldGroup({ label, children, error, helper, required }: FieldGroupProps) {
+export function FieldGroup({ label, children, error, helper, required, htmlFor, id: fieldId }: FieldGroupProps) {
+  const baseId = fieldId || htmlFor || '';
+  const helperId = helper && !error ? `${baseId}-helper` : undefined;
+  const errorId = error ? `${baseId}-error` : undefined;
+
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium">
+      {baseId && <label htmlFor={baseId} className="text-sm font-medium">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
+      </label>}
+      {!baseId && <label className="text-sm font-medium">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>}
       {children}
-      {error && <p className="text-sm text-red-500">{error}</p>}
-      {helper && !error && <p className="text-xs text-muted-foreground">{helper}</p>}
+      {error && <p id={errorId} className="text-sm text-red-500" role="alert">{error}</p>}
+      {helper && !error && <p id={helperId} className="text-xs text-muted-foreground">{helper}</p>}
     </div>
   );
 }
