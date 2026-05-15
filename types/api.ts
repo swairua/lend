@@ -184,6 +184,7 @@ export {
   repaymentsApi,
   adminApi,
   messagesApi,
+  pdfApi,
   formatKES,
   formatDate,
   getStatusColor,
