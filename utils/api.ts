@@ -1,4 +1,5 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats } from '../types/api';
+import { secureStorage } from './secureStorage';
 
 // For local development, use /api proxy to avoid CORS issues
 // For production, VITE_API_URL should be set to the actual API endpoint
@@ -9,7 +10,11 @@ const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
 export function getFileUrl(path: string): string {
   if (!path) return '';
   if (path.startsWith('http')) return path; // Already a full URL
-  return UPLOADS_URL + (path.startsWith('/') ? path : '/' + path);
+  // Check if path already contains the domain (e.g., from API response)
+  if (path.includes('lending.wayrus.co.ke')) return path;
+  // Remove duplicate /uploads if it's already in the path
+  const cleanPath = path.replace(/^\/uploads\//, '');
+  return UPLOADS_URL + (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath);
 }
 
 class ApiError extends Error {
@@ -23,7 +28,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
 
-  const token = localStorage.getItem('token');
+  const token = await secureStorage.getToken();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -481,7 +486,7 @@ export interface UploadedDocument {
 async function uploadRequest<T>(endpoint: string, formData: FormData): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
-  const token = localStorage.getItem("token");
+  const token = await secureStorage.getToken();
   const headers: Record<string,string> = {};
   if (token) headers["Authorization"] = "Bearer " + token;
   try {
@@ -542,15 +547,17 @@ export const pdfApi = {
       }
     ),
 
-  downloadDocument: (documentId: number) =>
-    fetch(`${API_BASE}/documents/${documentId}`, {
+  downloadDocument: async (documentId: number) => {
+    const token = await secureStorage.getToken();
+    return fetch(`${API_BASE}/documents/${documentId}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${token}`,
       },
     }).then(res => {
       if (!res.ok) throw new Error('Failed to download document');
       return res.blob();
-    }),
+    });
+  },
 
   getEmailSettings: () =>
     request<{ success: boolean; data: any }>('/admin/email-settings'),

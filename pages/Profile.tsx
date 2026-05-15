@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import ProfilePhoto from "../components/ProfilePhoto";
 import DocumentsPanel from "../components/DocumentsPanel";
-import { authApi, loansApi, formatKES, formatDate } from '../types/api';
+import { authApi, loansApi, formatKES, formatDate } from '../utils/api';
+import { secureStorage } from '../utils/secureStorage';
 import { Loader2, User, Mail, Phone, Home, Briefcase, Banknote, ArrowLeft, Save, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -56,22 +57,25 @@ export default function Profile() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const checkAuth = async () => {
+      const token = await secureStorage.getToken();
+      const storedUser = await secureStorage.getUser();
 
-    if (!token || !storedUser.id) {
-      navigate('/login');
-      return;
-    }
+      if (!token || !storedUser?.id) {
+        navigate('/login');
+        return;
+      }
 
-    setUser(storedUser);
-    // Initialize form with localStorage user data
-    setForm((prev) => ({
-      ...prev,
-      name: storedUser.name || '',
-      phone: storedUser.phone || '',
-    }));
-    loadProfile();
+      setUser(storedUser);
+      // Initialize form with stored user data
+      setForm((prev) => ({
+        ...prev,
+        name: storedUser.name || '',
+        phone: storedUser.phone || '',
+      }));
+      loadProfile();
+    };
+    checkAuth();
   }, [navigate]);
 
   const loadProfile = async () => {
@@ -127,12 +131,12 @@ export default function Profile() {
         tcc_number: form.tcc_number || undefined,
       });
 
-      localStorage.setItem('user', JSON.stringify({
+      await secureStorage.setUser({
         ...user,
         name: form.name,
         phone: form.phone,
         photo_url: photoUrl,
-      }));
+      });
 
       toast({ title: 'Profile updated successfully' });
     } catch (error: any) {
