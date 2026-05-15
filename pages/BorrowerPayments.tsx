@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ArrowLeft, Download } from 'lucide-react';
-import { repaymentsApi, loansApi, formatKES, formatDate, pdfApi } from '../types/api';
+import { loansApi, formatKES, formatDate, pdfApi } from '../types/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface RepaymentWithLoan {
@@ -37,34 +37,29 @@ export default function BorrowerPayments() {
     setLoading(true);
     setError(null);
     try {
-      const response = await repaymentsApi.getMyRepayments();
-      const data = response.data?.data || response.data || [];
-      
-      if (!Array.isArray(data)) {
-        setRepayments([]);
-        return;
+      const response = await loansApi.getMyLoans();
+      const loans = response.data?.data?.loans || response.data?.loans || [];
+
+      // Extract all repayments from all loans
+      const allRepayments: RepaymentWithLoan[] = [];
+
+      for (const loan of loans) {
+        const loanDetails = await loansApi.getMyLoan(loan.id);
+        const loanData = loanDetails.data?.data || loanDetails.data;
+        const loanRepayments = loanData?.repayments || [];
+
+        // Add loan_name to each repayment
+        const enrichedRepayments = loanRepayments.map((rep: any) => ({
+          ...rep,
+          loan_name: loanData?.product_name || `Loan #${loan.id}`,
+        }));
+
+        allRepayments.push(...enrichedRepayments);
       }
 
-      // Fetch loan details to enrich repayments with loan names
-      const enrichedRepayments = await Promise.all(
-        data.map(async (rep: any) => {
-          try {
-            const loanRes = await loansApi.getMyLoan(rep.loan_id);
-            const loanData = loanRes.data?.data || loanRes.data;
-            return {
-              ...rep,
-              loan_name: loanData?.product_name || `Loan #${rep.loan_id}`,
-            };
-          } catch {
-            return {
-              ...rep,
-              loan_name: `Loan #${rep.loan_id}`,
-            };
-          }
-        })
-      );
-
-      setRepayments(enrichedRepayments as RepaymentWithLoan[]);
+      // Sort by payment date (newest first)
+      allRepayments.sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime());
+      setRepayments(allRepayments);
     } catch (err: any) {
       console.error('Failed to load repayments:', err);
       setError(err.message || 'Failed to load payment history');
