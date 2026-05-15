@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
 import { normalizeList } from '../utils/normalize';
-import { Loader2, Plus, FileText, CreditCard } from 'lucide-react';
+import { Loader2, Plus, FileText, CreditCard, Calendar } from 'lucide-react';
 
 // Loan type stabilized via API; kept loose for now
 
@@ -112,10 +112,21 @@ export default function BorrowerLoans() {
                 )}
                 {loan.status === 'active' && (
                   <div className="mt-2 pt-2 border-t">
-                    <div className="flex justify-between text-xs md:text-sm">
+                    <div className="flex justify-between text-xs md:text-sm mb-2">
                       <span>Balance</span>
                       <span className="font-medium text-orange-600">{formatKES(loan.balance || 0)}</span>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/loans/${loan.id}/repayment-schedule`);
+                      }}
+                    >
+                      <Calendar className="h-3 w-3 mr-1" /> View Schedule
+                    </Button>
                   </div>
                 )}
               </CardContent>

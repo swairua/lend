@@ -27,6 +27,8 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminBorrowers from "./pages/AdminBorrowers";
 import AdminSettings from "./pages/AdminSettings";
 import AdminRepayments from "./pages/AdminRepayments";
+import RepaymentSchedule from "./pages/RepaymentSchedule";
+import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
 import UserLayout from "./components/UserLayout";
 import PrivateRoute from "./components/PrivateRoute";
 
@@ -51,6 +53,7 @@ const AppRoutes = () => {
       <Route path="/apply" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><ApplyLoan /></UserLayout></PrivateRoute>} />
       <Route path="/loans" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><BorrowerLoans /></UserLayout></PrivateRoute>} />
       <Route path="/loans/:loanId" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><LoanDetails /></UserLayout></PrivateRoute>} />
+      <Route path="/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><RepaymentSchedule /></UserLayout></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><UserLayout user={user}><Profile /></UserLayout></PrivateRoute>} />
       <Route path="/messages" element={<PrivateRoute><UserLayout user={user}><Messages /></UserLayout></PrivateRoute>} />
       <Route path="/messages/:messageId" element={<PrivateRoute><UserLayout user={user}><Messages /></UserLayout></PrivateRoute>} />
@@ -59,6 +62,7 @@ const AppRoutes = () => {
       <Route path="/admin" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminDashboard /></UserLayout></PrivateRoute>} />
       <Route path="/admin/loans" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminLoans /></UserLayout></PrivateRoute>} />
       <Route path="/admin/loans/:loanId" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminLoans /></UserLayout></PrivateRoute>} />
+      <Route path="/admin/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminRepaymentSchedule /></UserLayout></PrivateRoute>} />
       <Route path="/admin/categories" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminCategories /></UserLayout></PrivateRoute>} />
       <Route path="/admin/products" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminProducts /></UserLayout></PrivateRoute>} />
       <Route path="/admin/borrowers" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminBorrowers /></UserLayout></PrivateRoute>} />
