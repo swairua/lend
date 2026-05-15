@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { productsApi, loansApi, formatKES } from "../types/api";
+import { calculateAPR } from "../utils/aprCalculator";
 import { Loader2, CheckCircle, ArrowLeft, ArrowRight, AlertCircle, CreditCard, Info } from "lucide-react";
 import { useAlert } from "@/hooks/use-alert";
 
@@ -24,6 +25,7 @@ export default function ApplyLoan() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [estimate, setEstimate] = useState<any>(null);
   const [estimateError, setEstimateError] = useState("");
+  const [apr, setAPR] = useState<number | null>(null);
   const [form, setForm] = useState({
     amount: 0,
     term_months: 3,
@@ -73,6 +75,21 @@ export default function ApplyLoan() {
     try {
       const res = await productsApi.calculate(selectedProduct.id, form.amount, form.term_months);
       setEstimate(res.data);
+
+      // Calculate APR
+      try {
+        const aprResult = calculateAPR({
+          principalAmount: form.amount,
+          interestRate: selectedProduct.interest_rate || 0,
+          loanTermMonths: form.term_months,
+          processingFeePercent: selectedProduct.processing_fee_percent || 0,
+          assetTransferFee: selectedProduct.asset_transfer_fee || 0,
+          trackingSystemFee: selectedProduct.tracking_system_fee || 0,
+        });
+        setAPR(aprResult.apr);
+      } catch (aprErr) {
+        console.error('APR calculation error:', aprErr);
+      }
     } catch (err: any) {
       setEstimateError(err.message || "Could not calculate estimate");
       setEstimate(null);
@@ -274,15 +291,16 @@ export default function ApplyLoan() {
                 {[
                   { label: "Principal Amount", value: formatKES(form.amount), bold: false },
                   { label: "Interest Rate", value: (selectedProduct?.interest_rate || 0) + "% p.a.", bold: false },
+                  { label: "Annual Percentage Rate (APR)", value: apr !== null ? apr.toFixed(2) + "%" : "—", bold: true, highlight: true },
                   { label: "Loan Term", value: form.term_months + " months", bold: false },
                   { label: "Interest Amount", value: estimate ? formatKES(estimate.interest || 0) : "—", bold: false },
                   { label: "Processing Fee", value: estimate ? formatKES(estimate.processing_fee || 0) : "—", bold: false },
                   { label: "Monthly Payment", value: estimate ? formatKES(estimate.monthly_payment || 0) : "—", bold: true },
                   { label: "Total Repayable", value: estimate ? formatKES(estimate.total_amount || form.amount) : formatKES(form.amount), bold: true },
                 ].map(row => (
-                  <div key={row.label} className={"flex justify-between text-sm " + (row.bold ? "font-bold border-t pt-2" : "")}>
+                  <div key={row.label} className={"flex justify-between text-sm " + (row.bold ? "font-bold border-t pt-2" : "") + (row.highlight ? " bg-blue-50 -mx-3 px-3 py-2 rounded" : "")}>
                     <span className={row.bold ? "" : "text-muted-foreground"}>{row.label}</span>
-                    <span>{row.value}</span>
+                    <span className={row.highlight ? "text-blue-700 font-bold" : ""}>{row.value}</span>
                   </div>
                 ))}
               </div>
