@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,7 +52,7 @@ export default function AdminRepayments() {
     reference_number: '',
   });
   const { showAlert, confirm, AlertComponent } = useAlert();
-  const loanSearchTimeoutRef = React.useRef<NodeJS.Timeout>();
+  const loanSearchTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     loadRepayments();
