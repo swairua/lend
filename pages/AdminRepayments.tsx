@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +40,8 @@ export default function AdminRepayments() {
   const [error, setError] = useState<string | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loadingLoans, setLoadingLoans] = useState(false);
+  const [searchingLoans, setSearchingLoans] = useState(false);
+  const [loanSearchTerm, setLoanSearchTerm] = useState('');
   const [addPaymentLoading, setAddPaymentLoading] = useState(false);
   const [formData, setFormData] = useState({
     loan_id: '',
@@ -50,6 +52,7 @@ export default function AdminRepayments() {
     reference_number: '',
   });
   const { showAlert, confirm, AlertComponent } = useAlert();
+  const loanSearchTimeoutRef = React.useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     loadRepayments();
@@ -68,6 +71,40 @@ export default function AdminRepayments() {
     } finally {
       setLoadingLoans(false);
     }
+  };
+
+  const handleLoanSearch = (searchTerm: string) => {
+    setLoanSearchTerm(searchTerm);
+
+    if (loanSearchTimeoutRef.current) {
+      clearTimeout(loanSearchTimeoutRef.current);
+    }
+
+    if (!searchTerm.trim()) {
+      loadActiveLoans();
+      return;
+    }
+
+    setSearchingLoans(true);
+    loanSearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await adminApi.getLoans({ status: 'active' });
+        if (response.data?.loans) {
+          const allLoans = normalizeList<Loan>(response.data.loans) as Loan[];
+          const search = searchTerm.toLowerCase();
+          const filtered = allLoans.filter(loan =>
+            String(loan.id).includes(search) ||
+            loan.borrower_name?.toLowerCase().includes(search) ||
+            loan.borrower_email?.toLowerCase().includes(search)
+          );
+          setLoans(filtered);
+        }
+      } catch (error: any) {
+        console.error('Failed to search loans:', error);
+      } finally {
+        setSearchingLoans(false);
+      }
+    }, 300);
   };
 
   const loadRepayments = async () => {
@@ -310,7 +347,16 @@ export default function AdminRepayments() {
       </Card>
 
       {/* Add Payment Dialog */}
-      <Dialog open={addPaymentOpen} onOpenChange={setAddPaymentOpen}>
+      <Dialog
+        open={addPaymentOpen}
+        onOpenChange={(open) => {
+          setAddPaymentOpen(open);
+          if (!open) {
+            setLoanSearchTerm('');
+            setLoans([]);
+          }
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] max-w-sm">
           <DialogHeader>
             <DialogTitle>Add Payment</DialogTitle>
@@ -318,18 +364,47 @@ export default function AdminRepayments() {
           <form onSubmit={handleAddPayment} className="space-y-4">
             <div>
               <label className="text-xs md:text-sm font-medium text-muted-foreground">Loan *</label>
-              <Select value={formData.loan_id} onValueChange={(value) => setFormData({ ...formData, loan_id: value })}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select active loan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {loans.map(loan => (
-                    <SelectItem key={loan.id} value={loan.id.toString()}>
-                      #{loan.id} - {loan.borrower_name} ({formatKES(loan.balance || 0)} balance)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                type="text"
+                placeholder="Search by loan ID, borrower name, or email..."
+                value={loanSearchTerm}
+                onChange={(e) => handleLoanSearch(e.target.value)}
+                className="mt-1"
+              />
+              {(loanSearchTerm || loans.length > 0) && (
+                <div className="mt-1 border rounded-md bg-white max-h-48 overflow-y-auto">
+                  {searchingLoans ? (
+                    <div className="p-2 text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Searching...
+                    </div>
+                  ) : loans.length > 0 ? (
+                    loans.map(loan => (
+                      <button
+                        key={loan.id}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, loan_id: loan.id.toString() });
+                          setLoanSearchTerm('');
+                          setLoans([]);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-b-0"
+                      >
+                        <div className="font-medium">#{loan.id} - {loan.borrower_name || 'N/A'}</div>
+                        <div className="text-xs text-muted-foreground">{loan.borrower_email || ''}</div>
+                        <div className="text-xs text-muted-foreground">Balance: {formatKES(loan.balance || 0)}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-muted-foreground">No loans found</div>
+                  )}
+                </div>
+              )}
+              {formData.loan_id && (
+                <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                  Loan ID <strong>#{formData.loan_id}</strong> selected
+                </div>
+              )}
             </div>
 
             <div>
