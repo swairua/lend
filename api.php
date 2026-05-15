@@ -1340,132 +1340,132 @@ try {
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
             exit;
         }
+    }
 
-        // -------------------- DOCUMENTS (UPLOADS) --------------------
-        if ($resource === 'uploads') {
-            $user = auth(); // Require authentication
+    // -------------------- DOCUMENTS (UPLOADS) --------------------
+    if ($resource === 'uploads') {
+        $user = auth(); // Require authentication
 
-            if ($method === 'GET') {
-                // GET /uploads - list documents for borrower
-                $borrower_id = $_GET['borrower_id'] ?? null;
+        if ($method === 'GET') {
+            // GET /uploads - list documents for borrower
+            $borrower_id = $_GET['borrower_id'] ?? null;
 
-                $sql = "SELECT id, file_name, file_path, doc_type, file_size, created_at FROM documents WHERE 1=1";
-                $params = [];
+            $sql = "SELECT id, file_name, file_path, doc_type, file_size, created_at FROM documents WHERE 1=1";
+            $params = [];
 
-                if ($borrower_id) {
-                    $sql .= " AND borrower_id = ?";
-                    $params[] = $borrower_id;
-                }
-
-                $sql .= " ORDER BY created_at DESC";
-                $data = all($sql, $params);
-
-                // Add file_url and original_name to each document for frontend
-                foreach ($data as &$doc) {
-                    $doc['file_url'] = '/' . $doc['file_path'];
-                    $doc['original_name'] = $doc['file_name'];
-                }
-
-                log_access('GET', 'uploads', 200);
-                echo json_encode(['success' => true, 'data' => $data]);
-                exit;
+            if ($borrower_id) {
+                $sql .= " AND borrower_id = ?";
+                $params[] = $borrower_id;
             }
 
-            if ($method === 'POST') {
-                // POST /uploads - upload new document
-                if (!isset($_FILES['file'])) {
-                    log_error("Upload failed - no file", []);
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'File is required']);
-                    exit;
-                }
+            $sql .= " ORDER BY created_at DESC";
+            $data = all($sql, $params);
 
-                $file = $_FILES['file'];
-                $doc_type = $_POST['doc_type'] ?? 'general';
-                $borrower_id = $_POST['borrower_id'] ?? null;
-
-                if ($file['error'] !== UPLOAD_ERR_OK) {
-                    log_error("Upload failed - upload error", ['error' => $file['error']]);
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'Upload error: ' . $file['error']]);
-                    exit;
-                }
-
-                // Save file with unique name
-                $file_name = basename($file['name']);
-                $file_ext = pathinfo($file_name, PATHINFO_EXTENSION);
-                $unique_name = date('Ymdhis') . '_' . bin2hex(random_bytes(4)) . '.' . $file_ext;
-                $file_path = 'uploads/' . $unique_name;
-                $full_path = __DIR__ . '/' . $file_path;
-
-                if (!move_uploaded_file($file['tmp_name'], $full_path)) {
-                    log_error("Upload failed - cannot save file", ['file' => $file_name]);
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Failed to save file']);
-                    exit;
-                }
-
-                // Save to database
-                try {
-                    q("INSERT INTO documents (borrower_id, user_id, file_name, file_path, doc_type, file_size, mime_type)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)",
-                      [$borrower_id, $user['id'], $file_name, $file_path, $doc_type, $file['size'], $file['type']]);
-
-                    $doc_id = pdo()->lastInsertId();
-                    $data = one("SELECT id, file_name, file_path, doc_type, file_size, created_at FROM documents WHERE id = ?", [$doc_id]);
-
-                    // Add file_url to response (maps file_path for frontend)
-                    if ($data) {
-                        $data['file_url'] = '/' . $data['file_path'];
-                        $data['original_name'] = $data['file_name'];
-                    }
-
-                    log_error("File uploaded successfully", ['doc_id' => $doc_id, 'file' => $file_name, 'size' => $file['size']]);
-                    log_access('POST', 'uploads', 201);
-                    echo json_encode(['success' => true, 'data' => $data]);
-                    exit;
-                } catch (Exception $e) {
-                    // Delete the uploaded file if database insert fails
-                    @unlink($full_path);
-                    log_error("Upload database insert failed", ['file' => $file_name, 'error' => $e->getMessage()]);
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Failed to save document info']);
-                    exit;
-                }
+            // Add file_url and original_name to each document for frontend
+            foreach ($data as &$doc) {
+                $doc['file_url'] = '/' . $doc['file_path'];
+                $doc['original_name'] = $doc['file_name'];
             }
 
-            if ($method === 'DELETE' && preg_match('#uploads/(\d+)#', $uri, $m)) {
-                // DELETE /uploads/:id - delete document
-                $doc_id = $m[1];
-                $doc = one("SELECT file_path FROM documents WHERE id = ?", [$doc_id]);
-
-                if (!$doc) {
-                    log_error("Delete failed - document not found", ['doc_id' => $doc_id]);
-                    http_response_code(404);
-                    echo json_encode(['success' => false, 'error' => 'Document not found']);
-                    exit;
-                }
-
-                // Delete file from disk
-                $full_path = __DIR__ . '/' . $doc['file_path'];
-                if (file_exists($full_path)) {
-                    @unlink($full_path);
-                }
-
-                // Delete from database
-                q("DELETE FROM documents WHERE id = ?", [$doc_id]);
-
-                log_error("Document deleted", ['doc_id' => $doc_id, 'file' => $doc['file_path']]);
-                log_access('DELETE', 'uploads/' . $doc_id, 200);
-                echo json_encode(['success' => true]);
-                exit;
-            }
-
-            http_response_code(404);
-            log_error("Invalid uploads request", ['method' => $method, 'uri' => $uri]);
-            echo json_encode(['success' => false, 'error' => 'Invalid request']);
+            log_access('GET', 'uploads', 200);
+            echo json_encode(['success' => true, 'data' => $data]);
             exit;
         }
+
+        if ($method === 'POST') {
+            // POST /uploads - upload new document
+            if (!isset($_FILES['file'])) {
+                log_error("Upload failed - no file", []);
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'File is required']);
+                exit;
+            }
+
+            $file = $_FILES['file'];
+            $doc_type = $_POST['doc_type'] ?? 'general';
+            $borrower_id = $_POST['borrower_id'] ?? null;
+
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                log_error("Upload failed - upload error", ['error' => $file['error']]);
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Upload error: ' . $file['error']]);
+                exit;
+            }
+
+            // Save file with unique name
+            $file_name = basename($file['name']);
+            $file_ext = pathinfo($file_name, PATHINFO_EXTENSION);
+            $unique_name = date('Ymdhis') . '_' . bin2hex(random_bytes(4)) . '.' . $file_ext;
+            $file_path = 'uploads/' . $unique_name;
+            $full_path = __DIR__ . '/' . $file_path;
+
+            if (!move_uploaded_file($file['tmp_name'], $full_path)) {
+                log_error("Upload failed - cannot save file", ['file' => $file_name]);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to save file']);
+                exit;
+            }
+
+            // Save to database
+            try {
+                q("INSERT INTO documents (borrower_id, user_id, file_name, file_path, doc_type, file_size, mime_type)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)",
+                  [$borrower_id, $user['id'], $file_name, $file_path, $doc_type, $file['size'], $file['type']]);
+
+                $doc_id = pdo()->lastInsertId();
+                $data = one("SELECT id, file_name, file_path, doc_type, file_size, created_at FROM documents WHERE id = ?", [$doc_id]);
+
+                // Add file_url to response (maps file_path for frontend)
+                if ($data) {
+                    $data['file_url'] = '/' . $data['file_path'];
+                    $data['original_name'] = $data['file_name'];
+                }
+
+                log_error("File uploaded successfully", ['doc_id' => $doc_id, 'file' => $file_name, 'size' => $file['size']]);
+                log_access('POST', 'uploads', 201);
+                echo json_encode(['success' => true, 'data' => $data]);
+                exit;
+            } catch (Exception $e) {
+                // Delete the uploaded file if database insert fails
+                @unlink($full_path);
+                log_error("Upload database insert failed", ['file' => $file_name, 'error' => $e->getMessage()]);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to save document info']);
+                exit;
+            }
+        }
+
+        if ($method === 'DELETE' && preg_match('#uploads/(\d+)#', $uri, $m)) {
+            // DELETE /uploads/:id - delete document
+            $doc_id = $m[1];
+            $doc = one("SELECT file_path FROM documents WHERE id = ?", [$doc_id]);
+
+            if (!$doc) {
+                log_error("Delete failed - document not found", ['doc_id' => $doc_id]);
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Document not found']);
+                exit;
+            }
+
+            // Delete file from disk
+            $full_path = __DIR__ . '/' . $doc['file_path'];
+            if (file_exists($full_path)) {
+                @unlink($full_path);
+            }
+
+            // Delete from database
+            q("DELETE FROM documents WHERE id = ?", [$doc_id]);
+
+            log_error("Document deleted", ['doc_id' => $doc_id, 'file' => $doc['file_path']]);
+            log_access('DELETE', 'uploads/' . $doc_id, 200);
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        http_response_code(404);
+        log_error("Invalid uploads request", ['method' => $method, 'uri' => $uri]);
+        echo json_encode(['success' => false, 'error' => 'Invalid request']);
+        exit;
     }
 
     http_response_code(404);
