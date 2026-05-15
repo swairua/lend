@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import InvoiceReceipt from "../components/InvoiceReceipt";
+import LoanStatusTimeline from "../components/LoanStatusTimeline";
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from "../types/api";
 import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock } from "lucide-react";
 
@@ -36,6 +37,40 @@ function generateSchedule(loan: any) {
     schedule.push({ no: i, due, amount: monthly, isPaid, isLate, lateFee: isLate ? (loan.balance || 0) * LATE_FEE_RATE : 0 });
   }
   return schedule;
+}
+
+function getTimelineSteps(loan: any) {
+  const steps = [
+    {
+      label: 'Applied',
+      status: 'completed' as const,
+      date: formatDate(loan.created_at),
+    },
+    {
+      label: 'Under Review',
+      status: loan.status === 'pending' ? 'current' : loan.status === 'rejected' ? 'rejected' : 'completed' as const,
+      date: loan.status === 'pending' ? undefined : formatDate(loan.approved_at || loan.created_at),
+    },
+    {
+      label: 'Approved',
+      status: ['approved', 'active', 'completed'].includes(loan.status) ? 'completed' : loan.status === 'rejected' ? 'rejected' : 'pending' as const,
+      date: loan.approved_at ? formatDate(loan.approved_at) : undefined,
+    },
+    {
+      label: 'Disbursed',
+      status: ['active', 'completed'].includes(loan.status) ? 'completed' : 'pending' as const,
+      date: loan.disbursed_at ? formatDate(loan.disbursed_at) : undefined,
+    },
+    {
+      label: 'Repayment',
+      status: loan.status === 'active' ? 'current' : loan.status === 'completed' ? 'completed' : 'pending' as const,
+    },
+    {
+      label: 'Completed',
+      status: loan.status === 'completed' ? 'completed' : 'pending' as const,
+    },
+  ];
+  return steps;
 }
 
 export default function LoanDetails() {
@@ -130,6 +165,14 @@ export default function LoanDetails() {
               <span>Balance: {formatKES(loan.balance || 0)}</span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Status Timeline */}
+      <Card>
+        <CardHeader className="p-3 md:p-4 pb-2"><CardTitle className="text-xs md:text-sm">Application Status</CardTitle></CardHeader>
+        <CardContent className="p-3 md:p-4 pt-0">
+          <LoanStatusTimeline steps={getTimelineSteps(loan)} />
         </CardContent>
       </Card>
 

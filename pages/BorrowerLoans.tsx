@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
 import { normalizeList } from '../utils/normalize';
-import { Loader2, Plus, FileText, CreditCard, Calendar } from 'lucide-react';
+import { Loader2, Plus, FileText, CreditCard, Calendar, ChevronRight } from 'lucide-react';
+import LoanStatusTimeline from '../components/LoanStatusTimeline';
 
 // Loan type stabilized via API; kept loose for now
 
@@ -95,14 +96,20 @@ export default function BorrowerLoans() {
                     {getStatusLabel(loan.status)}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs md:text-sm text-muted-foreground mb-2">
+                <div className="grid grid-cols-3 gap-2 text-xs md:text-sm mb-2">
                   <div>
-                    <span className="text-xs text-muted-foreground">Applied:</span>
-                    <p className="font-medium text-foreground">{formatDate(loan.created_at)}</p>
+                    <span className="text-xs text-muted-foreground">Applied</span>
+                    <p className="font-medium text-foreground text-xs">{formatDate(loan.created_at)}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-muted-foreground">Term:</span>
-                    <p className="font-medium text-foreground">{loan.term_months} months</p>
+                    <span className="text-xs text-muted-foreground">Term</span>
+                    <p className="font-medium text-foreground text-xs">{loan.term_months}m</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Decision by</span>
+                    <p className="font-medium text-foreground text-xs">
+                      {formatDate(new Date(new Date(loan.created_at).getTime() + 3 * 24 * 60 * 60 * 1000))}
+                    </p>
                   </div>
                 </div>
                 {loan.status === 'pending' && (
