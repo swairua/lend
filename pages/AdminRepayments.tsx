@@ -391,7 +391,17 @@ export default function AdminRepayments() {
                         key={loan.id}
                         type="button"
                         onClick={() => {
-                          setFormData({ ...formData, loan_id: loan.id.toString() });
+                          const principalAmount = loan.principal_amount || 0;
+                          const interestAmount = loan.interest_amount || 0;
+                          const totalAmount = principalAmount + interestAmount;
+
+                          setFormData({
+                            ...formData,
+                            loan_id: loan.id.toString(),
+                            principal_paid: principalAmount.toString(),
+                            interest_paid: interestAmount.toString(),
+                            amount: totalAmount.toString(),
+                          });
                           setLoanSearchTerm('');
                           setLoans([]);
                         }}
