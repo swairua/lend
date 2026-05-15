@@ -167,9 +167,9 @@ export default function ApplyLoan() {
         <Button variant="ghost" size="sm" onClick={() => step === 1 ? navigate("/dashboard") : setStep(1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-xl font-bold">Apply for Loan</h1>
-          <p className="text-xs text-muted-foreground">Step {step} of 2</p>
+        <div className="space-y-1">
+          <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold">Apply for Loan</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">Step {step} of 2</p>
         </div>
       </div>
 

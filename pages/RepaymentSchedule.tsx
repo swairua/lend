@@ -97,11 +97,11 @@ export default function RepaymentSchedule() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-lg md:text-2xl font-bold">Repayment Schedule</h1>
+        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold truncate">Repayment Schedule</h1>
       </div>
 
       <Card>

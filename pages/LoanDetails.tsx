@@ -168,10 +168,10 @@ export default function LoanDetails() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <Button variant="ghost" size="sm" onClick={() => navigate("/loans")}><ArrowLeft className="h-4 w-4" /></Button>
-        <h1 className="text-base md:text-xl font-bold">Loan #{loan.id}</h1>
-        <Badge className={getStatusColor(loan.status) + " ml-auto text-xs"}>{getStatusLabel(loan.status)}</Badge>
+        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold truncate">Loan #{loan.id}</h1>
+        <Badge className={getStatusColor(loan.status) + " ml-auto text-xs flex-shrink-0"}>{getStatusLabel(loan.status)}</Badge>
       </div>
 
       {/* Late Payment Alert */}

@@ -177,10 +177,10 @@ export default function Messages() {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Mail className="h-6 w-6" />
-          <h1 className="text-2xl font-bold">Messages</h1>
+      <div className="flex items-center justify-between mb-6 gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Mail className="h-6 w-6 flex-shrink-0" />
+          <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold truncate">Messages</h1>
           {unreadCount > 0 && (
             <Badge variant="destructive">{unreadCount} unread</Badge>
           )}
