@@ -1,47 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../utils/api';
-import { secureStorage } from '../utils/secureStorage';
 import { normalizeList } from '../utils/normalize';
-import { Loader2, Plus, FileText, CreditCard, TrendingUp, User, AlertCircle } from 'lucide-react';
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-}
+import { AppLayout } from '@/components/layouts/AppLayout';
+import { useAuthenticatedUser } from '@/hooks/useAuthenticatedUser';
+import { PageTitle } from '@/components/PageTitle';
+import { StatCard } from '@/components/StatCard';
+import { Loader2, Plus, TrendingUp, User, AlertCircle } from 'lucide-react';
 
 export default function BorrowerDashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading } = useAuthenticatedUser();
   const [dashboard, setDashboard] = useState<any>(null);
   const [loans, setLoans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = await secureStorage.getToken();
-      const storedUser = await secureStorage.getUser();
+    if (authLoading) return;
+    if (!user) return;
 
-      if (!token || !storedUser) {
-        navigate('/login');
-        return;
-      }
+    if (user.role === 'admin') {
+      navigate('/admin');
+      return;
+    }
 
-      if (storedUser.role === 'admin') {
-        navigate('/admin');
-        return;
-      }
-
-      setUser(storedUser);
-      loadDashboard();
-    };
-    checkAuth();
-  }, [navigate]);
+    loadDashboard();
+  }, [user, authLoading, navigate]);
 
   const loadDashboard = async () => {
     try {
@@ -60,29 +47,24 @@ export default function BorrowerDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await secureStorage.clear();
-    navigate('/login');
-  };
+  const activeLoans = useMemo(() => loans.filter(l => l.status === 'active' || l.status === 'approved'), [loans]);
+  const pendingLoans = useMemo(() => loans.filter(l => l.status === 'pending'), [loans]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <AppLayout user={user}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
     );
   }
 
-  const activeLoans = loans.filter(l => l.status === 'active' || l.status === 'approved');
-  const pendingLoans = loans.filter(l => l.status === 'pending');
-  const completedLoans = loans.filter(l => l.status === 'completed');
-
   return (
-    <div className="space-y-4 max-w-md mx-auto">
-      <div className="space-y-1">
-        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold">Dashboard</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, {user?.name}</p>
-      </div>
+    <AppLayout user={user}>
+      <div className="space-y-4 max-w-2xl mx-auto">
+        <PageTitle title="Dashboard" subtitle={`Welcome back, ${user?.name}`} />
+
         {/* Quick Apply Card */}
         <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0">
           <CardContent className="p-4">
@@ -102,25 +84,10 @@ export default function BorrowerDashboard() {
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2">
-          <Card>
-            <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-green-600">{dashboard?.active_loans || 0}</p>
-              <p className="text-[10px] text-muted-foreground">Active</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold text-yellow-600">{dashboard?.pending_loans || 0}</p>
-              <p className="text-[10px] text-muted-foreground">Pending</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold">{formatKES(dashboard?.total_borrowed || 0)}</p>
-              <p className="text-[10px] text-muted-foreground">Borrowed</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <StatCard label="Active Loans" value={dashboard?.active_loans || 0} variant="success" />
+          <StatCard label="Pending" value={dashboard?.pending_loans || 0} variant="warning" />
+          <StatCard label="Total Borrowed" value={formatKES(dashboard?.total_borrowed || 0)} />
         </div>
 
         {/* Active Loans */}
@@ -207,7 +174,7 @@ export default function BorrowerDashboard() {
             </CardContent>
           </Card>
         )}
-    </div>
-
+      </div>
+    </AppLayout>
   );
 }
