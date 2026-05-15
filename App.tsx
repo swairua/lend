@@ -33,7 +33,7 @@ import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
-import UserLayout from "./components/UserLayout";
+import { AppLayout } from "./components/layouts/AppLayout";
 import PrivateRoute from "./components/PrivateRoute";
 
 const queryClient = new QueryClient();
@@ -64,29 +64,29 @@ const AppRoutes = () => {
       <Route path="/terms" element={<TermsOfService />} />
 
       {/* All Authenticated Pages with Layout */}
-      <Route path="/dashboard" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><BorrowerDashboard /></UserLayout></PrivateRoute>} />
-      <Route path="/apply" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><ApplyLoan /></UserLayout></PrivateRoute>} />
-      <Route path="/loans" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><BorrowerLoans /></UserLayout></PrivateRoute>} />
-      <Route path="/loans/:loanId" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><LoanDetails /></UserLayout></PrivateRoute>} />
-      <Route path="/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><RepaymentSchedule /></UserLayout></PrivateRoute>} />
-      <Route path="/payments" element={<PrivateRoute requiredRole="borrower"><UserLayout user={user}><BorrowerPayments /></UserLayout></PrivateRoute>} />
-      <Route path="/profile" element={<PrivateRoute><UserLayout user={user}><Profile /></UserLayout></PrivateRoute>} />
-      <Route path="/messages" element={<PrivateRoute><UserLayout user={user}><Messages /></UserLayout></PrivateRoute>} />
-      <Route path="/messages/:messageId" element={<PrivateRoute><UserLayout user={user}><Messages /></UserLayout></PrivateRoute>} />
+      <Route path="/dashboard" element={<PrivateRoute requiredRole="borrower"><AppLayout user={user}><BorrowerDashboard /></AppLayout></PrivateRoute>} />
+      <Route path="/apply" element={<PrivateRoute requiredRole="borrower"><AppLayout user={user}><ApplyLoan /></AppLayout></PrivateRoute>} />
+      <Route path="/loans" element={<PrivateRoute requiredRole="borrower"><AppLayout user={user}><BorrowerLoans /></AppLayout></PrivateRoute>} />
+      <Route path="/loans/:loanId" element={<PrivateRoute requiredRole="borrower"><AppLayout user={user}><LoanDetails /></AppLayout></PrivateRoute>} />
+      <Route path="/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="borrower"><AppLayout user={user}><RepaymentSchedule /></AppLayout></PrivateRoute>} />
+      <Route path="/payments" element={<PrivateRoute requiredRole="borrower"><AppLayout user={user}><BorrowerPayments /></AppLayout></PrivateRoute>} />
+      <Route path="/profile" element={<PrivateRoute><AppLayout user={user}><Profile /></AppLayout></PrivateRoute>} />
+      <Route path="/messages" element={<PrivateRoute><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
+      <Route path="/messages/:messageId" element={<PrivateRoute><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
 
       {/* Admin Pages */}
-      <Route path="/admin" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminDashboard /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/loans" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminLoans /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/loans/:loanId" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminLoans /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminRepaymentSchedule /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/categories" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminCategories /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/products" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminProducts /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/borrowers" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminBorrowers /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/users" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminUsers /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/repayments" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminRepayments /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/config" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminSettings /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/reports" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><AdminReports /></UserLayout></PrivateRoute>} />
-      <Route path="/admin/messages" element={<PrivateRoute requiredRole="admin"><UserLayout user={user}><Messages /></UserLayout></PrivateRoute>} />
+      <Route path="/admin" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminDashboard /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans/:loanId" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminRepaymentSchedule /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/categories" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminCategories /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/products" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminProducts /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/borrowers" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminBorrowers /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/users" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminUsers /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/repayments" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminRepayments /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/config" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminSettings /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/reports" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminReports /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/messages" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

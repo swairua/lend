@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { LogOut, Menu, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { secureStorage } from '../../utils/secureStorage';
-import { getNavItemsForRole, getPortalTitle, UserRole } from '../../config/navigationConfig';
+import { secureStorage } from '@/utils/secureStorage';
+import { getNavItemsForRole, getPortalTitle, UserRole } from '@/config/navigationConfig';
 
 interface User {
   id: number;
@@ -29,7 +29,6 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
   const role = (user?.role as UserRole) || 'borrower';
   const navItems = getNavItemsForRole(role);
   const portalTitle = getPortalTitle(role);
-  const isAdmin = role === 'admin';
 
   const handleLogout = async () => {
     await secureStorage.clear();

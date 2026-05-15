@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { adminApi } from '../types/api';
+import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 
@@ -265,11 +266,12 @@ export default function AdminSettings() {
     setTestingMpesa(true);
     try {
       // Call a test endpoint to validate credentials
+      const token = await secureStorage.getToken();
       const response = await fetch('/api/admin/mpesa/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           consumer_key: config.mpesa_consumer_key,
