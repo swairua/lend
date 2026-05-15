@@ -215,14 +215,14 @@ export function Layout({ children, user }: LayoutProps) {
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <Link to="/terms" className="hover:text-foreground transition-colors">
                     Terms of Service
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-foreground transition-colors">
+                  <Link to="/privacy" className="hover:text-foreground transition-colors">
                     Privacy Policy
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
