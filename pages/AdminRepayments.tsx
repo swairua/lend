@@ -211,13 +211,13 @@ export default function AdminRepayments() {
   }
 
   return (
-    <div className="container mx-auto py-4 md:py-6 px-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+    <div className="w-full min-h-screen py-3 md:py-6 px-3 md:px-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4 mb-5 md:mb-6">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-xl md:text-2xl font-bold">Repayments</h1>
+          <h1 className="text-lg md:text-2xl font-bold">Repayments</h1>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <Button variant="outline" size="sm" onClick={loadRepayments} className="flex-1 sm:flex-none">
@@ -232,37 +232,37 @@ export default function AdminRepayments() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-red-200 bg-red-50">
-          <CardContent className="p-3 md:p-4">
-            <p className="text-xs md:text-sm text-red-700">{error}</p>
+        <Card className="mb-4 md:mb-6 border-red-200 bg-red-50">
+          <CardContent className="p-2 md:p-4">
+            <p className="text-xs text-red-700">{error}</p>
           </CardContent>
         </Card>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6">
         <Card>
-          <CardContent className="p-3 md:p-4">
-            <div className="flex items-center gap-2 md:gap-3">
+          <CardContent className="p-2 md:p-4">
+            <div className="flex items-center gap-2">
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
                 <Wallet className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
               </div>
               <div className="min-w-0">
-                <p className="text-base md:text-2xl font-bold truncate">{formatKES(totalAmount)}</p>
+                <p className="text-sm md:text-2xl font-bold truncate">{formatKES(totalAmount)}</p>
                 <p className="text-xs text-muted-foreground">Total Collected</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 md:p-4">
-            <div className="flex items-center gap-2 md:gap-3">
+          <CardContent className="p-2 md:p-4">
+            <div className="flex items-center gap-2">
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                 <Wallet className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-base md:text-2xl font-bold">{totalRepayments}</p>
-                <p className="text-xs text-muted-foreground">Total Transactions</p>
+                <p className="text-sm md:text-2xl font-bold">{totalRepayments}</p>
+                <p className="text-xs text-muted-foreground">Transactions</p>
               </div>
             </div>
           </CardContent>
@@ -272,9 +272,10 @@ export default function AdminRepayments() {
       {/* Search */}
       <div className="mb-4">
         <Input
-          placeholder="Search by borrower, loan ID, or reference..."
+          placeholder="Search borrower, loan ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          className="text-xs md:text-sm"
         />
       </div>
 
@@ -335,7 +336,7 @@ export default function AdminRepayments() {
 
       {/* Repayment Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw]">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:w-[90vw] md:w-full p-3 md:p-6">
           <DialogHeader>
             <DialogTitle className="text-lg md:text-xl">Repayment #{selectedRepayment?.id}</DialogTitle>
           </DialogHeader>
@@ -396,7 +397,7 @@ export default function AdminRepayments() {
 
       {/* Add Payment Dialog */}
       <Dialog open={addPaymentDialogOpen} onOpenChange={setAddPaymentDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md p-3 md:p-6">
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
           </DialogHeader>
