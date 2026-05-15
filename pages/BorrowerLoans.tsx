@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { loansApi, formatKES, formatDate } from '@/utils/api';
 import { normalizeList } from '@/utils/normalize';
 import { filterLoansByStatus } from '@/utils/loanUtils';
+import { PageTitle } from '@/components/PageTitle';
 import { Loader2, Plus, Calendar } from 'lucide-react';
 import { LoanCard } from '@/components/LoanCard';
 
@@ -44,7 +45,7 @@ export default function BorrowerLoans() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold truncate">My Loans</h1>
+        <PageTitle title="My Loans" />
         <Button size="sm" onClick={() => navigate('/apply')} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-1" /> Apply
         </Button>

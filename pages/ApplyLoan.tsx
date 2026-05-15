@@ -12,7 +12,8 @@ import { LoanAmountTermSelector } from "@/components/LoanAmountTermSelector";
 import { LoanEstimateSummary } from "@/components/LoanEstimateSummary";
 import { LoanReviewSummary } from "@/components/LoanReviewSummary";
 import { LoanWizardStepper } from "@/components/LoanWizardStepper";
-import { Loader2, CheckCircle, ArrowLeft, ArrowRight, AlertCircle, CreditCard, Info } from "lucide-react";
+import { PageTitle } from "@/components/PageTitle";
+import { Loader2, CheckCircle, ArrowRight, AlertCircle, CreditCard, Info } from "lucide-react";
 import { useAlert } from "@/hooks/use-alert";
 
 export default function ApplyLoan() {
@@ -181,21 +182,11 @@ export default function ApplyLoan() {
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => step === 1 ? navigate("/dashboard") : setStep(1)}
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="space-y-1">
-          <h1 className="text-base sm:text-lg md:text-2xl lg:text-3xl font-bold">Apply for Loan</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Step {step} of 2</p>
-        </div>
-      </div>
+      <PageTitle
+        title="Apply for Loan"
+        subtitle={`Step ${step} of 2`}
+        onBackClick={() => step === 1 ? navigate("/dashboard") : setStep(1)}
+      />
 
       {/* Step Indicator */}
       <LoanWizardStepper currentStep={step} totalSteps={2} />
