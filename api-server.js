@@ -671,6 +671,73 @@ app.use('/uploads', express.static(uploadsDir));
 
 // ========== M-PESA ENDPOINTS ==========
 
+// POST /api/admin/mpesa/test - Test M-Pesa credentials
+app.post('/api/admin/mpesa/test', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { consumer_key, consumer_secret, business_shortcode, passkey, environment } = req.body;
+
+  if (!consumer_key || !consumer_secret || !business_shortcode || !passkey) {
+    return res.status(400).json({ success: false, error: 'All M-Pesa credentials are required' });
+  }
+
+  try {
+    // Validate credentials by attempting to get an access token
+    const auth = Buffer.from(`${consumer_key}:${consumer_secret}`).toString('base64');
+    const baseUrl = environment === 'sandbox'
+      ? 'https://sandbox.safaricom.co.ke'
+      : 'https://api.safaricom.co.ke';
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    fetch(
+      `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Basic ${auth}`,
+        },
+        signal: controller.signal,
+      }
+    ).then(response => {
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        res.json({
+          success: true,
+          message: 'M-Pesa credentials are valid',
+          environment: environment
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid M-Pesa credentials. Please check your Consumer Key and Secret.'
+        });
+      }
+    }).catch(error => {
+      clearTimeout(timeoutId);
+      console.error('M-Pesa test error:', error);
+
+      if (error.name === 'AbortError') {
+        res.status(408).json({
+          success: false,
+          error: 'Connection timeout. M-Pesa API is unreachable. Check your internet connection and try again.'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to test credentials: ' + error.message
+        });
+      }
+    });
+  } catch (error) {
+    console.error('M-Pesa credential test error:', error);
+    res.status(500).json({ success: false, error: 'Server error while testing credentials' });
+  }
+});
+
 // POST /api/mpesa/payment - Initiate STK Push for repayment
 app.post('/api/mpesa/payment', authenticate, (req, res) => {
   const { loan_id, amount, phone_number } = req.body;

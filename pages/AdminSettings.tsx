@@ -102,6 +102,7 @@ export default function AdminSettings() {
   const [categorySaving, setCategorySaving] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
   const [mpesaCopied, setMpesaCopied] = useState(false);
+  const [testingMpesa, setTestingMpesa] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
   const [config, setConfig] = useState<SystemConfig>({
     company_name: '',
@@ -205,6 +206,72 @@ export default function AdminSettings() {
 
   const handleChange = (key: keyof SystemConfig, value: string) => {
     setConfig({ ...config, [key]: value });
+  };
+
+  const validateMpesaConfig = (): string | null => {
+    if (config.enable_mpesa !== '1') return null;
+
+    const required = [
+      { key: 'mpesa_consumer_key', label: 'Consumer Key' },
+      { key: 'mpesa_consumer_secret', label: 'Consumer Secret' },
+      { key: 'mpesa_business_shortcode', label: 'Business Short Code' },
+      { key: 'mpesa_passkey', label: 'Passkey' },
+      { key: 'mpesa_callback_url', label: 'Callback URL' },
+    ];
+
+    for (const field of required) {
+      if (!config[field.key as keyof SystemConfig] || !String(config[field.key as keyof SystemConfig]).trim()) {
+        return `${field.label} is required`;
+      }
+    }
+    return null;
+  };
+
+  const testMpesaCredentials = async () => {
+    const validationError = validateMpesaConfig();
+    if (validationError) {
+      showAlert({ type: 'error', message: validationError });
+      return;
+    }
+
+    setTestingMpesa(true);
+    try {
+      // Call a test endpoint to validate credentials
+      const response = await fetch('/api/admin/mpesa/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          consumer_key: config.mpesa_consumer_key,
+          consumer_secret: config.mpesa_consumer_secret,
+          business_shortcode: config.mpesa_business_shortcode,
+          passkey: config.mpesa_passkey,
+          environment: config.mpesa_environment,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showAlert({
+          type: 'success',
+          message: 'M-Pesa credentials are valid! ✓ Successfully authenticated with ' + (config.mpesa_environment === 'sandbox' ? 'Sandbox' : 'Production') + ' environment.'
+        });
+      } else {
+        showAlert({
+          type: 'error',
+          message: data.error || 'Failed to validate M-Pesa credentials. Check your settings and try again.'
+        });
+      }
+    } catch (error: any) {
+      showAlert({
+        type: 'error',
+        message: 'Connection error: ' + (error.message || 'Unable to test M-Pesa credentials')
+      });
+    } finally {
+      setTestingMpesa(false);
+    }
   };
 
   const handleToggle = (key: keyof SystemConfig, checked: boolean) => {
@@ -813,10 +880,25 @@ export default function AdminSettings() {
                 </ul>
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full md:w-auto">
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Save M-Pesa Settings
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={testMpesaCredentials}
+                  disabled={testingMpesa || !config.enable_mpesa}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  {testingMpesa ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckIcon className="h-4 w-4 mr-2" />}
+                  Test Credentials
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full sm:w-auto"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save M-Pesa Settings
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
