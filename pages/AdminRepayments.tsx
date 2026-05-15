@@ -62,12 +62,13 @@ export default function AdminRepayments() {
   const loadActiveLoans = async () => {
     setLoadingLoans(true);
     try {
-      const response = await adminApi.getLoans({ status: 'active' });
+      const response = await adminApi.getLoans();
       if (response.data?.loans) {
-        setLoans(normalizeList<Loan>(response.data.loans) as Loan[]);
+        const allLoans = normalizeList<Loan>(response.data.loans) as Loan[];
+        setLoans(allLoans);
       }
     } catch (error: any) {
-      console.error('Failed to load active loans:', error);
+      console.error('Failed to load loans:', error);
     } finally {
       setLoadingLoans(false);
     }
@@ -88,14 +89,18 @@ export default function AdminRepayments() {
     setSearchingLoans(true);
     loanSearchTimeoutRef.current = setTimeout(async () => {
       try {
-        const response = await adminApi.getLoans({ status: 'active' });
+        const response = await adminApi.getLoans();
         if (response.data?.loans) {
           const allLoans = normalizeList<Loan>(response.data.loans) as Loan[];
           const search = searchTerm.toLowerCase();
           const filtered = allLoans.filter(loan =>
             String(loan.id).includes(search) ||
             loan.borrower_name?.toLowerCase().includes(search) ||
-            loan.borrower_email?.toLowerCase().includes(search)
+            loan.borrower_email?.toLowerCase().includes(search) ||
+            loan.product_name?.toLowerCase().includes(search) ||
+            loan.status?.toLowerCase().includes(search) ||
+            formatKES(loan.principal_amount).toLowerCase().includes(search) ||
+            formatKES(loan.balance || 0).toLowerCase().includes(search)
           );
           setLoans(filtered);
         }
@@ -368,7 +373,7 @@ export default function AdminRepayments() {
               <label className="text-xs md:text-sm font-medium text-muted-foreground">Loan *</label>
               <Input
                 type="text"
-                placeholder="Search by loan ID, borrower name, or email..."
+                placeholder="Search by loan ID, borrower, product, status, or amount..."
                 value={loanSearchTerm}
                 onChange={(e) => handleLoanSearch(e.target.value)}
                 className="mt-1"
