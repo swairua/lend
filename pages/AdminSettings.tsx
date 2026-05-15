@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { adminApi } from '../types/api';
-import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X } from 'lucide-react';
+import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 
 interface SystemConfig {
@@ -40,6 +40,13 @@ interface SystemConfig {
   require_guarantor_collateral: string;
   allow_early_repayment: string;
   early_repayment_penalty: string;
+  mpesa_consumer_key?: string;
+  mpesa_consumer_secret?: string;
+  mpesa_business_shortcode?: string;
+  mpesa_passkey?: string;
+  mpesa_callback_url?: string;
+  mpesa_environment?: string;
+  enable_mpesa?: string;
 }
 
 interface Category {
@@ -94,6 +101,7 @@ export default function AdminSettings() {
   });
   const [categorySaving, setCategorySaving] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
+  const [mpesaCopied, setMpesaCopied] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
   const [config, setConfig] = useState<SystemConfig>({
     company_name: '',
@@ -124,6 +132,13 @@ export default function AdminSettings() {
     require_guarantor_collateral: '0',
     allow_early_repayment: '1',
     early_repayment_penalty: '0',
+    mpesa_consumer_key: '',
+    mpesa_consumer_secret: '',
+    mpesa_business_shortcode: '',
+    mpesa_passkey: '',
+    mpesa_callback_url: '',
+    mpesa_environment: 'sandbox',
+    enable_mpesa: '0',
   });
 
   useEffect(() => {
@@ -363,13 +378,14 @@ export default function AdminSettings() {
       )}
 
       <Tabs defaultValue="company" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 overflow-x-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 overflow-x-auto gap-1">
           <TabsTrigger value="company" className="text-xs md:text-sm"><Building className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Company</span></TabsTrigger>
           <TabsTrigger value="loans" className="text-xs md:text-sm"><DollarSign className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Defaults</span></TabsTrigger>
           <TabsTrigger value="categories" className="text-xs md:text-sm"><Package className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Categories</span></TabsTrigger>
           <TabsTrigger value="products" className="text-xs md:text-sm"><CreditCard className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
           <TabsTrigger value="requirements" className="text-xs md:text-sm"><Shield className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Requirements</span></TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs md:text-sm"><Bell className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Notifications</span></TabsTrigger>
+          <TabsTrigger value="mpesa" className="text-xs md:text-sm"><Smartphone className="h-4 w-4 mr-1" /><span className="hidden sm:inline">M-Pesa</span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="company" className="mt-4">
@@ -682,6 +698,122 @@ export default function AdminSettings() {
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Changes
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="mpesa" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Smartphone className="h-5 w-5" />M-Pesa Daraja Integration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <strong>M-Pesa Setup:</strong> Get your credentials from <a href="https://developer.safaricom.co.ke" target="_blank" rel="noopener noreferrer" className="underline font-medium">Safaricom Developer Portal</a>.
+                  Choose <strong>Sandbox</strong> for testing, <strong>Production</strong> for live transactions.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <Label className="font-medium">Enable M-Pesa</Label>
+                  <p className="text-sm text-muted-foreground">Allow borrowers to pay via M-Pesa & admins to disburse funds</p>
+                </div>
+                <Switch checked={config.enable_mpesa === '1'} onCheckedChange={(c) => handleToggle('enable_mpesa', c)} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Environment</Label>
+                  <select className="w-full p-2 border rounded-md" value={config.mpesa_environment || 'sandbox'} onChange={(e) => handleChange('mpesa_environment', e.target.value)}>
+                    <option value="sandbox">Sandbox (Testing)</option>
+                    <option value="production">Production (Live)</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Business Short Code</Label>
+                  <Input
+                    type="password"
+                    value={config.mpesa_business_shortcode || ''}
+                    onChange={(e) => handleChange('mpesa_business_shortcode', e.target.value)}
+                    placeholder="e.g., 174379"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Consumer Key</Label>
+                  <Input
+                    type="password"
+                    value={config.mpesa_consumer_key || ''}
+                    onChange={(e) => handleChange('mpesa_consumer_key', e.target.value)}
+                    placeholder="From Safaricom API"
+                  />
+                </div>
+                <div>
+                  <Label>Consumer Secret</Label>
+                  <Input
+                    type="password"
+                    value={config.mpesa_consumer_secret || ''}
+                    onChange={(e) => handleChange('mpesa_consumer_secret', e.target.value)}
+                    placeholder="From Safaricom API"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Passkey</Label>
+                <Input
+                  type="password"
+                  value={config.mpesa_passkey || ''}
+                  onChange={(e) => handleChange('mpesa_passkey', e.target.value)}
+                  placeholder="From Safaricom for STK Push"
+                />
+              </div>
+
+              <div>
+                <Label>Callback URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={config.mpesa_callback_url || `${window.location.origin}/api/mpesa/callback`}
+                    onChange={(e) => handleChange('mpesa_callback_url', e.target.value)}
+                    placeholder="Where M-Pesa sends payment notifications"
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = config.mpesa_callback_url || `${window.location.origin}/api/mpesa/callback`;
+                      navigator.clipboard.writeText(url);
+                      setMpesaCopied(true);
+                      setTimeout(() => setMpesaCopied(false), 2000);
+                    }}
+                  >
+                    {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Register this URL in Safaricom API console under M-Pesa Express (STK Push)
+                </p>
+              </div>
+
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-900 font-medium mb-2">Configuration Checklist:</p>
+                <ul className="text-xs text-yellow-800 space-y-1 list-disc list-inside">
+                  <li>Register callback URL above in Safaricom API console</li>
+                  <li>Ensure Short Code has STK Push and B2C APIs enabled</li>
+                  <li>Test credentials in Sandbox before switching to Production</li>
+                  <li>Callback URL must be publicly accessible (not localhost)</li>
+                </ul>
+              </div>
+
+              <Button onClick={handleSave} disabled={saving} className="w-full md:w-auto">
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save M-Pesa Settings
               </Button>
             </CardContent>
           </Card>

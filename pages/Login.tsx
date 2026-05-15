@@ -22,8 +22,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState<LoginForm>({
-    email: 'admin@lending.com',
-    password: 'Pass123',
+    email: '',
+    password: '',
     name: '',
     phone: '',
     client_type: 'individual',
@@ -172,7 +172,7 @@ export default function Login() {
         </Card>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          © 2024 Lending Co. All rights reserved.
+          © 2026 Lending Co. All rights reserved.
         </p>
         </div>
         

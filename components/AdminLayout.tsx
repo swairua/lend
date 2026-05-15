@@ -110,11 +110,8 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72">
-                <div className="p-4 border-b flex items-center justify-between">
+                <div className="p-4 border-b">
                   <h1 className="font-bold text-lg">Admin Menu</h1>
-                  <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
                 </div>
                 <nav className="p-2 space-y-1">
                   {menuItems.map((item) => (
