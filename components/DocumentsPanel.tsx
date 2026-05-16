@@ -53,7 +53,7 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2"><FolderOpen className="h-4 w-4" /> Documents</CardTitle>
           {!readOnly && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAddOpen(true)}>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAddOpen(true)} aria-label="Upload new document">
               <Plus className="h-3 w-3 mr-1" /> Upload
             </Button>
           )}
@@ -61,7 +61,9 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
       </CardHeader>
       <CardContent className="p-3 pt-0">
         {loading ? (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          <div className="flex justify-center py-6" role="status" aria-live="polite" aria-label="Loading documents">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
         ) : docs.length === 0 ? (
           <div className="text-center py-6">
             <FolderOpen className="h-8 w-8 text-gray-200 mx-auto mb-2" />
@@ -69,17 +71,17 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
             {!readOnly && <Button size="sm" variant="ghost" className="mt-2 text-xs" onClick={() => setAddOpen(true)}><Plus className="h-3 w-3 mr-1" /> Add document</Button>}
           </div>
         ) : (
-          <div className="space-y-2">
-            {docs.map(doc => {
+          <div className="space-y-2" role="region" aria-label="Uploaded documents list">
+            {docs.map((doc, idx) => {
               const fullUrl = getFileUrl(doc.file_url);
               return (
-              <div key={doc.id} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/30">
-                {isImg(fullUrl) ? <Image className="h-8 w-8 text-blue-400 flex-shrink-0" /> : <FileText className="h-8 w-8 text-gray-400 flex-shrink-0" />}
+              <div key={doc.id} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/30" role="listitem">
+                {isImg(fullUrl) ? <Image className="h-8 w-8 text-blue-400 flex-shrink-0" aria-hidden="true" /> : <FileText className="h-8 w-8 text-gray-400 flex-shrink-0" aria-hidden="true" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{doc.original_name}</p>
                   <Badge variant="secondary" className="text-xs mt-0.5">{docLabel(doc.doc_type)}</Badge>
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
+                <div className="flex gap-1 flex-shrink-0" role="toolbar" aria-label={`Actions for document ${idx + 1} of ${docs.length}`}>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -118,9 +120,9 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
           <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Document Type</p>
+              <label htmlFor="doc-type-select" className="text-sm font-medium">Document Type</label>
               <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="doc-type-select" aria-label="Select document type"><SelectValue /></SelectTrigger>
                 <SelectContent>{DOC_TYPES.map(dt => <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
@@ -147,9 +149,9 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
               <img src={fullUrl} alt={viewDoc.original_name} className="w-full rounded-lg" />
             ) : (
               <div className="flex flex-col items-center gap-4 py-8">
-                <FileText className="h-16 w-16 text-blue-300" />
+                <FileText className="h-16 w-16 text-blue-300" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">{viewDoc.original_name}</p>
-                <a href={fullUrl} target="_blank" rel="noreferrer">
+                <a href={fullUrl} target="_blank" rel="noreferrer" aria-label={`Open document: ${viewDoc.original_name} in new window`}>
                   <Button>Open Document</Button>
                 </a>
               </div>
