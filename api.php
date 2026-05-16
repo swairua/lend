@@ -1406,7 +1406,7 @@ try {
 
             $file = $_FILES['file'];
             $doc_type = $_POST['doc_type'] ?? 'general';
-            $borrower_id = $_POST['borrower_id'] ?? null;
+            $borrower_id = isset($_POST['borrower_id']) ? (int) trim($_POST['borrower_id']) : 0;
 
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 log_error("Upload failed - upload error", ['error' => $file['error']]);
@@ -1417,7 +1417,7 @@ try {
 
             // Validate borrower_id is provided
             if (!$borrower_id) {
-                log_error("Upload failed - borrower_id required", []);
+                log_error("Upload failed - Borrower ID is required", ['borrower_id' => $_POST['borrower_id'] ?? null]);
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Borrower ID is required']);
                 exit;

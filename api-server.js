@@ -605,9 +605,9 @@ app.post('/api/uploads', authenticate, upload.single('file'), (req, res) => {
   }
 
   const doc_type = req.body.doc_type || 'general';
-  const borrower_id = req.body.borrower_id ? parseInt(req.body.borrower_id) : null;
+  const borrower_id = req.body.borrower_id ? parseInt(String(req.body.borrower_id).trim()) : 0;
 
-  if (!borrower_id) {
+  if (!borrower_id || isNaN(borrower_id)) {
     fs.unlink(req.file.path, () => {});
     return res.status(400).json({ success: false, error: 'Borrower ID is required' });
   }
