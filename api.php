@@ -151,7 +151,7 @@ function bootstrap() {
             name TEXT NOT NULL,
             phone TEXT,
             photo_url TEXT,
-            role TEXT NOT NULL DEFAULT 'borrower',
+            role VARCHAR(50) NOT NULL DEFAULT 'borrower',
             permissions TEXT,
             last_login TIMESTAMP,
             is_active INTEGER DEFAULT 1,
