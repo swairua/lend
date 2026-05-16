@@ -145,7 +145,7 @@ function bootstrap() {
         $p = pdo();
 
         $p->exec("CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             email TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
             name TEXT NOT NULL,
@@ -160,7 +160,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS tokens (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             user_id INTEGER NOT NULL,
             token TEXT NOT NULL UNIQUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -168,7 +168,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS borrowers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             user_id INTEGER NOT NULL UNIQUE,
             national_id TEXT,
             address TEXT,
@@ -182,7 +182,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             name TEXT NOT NULL,
             code TEXT NOT NULL UNIQUE,
             description TEXT,
@@ -192,7 +192,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             category_id INTEGER,
             name TEXT NOT NULL,
             description TEXT,
@@ -217,7 +217,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             borrower_id INTEGER NOT NULL,
             product_id INTEGER NOT NULL,
             principal_amount REAL NOT NULL,
@@ -247,7 +247,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             loan_id INTEGER NOT NULL,
             type TEXT NOT NULL,
             amount REAL NOT NULL,
@@ -260,7 +260,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS repayments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             loan_id INTEGER NOT NULL,
             amount REAL NOT NULL,
             principal_paid REAL NOT NULL,
@@ -277,7 +277,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             sender_id INTEGER NOT NULL,
             recipient_id INTEGER NOT NULL,
             loan_id INTEGER,
@@ -292,7 +292,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             key_name TEXT NOT NULL UNIQUE,
             key_value TEXT,
             description TEXT,
@@ -300,7 +300,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             user_id INTEGER,
             action TEXT NOT NULL,
             entity_type TEXT,
@@ -313,7 +313,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS documents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             borrower_id INTEGER,
             user_id INTEGER,
             file_name TEXT NOT NULL,
