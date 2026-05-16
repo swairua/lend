@@ -344,7 +344,7 @@ export default function AdminBorrowers() {
             </div>
               </TabsContent>
               <TabsContent value="documents" className="mt-2">
-                <DocumentsPanel borrowerId={(selectedBorrower as any).user_id || (selectedBorrower as any).id} readOnly={false} />
+                <DocumentsPanel borrowerId={(selectedBorrower as any).id} readOnly={false} />
               </TabsContent>
             </Tabs>
           )}
