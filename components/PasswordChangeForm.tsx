@@ -28,9 +28,9 @@ export function PasswordChangeForm({ form, onChange, onSubmit, saving = false }:
     <form onSubmit={onSubmit} className="mt-6">
       <SectionCard icon={Lock} title="Change Password" description="Update your password">
         <div className="space-y-4">
-          <FieldGroup label="Current Password" id="currentPassword">
+          <FieldGroup label="Current Password" id="password_current">
             <Input
-              id="currentPassword"
+              id="password_current"
               type="password"
               value={form.currentPassword}
               onChange={(e) => handleChange('currentPassword', e.target.value)}
@@ -38,9 +38,9 @@ export function PasswordChangeForm({ form, onChange, onSubmit, saving = false }:
             />
           </FieldGroup>
 
-          <FieldGroup label="New Password" id="newPassword">
+          <FieldGroup label="New Password" id="password_new">
             <Input
-              id="newPassword"
+              id="password_new"
               type="password"
               value={form.newPassword}
               onChange={(e) => handleChange('newPassword', e.target.value)}
@@ -48,9 +48,9 @@ export function PasswordChangeForm({ form, onChange, onSubmit, saving = false }:
             />
           </FieldGroup>
 
-          <FieldGroup label="Confirm New Password" id="confirmPassword">
+          <FieldGroup label="Confirm New Password" id="password_confirm">
             <Input
-              id="confirmPassword"
+              id="password_confirm"
               type="password"
               value={form.confirmPassword}
               onChange={(e) => handleChange('confirmPassword', e.target.value)}

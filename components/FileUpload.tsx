@@ -31,6 +31,9 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
 
+  const errorId = error ? `${docType}-error` : undefined;
+  const uploadZoneId = `${docType}-upload-zone`;
+
   const handleFile = async (file: File) => {
     if (!file) return;
     setError(""); setUploading(true); setFileName(file.name);
@@ -55,7 +58,7 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
 
   return (
     <div className={`space-y-2${compact ? " text-xs" : ""}`}>
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <label htmlFor={uploadZoneId} className="text-sm font-medium text-gray-700">{label}</label>
       {uploaded ? (
         <div className="relative border rounded-lg overflow-hidden bg-gray-50">
           {isImg(uploaded) ? (
@@ -93,6 +96,7 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
         </div>
       ) : (
         <div
+          id={uploadZoneId}
           role="button"
           tabIndex={uploading ? -1 : 0}
           onDragOver={(e) => {
@@ -109,6 +113,8 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
           onClick={() => !uploading && inputRef.current?.click()}
           onKeyDown={handleKeyDown}
           aria-label={`Upload ${label}`}
+          aria-describedby={errorId}
+          aria-busy={uploading}
           className={`border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
             dragging ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
           }${compact ? " p-3 gap-1" : " p-8 gap-2"}${uploading ? " opacity-75 cursor-not-allowed" : ""}`}
@@ -129,7 +135,7 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
           )}
         </div>
       )}
-      {error && <p className="text-xs text-red-500 mt-1" role="alert">{error}</p>}
+      {error && <p id={errorId} className="text-xs text-red-500 mt-1" role="alert">{error}</p>}
       <input
         ref={inputRef}
         type="file"
@@ -140,6 +146,7 @@ export default function FileUpload({ docType, label, accept = "image/*,.pdf", bo
           if (f) handleFile(f);
         }}
         aria-hidden="true"
+        aria-label={`File input for ${label}`}
       />
     </div>
   );

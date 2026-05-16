@@ -165,6 +165,7 @@ export default function AdminBorrowers() {
       <Card>
         <CardContent className="p-0">
           <ResponsiveTable>
+            <caption className="sr-only">Admin borrowers table showing borrower profiles with contact information, business details, and credit scores</caption>
             <ResponsiveTableHeader className="bg-muted/50">
               <tr>
                 <ResponsiveTableHead className="text-left">Borrower</ResponsiveTableHead>

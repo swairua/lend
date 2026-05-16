@@ -317,6 +317,7 @@ export default function AdminLoans() {
       <Card>
         <CardContent className="p-0">
           <ResponsiveTable>
+            <caption className="sr-only">Admin loans table showing loan details including borrower, product, amount, balance, and status</caption>
             <ResponsiveTableHeader className="bg-muted/50">
               <tr>
                 <ResponsiveTableHead className="text-left">ID</ResponsiveTableHead>

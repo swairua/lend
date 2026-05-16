@@ -199,6 +199,7 @@ export default function AdminUsers() {
       <Card>
         <CardContent className="p-0">
           <ResponsiveTable>
+            <caption className="sr-only">Admin users table showing user accounts with role, status, and access management options</caption>
             <ResponsiveTableHeader className="bg-muted/50">
               <tr>
                 <ResponsiveTableHead className="text-left">User</ResponsiveTableHead>

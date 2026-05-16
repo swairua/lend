@@ -307,6 +307,7 @@ export default function AdminRepayments() {
       <Card>
         <CardContent className="p-0">
           <ResponsiveTable>
+            <caption className="sr-only">Admin repayments table showing borrower information, amounts, payment methods, and transaction status</caption>
             <ResponsiveTableHeader className="bg-muted/50">
               <tr>
                 <ResponsiveTableHead className="text-left">ID</ResponsiveTableHead>

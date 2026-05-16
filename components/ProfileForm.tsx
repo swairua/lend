@@ -35,22 +35,22 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
       {/* Personal Information */}
       <SectionCard icon={User} title="Personal Information" description="Update your personal details">
         <div className="space-y-4">
-          <FieldGroup label="Full Name" id="name">
+          <FieldGroup label="Full Name" id="profile_name">
             <Input
-              id="name"
+              id="profile_name"
               value={form.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="Your full name"
             />
           </FieldGroup>
 
-          <FieldGroup label="Email" helper="Contact admin to change email" id="email">
-            <Input id="email" value={userEmail || ''} disabled className="bg-muted" aria-describedby="email-helper" />
+          <FieldGroup label="Email" helper="Contact admin to change email" id="profile_email">
+            <Input id="profile_email" value={userEmail || ''} disabled className="bg-muted" />
           </FieldGroup>
 
-          <FieldGroup label="Phone Number" id="phone">
+          <FieldGroup label="Phone Number" id="profile_phone">
             <Input
-              id="phone"
+              id="profile_phone"
               type="tel"
               value={form.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
@@ -66,27 +66,27 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
           {/* KYC Fields */}
           <fieldset className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
             <legend className="text-xs font-semibold text-blue-800 uppercase tracking-wide">KYC Information</legend>
-            <FieldGroup label="National ID / Passport" required id="national_id">
+            <FieldGroup label="National ID / Passport" required id="profile_national_id">
               <Input
-                id="national_id"
+                id="profile_national_id"
                 value={form.national_id}
                 onChange={(e) => handleChange('national_id', e.target.value)}
                 placeholder="Enter your ID number"
                 className="text-sm"
               />
             </FieldGroup>
-            <FieldGroup label="KRA PIN" required id="kra_pin">
+            <FieldGroup label="KRA PIN" required id="profile_kra_pin">
               <Input
-                id="kra_pin"
+                id="profile_kra_pin"
                 value={form.kra_pin}
                 onChange={(e) => handleChange('kra_pin', e.target.value)}
                 placeholder="Enter your KRA PIN"
                 className="text-sm"
               />
             </FieldGroup>
-            <FieldGroup label="TCC Number (Renewed Annually)" required id="tcc_number">
+            <FieldGroup label="TCC Number (Renewed Annually)" required id="profile_tcc_number">
               <Input
-                id="tcc_number"
+                id="profile_tcc_number"
                 value={form.tcc_number}
                 onChange={(e) => handleChange('tcc_number', e.target.value)}
                 placeholder="Enter your TCC number"
@@ -96,9 +96,9 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
             <p className="text-xs text-blue-700">Please provide accurate KYC information. Admin will verify these details.</p>
           </fieldset>
 
-          <FieldGroup label="Address" id="address">
+          <FieldGroup label="Address" id="profile_address">
             <Textarea
-              id="address"
+              id="profile_address"
               value={form.address}
               onChange={(e) => handleChange('address', e.target.value)}
               placeholder="Your physical address"
@@ -106,9 +106,9 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
             />
           </FieldGroup>
 
-          <FieldGroup label="Business Name" id="business_name">
+          <FieldGroup label="Business Name" id="profile_business_name">
             <Input
-              id="business_name"
+              id="profile_business_name"
               value={form.business_name}
               onChange={(e) => handleChange('business_name', e.target.value)}
               placeholder="Your business name (if any)"
@@ -116,18 +116,18 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
           </FieldGroup>
 
           <div className="grid grid-cols-2 gap-4">
-            <FieldGroup label="Business Type" id="business_type">
+            <FieldGroup label="Business Type" id="profile_business_type">
               <Input
-                id="business_type"
+                id="profile_business_type"
                 value={form.business_type}
                 onChange={(e) => handleChange('business_type', e.target.value)}
                 placeholder="e.g., Retail, Services"
               />
             </FieldGroup>
 
-            <FieldGroup label="Monthly Income (KES)" id="monthly_income">
+            <FieldGroup label="Monthly Income (KES)" id="profile_monthly_income">
               <Input
-                id="monthly_income"
+                id="profile_monthly_income"
                 type="number"
                 value={form.monthly_income}
                 onChange={(e) => handleChange('monthly_income', e.target.value)}

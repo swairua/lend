@@ -178,6 +178,7 @@ export default function RepaymentSchedule() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <ResponsiveTable>
+              <caption className="sr-only">Loan repayment schedule showing payment dates, principal amounts, interest charges, and payment status</caption>
               <ResponsiveTableHeader className="bg-muted/50">
                 <tr>
                   <ResponsiveTableHead className="text-left">Due Date</ResponsiveTableHead>
