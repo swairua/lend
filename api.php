@@ -1426,7 +1426,14 @@ try {
             // Validate borrower exists
             $borrower = one("SELECT id FROM borrowers WHERE id = ?", [$borrower_id]);
             if (!$borrower) {
-                log_error("Upload failed - borrower not found", ['borrower_id' => $borrower_id]);
+                // Debug: Check if table exists and has any rows
+                $allBorrowers = all("SELECT id FROM borrowers");
+                log_error("Upload failed - borrower not found", [
+                    'borrower_id' => $borrower_id,
+                    'borrower_id_type' => gettype($borrower_id),
+                    'total_borrowers' => count($allBorrowers),
+                    'all_borrower_ids' => array_column($allBorrowers, 'id')
+                ]);
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Borrower not found']);
                 exit;
