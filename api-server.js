@@ -607,6 +607,18 @@ app.post('/api/uploads', authenticate, upload.single('file'), (req, res) => {
   const doc_type = req.body.doc_type || 'general';
   const borrower_id = req.body.borrower_id ? parseInt(req.body.borrower_id) : null;
 
+  if (!borrower_id) {
+    fs.unlink(req.file.path, () => {});
+    return res.status(400).json({ success: false, error: 'Borrower ID is required' });
+  }
+
+  // Validate borrower exists before inserting document
+  const borrower = db.prepare('SELECT id FROM borrowers WHERE id = ?').get(borrower_id);
+  if (!borrower) {
+    fs.unlink(req.file.path, () => {});
+    return res.status(400).json({ success: false, error: 'Borrower not found' });
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO documents (borrower_id, filename, original_name, file_type, doc_type, file_url)

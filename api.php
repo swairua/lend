@@ -1415,6 +1415,23 @@ try {
                 exit;
             }
 
+            // Validate borrower_id is provided
+            if (!$borrower_id) {
+                log_error("Upload failed - borrower_id required", []);
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Borrower ID is required']);
+                exit;
+            }
+
+            // Validate borrower exists
+            $borrower = one("SELECT id FROM borrowers WHERE id = ?", [$borrower_id]);
+            if (!$borrower) {
+                log_error("Upload failed - borrower not found", ['borrower_id' => $borrower_id]);
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Borrower not found']);
+                exit;
+            }
+
             // Save file with unique name
             $file_name = basename($file['name']);
             $file_ext = pathinfo($file_name, PATHINFO_EXTENSION);
