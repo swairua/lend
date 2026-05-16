@@ -21,6 +21,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 error_reporting(E_ALL);
 ini_set('display_errors', 0); // set to 1 for debugging
 
+// ---------- Load Environment Variables ----------
+$env_file = __DIR__ . '/.env';
+if (file_exists($env_file)) {
+    $lines = file($env_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
+            [$key, $value] = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            if (!getenv($key)) {
+                putenv("$key=$value");
+            }
+        }
+    }
+}
+
 // ---------- Error Logging Setup ----------
 $LOG_DIR = __DIR__ . '/logs';
 if (!is_dir($LOG_DIR)) {
@@ -82,26 +98,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ---------- Database connection ----------
-// Use SQLite for local development (easier setup, no MySQL required)
+// Support both MySQL (production) and SQLite (local development)
+$DB_TYPE = getenv('DB_TYPE') ?: 'mysql';
+$DB_HOST = getenv('DB_HOST') ?: 'localhost';
+$DB_NAME = getenv('DB_NAME') ?: 'wayrusc1_lending';
+$DB_USER = getenv('DB_USER') ?: 'wayrusc1_lending';
+$DB_PASS = getenv('DB_PASS') ?: '';
 $DB_FILE = __DIR__ . '/lending.db';
-$DB_TYPE = 'sqlite'; // or 'mysql'
 
 $PDO_INSTANCE = null;
 function pdo() {
-    global $PDO_INSTANCE, $DB_FILE;
+    global $PDO_INSTANCE, $DB_TYPE, $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS, $DB_FILE;
     if ($PDO_INSTANCE === null) {
         try {
-            $dsn = "sqlite:$DB_FILE";
-            $PDO_INSTANCE = new PDO($dsn, null, null, [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-            ]);
-            // Enable foreign keys for SQLite
-            $PDO_INSTANCE->exec("PRAGMA foreign_keys = ON");
+            if ($DB_TYPE === 'mysql') {
+                $dsn = "mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4";
+                $PDO_INSTANCE = new PDO($dsn, $DB_USER, $DB_PASS, [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES   => false,
+                ]);
+            } else {
+                $dsn = "sqlite:$DB_FILE";
+                $PDO_INSTANCE = new PDO($dsn, null, null, [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES   => false,
+                ]);
+                // Enable foreign keys for SQLite
+                $PDO_INSTANCE->exec("PRAGMA foreign_keys = ON");
+            }
         } catch (PDOException $e) {
             log_error("Database Connection Failed", [
-                'database' => $DB_FILE,
+                'type' => $DB_TYPE,
+                'host' => $DB_HOST,
+                'database' => $DB_NAME,
                 'error' => $e->getMessage()
             ]);
             throw $e;
