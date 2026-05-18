@@ -1313,6 +1313,183 @@ try {
             exit;
         }
 
+        // M-Pesa STK Push - Initiate borrower payment (authenticated)
+        if ($method === 'POST' && strpos($uri, 'admin/mpesa/payment') !== false) {
+            require_once __DIR__ . '/utils/mpesa-server.php';
+
+            $d = input();
+            $loan_id = $d['loan_id'] ?? 0;
+            $phone = $d['phone'] ?? '';
+
+            // Validate loan exists and is active
+            $loan = one("SELECT * FROM loans WHERE id = ?", [$loan_id]);
+            if (!$loan || $loan['status'] !== 'active') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Loan must be active']);
+                log_error("STK payment initiation failed: invalid loan", ['loan_id' => $loan_id, 'status' => $loan['status'] ?? 'missing']);
+                exit;
+            }
+
+            // Get M-Pesa config
+            $config_rows = all("SELECT key_name, key_value FROM settings WHERE key_name LIKE 'mpesa_%'");
+            $config = [];
+            foreach ($config_rows as $r) {
+                $config[$r['key_name']] = $r['key_value'];
+            }
+
+            if (!($config['mpesa_consumer_key'] ?? false)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'M-Pesa not configured']);
+                log_error("STK payment: M-Pesa not configured", []);
+                exit;
+            }
+
+            // Normalize phone (0XXXXXXXXX or 254XXXXXXXXX)
+            $phone = preg_replace('/^(\+254|254)/', '0', $phone);
+            if (!preg_match('/^0[67]\d{8}$/', $phone)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid phone number']);
+                exit;
+            }
+
+            $amount = intval($loan['total_amount'] - ($d['paid_amount'] ?? 0));
+            if ($amount <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid payment amount']);
+                exit;
+            }
+
+            $checkout_request_id = bin2hex(random_bytes(16));
+            $callback_url = $config['mpesa_stk_callback_url'] ?? '';
+
+            $daraja = new MpesaDaraja(
+                $config['mpesa_consumer_key'],
+                $config['mpesa_consumer_secret'],
+                $config['mpesa_environment'] ?? 'sandbox'
+            );
+
+            $result = $daraja->initiateStk(
+                $phone,
+                $amount,
+                $checkout_request_id,
+                $callback_url,
+                $config['mpesa_business_shortcode'],
+                $config['mpesa_passkey']
+            );
+
+            if (!$result['success']) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => $result['error']]);
+                log_error("STK initiation failed", ['loan_id' => $loan_id, 'error' => $result['error']]);
+                exit;
+            }
+
+            // Record transaction
+            q("INSERT INTO mpesa_transactions (loan_id, transaction_type, phone, amount, checkout_request_id, status, request_payload)
+               VALUES (?, 'stk_initiated', ?, ?, ?, 'stk_initiated', ?)",
+              [$loan_id, $phone, $amount, $checkout_request_id, json_encode($result['data'])]);
+
+            log_access('POST', 'admin/mpesa/payment', 200);
+            log_error("STK initiated", ['loan_id' => $loan_id, 'amount' => $amount, 'checkout_id' => substr($checkout_request_id, 0, 8)]);
+            echo json_encode(['success' => true, 'checkout_request_id' => $checkout_request_id]);
+            exit;
+        }
+
+        // M-Pesa B2C Disbursement - Initiate disbursement (authenticated, admin only)
+        if ($method === 'POST' && strpos($uri, 'admin/mpesa/disburse') !== false) {
+            require_once __DIR__ . '/utils/mpesa-server.php';
+
+            $d = input();
+            $loan_id = $d['loan_id'] ?? 0;
+            $phone = $d['phone'] ?? '';
+
+            // Validate loan exists and is approved
+            $loan = one("SELECT * FROM loans WHERE id = ?", [$loan_id]);
+            if (!$loan || $loan['status'] !== 'approved') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Loan must be approved']);
+                log_error("B2C disbursement failed: invalid loan status", ['loan_id' => $loan_id, 'status' => $loan['status'] ?? 'missing']);
+                exit;
+            }
+
+            // Get M-Pesa config
+            $config_rows = all("SELECT key_name, key_value FROM settings WHERE key_name LIKE 'mpesa_%'");
+            $config = [];
+            foreach ($config_rows as $r) {
+                $config[$r['key_name']] = $r['key_value'];
+            }
+
+            if (!($config['mpesa_consumer_key'] ?? false)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'M-Pesa not configured']);
+                exit;
+            }
+
+            // Normalize phone
+            $phone = preg_replace('/^(\+254|254)/', '0', $phone);
+            if (!preg_match('/^0[67]\d{8}$/', $phone)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid phone number']);
+                exit;
+            }
+
+            $amount = intval($loan['principal_amount']);
+            $command_id = bin2hex(random_bytes(16));
+            $result_url = $config['mpesa_b2c_result_url'] ?? '';
+
+            $daraja = new MpesaDaraja(
+                $config['mpesa_consumer_key'],
+                $config['mpesa_consumer_secret'],
+                $config['mpesa_environment'] ?? 'sandbox'
+            );
+
+            $result = $daraja->initiateB2c(
+                $phone,
+                $amount,
+                $command_id,
+                $result_url,
+                $config['mpesa_business_shortcode'],
+                $config['mpesa_initiator_name'] ?? 'LendingSystem',
+                $config['mpesa_initiator_password'] ?? ''
+            );
+
+            if (!$result['success']) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => $result['error']]);
+                log_error("B2C initiation failed", ['loan_id' => $loan_id, 'error' => $result['error']]);
+                exit;
+            }
+
+            // Record transaction & mark loan as disbursed
+            q("INSERT INTO mpesa_transactions (loan_id, transaction_type, phone, amount, command_id, status, request_payload)
+               VALUES (?, 'b2c_initiated', ?, ?, ?, 'b2c_initiated', ?)",
+              [$loan_id, $phone, $amount, $command_id, json_encode($result['data'])]);
+
+            q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$loan_id]);
+
+            log_access('POST', 'admin/mpesa/disburse', 200);
+            log_error("B2C initiated", ['loan_id' => $loan_id, 'amount' => $amount, 'command_id' => substr($command_id, 0, 8)]);
+            echo json_encode(['success' => true, 'command_id' => $command_id]);
+            exit;
+        }
+
+        // M-Pesa Transaction Status (authenticated)
+        if (strpos($uri, 'admin/mpesa/transactions') !== false) {
+            $loan_id = $_GET['loan_id'] ?? null;
+            $sql = "SELECT * FROM mpesa_transactions WHERE 1=1";
+            $params = [];
+            if ($loan_id) {
+                $sql .= " AND loan_id = ?";
+                $params[] = $loan_id;
+            }
+            $sql .= " ORDER BY created_at DESC LIMIT 100";
+
+            $rows = all($sql, $params);
+            log_access('GET', 'admin/mpesa/transactions', 200);
+            echo json_encode(['success' => true, 'data' => $rows]);
+            exit;
+        }
+
         // Repayments
         if (strpos($uri, 'admin/repayments') !== false) {
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
@@ -1555,6 +1732,22 @@ try {
     if ($resource === 'mpesa') {
         require_once __DIR__ . '/utils/mpesa-server.php';
 
+        function validateSafaricomSignature($raw, $signature_header, $is_production = false) {
+            if (empty($signature_header)) {
+                log_error("Safaricom signature validation: missing signature header", []);
+                return false;
+            }
+            return SafaricomSignatureValidator::verify($signature_header, $raw, $is_production);
+        }
+
+        // Get M-Pesa environment for signature validation
+        $config_rows = all("SELECT key_name, key_value FROM settings WHERE key_name LIKE 'mpesa_%'");
+        $mpesa_config = [];
+        foreach ($config_rows as $r) {
+            $mpesa_config[$r['key_name']] = $r['key_value'];
+        }
+        $is_production = ($mpesa_config['mpesa_environment'] ?? 'sandbox') === 'production';
+
         // POST /mpesa/c2b/validate - C2B Validation (customer initiated payment)
         if ($method === 'POST' && strpos($uri, 'mpesa/c2b/validate') !== false) {
             $raw = file_get_contents('php://input');
@@ -1562,6 +1755,15 @@ try {
                 http_response_code(400);
                 echo json_encode(['ResultCode' => '1', 'ResultDesc' => 'No payload']);
                 log_error("C2B validation: empty payload", []);
+                exit;
+            }
+
+            // Verify signature (phase 4 security hardening)
+            $signature = $_SERVER['HTTP_X_SAFARICOM_SIGNATURE'] ?? '';
+            if (!validateSafaricomSignature($raw, $signature, $is_production)) {
+                http_response_code(401);
+                echo json_encode(['ResultCode' => '1', 'ResultDesc' => 'Signature verification failed']);
+                log_error("C2B validation: signature verification failed", ['ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
                 exit;
             }
 
@@ -1606,6 +1808,14 @@ try {
                 exit;
             }
 
+            $signature = $_SERVER['HTTP_X_SAFARICOM_SIGNATURE'] ?? '';
+            if (!validateSafaricomSignature($raw, $signature, $is_production)) {
+                http_response_code(401);
+                echo json_encode(['ResultCode' => '1', 'ResultDesc' => 'Signature verification failed']);
+                log_error("C2B confirm: signature verification failed", []);
+                exit;
+            }
+
             $parsed = MpesaXmlParser::parseC2bXml($raw);
             if (!$parsed) {
                 http_response_code(400);
@@ -1640,6 +1850,14 @@ try {
         if ($method === 'POST' && strpos($uri, 'mpesa/c2b/timeout') !== false) {
             $raw = file_get_contents('php://input');
             if (!empty($raw)) {
+                $signature = $_SERVER['HTTP_X_SAFARICOM_SIGNATURE'] ?? '';
+                if (!validateSafaricomSignature($raw, $signature, $is_production)) {
+                    log_error("C2B timeout: signature verification failed", []);
+                    log_access('POST', 'mpesa/c2b/timeout', 401);
+                    echo json_encode(['ResultCode' => '0']);
+                    exit;
+                }
+
                 $parsed = MpesaXmlParser::parseC2bXml($raw);
                 if ($parsed) {
                     q("INSERT INTO mpesa_transactions (transaction_type, phone, amount, status, request_payload)
@@ -1659,6 +1877,14 @@ try {
             if (empty($raw)) {
                 http_response_code(400);
                 log_error("STK callback: empty payload", []);
+                exit;
+            }
+
+            $signature = $_SERVER['HTTP_X_SAFARICOM_SIGNATURE'] ?? '';
+            if (!validateSafaricomSignature($raw, $signature, $is_production)) {
+                log_error("STK callback: signature verification failed", []);
+                header('Content-Type: application/json');
+                echo json_encode(['ResultCode' => '0']);
                 exit;
             }
 
@@ -1719,6 +1945,14 @@ try {
         if ($method === 'POST' && strpos($uri, 'mpesa/b2c/result') !== false) {
             $raw = file_get_contents('php://input');
             if (!empty($raw)) {
+                $signature = $_SERVER['HTTP_X_SAFARICOM_SIGNATURE'] ?? '';
+                if (!validateSafaricomSignature($raw, $signature, $is_production)) {
+                    log_error("B2C result: signature verification failed", []);
+                    log_access('POST', 'mpesa/b2c/result', 401);
+                    echo json_encode(['ResultCode' => '0']);
+                    exit;
+                }
+
                 $parsed = MpesaXmlParser::parseB2cResultXml($raw);
                 if ($parsed) {
                     $result_code = $parsed['result_code'];
@@ -1753,6 +1987,14 @@ try {
         if ($method === 'POST' && strpos($uri, 'mpesa/b2c/timeout') !== false) {
             $raw = file_get_contents('php://input');
             if (!empty($raw)) {
+                $signature = $_SERVER['HTTP_X_SAFARICOM_SIGNATURE'] ?? '';
+                if (!validateSafaricomSignature($raw, $signature, $is_production)) {
+                    log_error("B2C timeout: signature verification failed", []);
+                    log_access('POST', 'mpesa/b2c/timeout', 401);
+                    echo json_encode(['ResultCode' => '0']);
+                    exit;
+                }
+
                 $parsed = MpesaXmlParser::parseB2cResultXml($raw);
                 if ($parsed) {
                     $command_id = $parsed['originator_conversation_id'];
