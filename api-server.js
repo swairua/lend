@@ -377,6 +377,18 @@ function authenticate(req, res, next) {
   next();
 }
 
+// Audit Logging Helper
+function logAudit(userId, action, entityType, entityId, details = null) {
+  try {
+    db.prepare(`
+      INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, created_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(userId || null, action, entityType, entityId || null, details ? JSON.stringify(details) : null);
+  } catch (error) {
+    console.error('Audit log error:', error.message);
+  }
+}
+
 // Routes
 
 // Auth - Login
@@ -862,6 +874,13 @@ app.post('/api/mpesa/disburse', authenticate, (req, res) => {
     db.prepare(`
       UPDATE loans SET status = ?, disbursed_at = CURRENT_TIMESTAMP WHERE id = ?
     `).run('disbursed', loan_id);
+
+    // Audit log
+    logAudit(req.user.id, 'loan_disbursed', 'loan', loan_id, {
+      amount: disbursementAmount,
+      method: 'mpesa_b2c',
+      phone: phone_number
+    });
 
     // Log transaction
     db.prepare(`
