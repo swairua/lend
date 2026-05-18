@@ -599,4 +599,16 @@ export const pdfApi = {
     request<{ success: boolean; message: string }>('/admin/email-settings/test', {
       method: 'POST',
     }),
+
+  sendReceipt: (loanId: number, repaymentId: number, recipientEmail: string) =>
+    request<{ success: boolean; message: string }>('/admin/send-receipt', {
+      method: 'POST',
+      body: JSON.stringify({ loan_id: loanId, repayment_id: repaymentId, recipient_email: recipientEmail }),
+    }),
+
+  sendInvoice: (loanId: number, recipientEmail: string) =>
+    request<{ success: boolean; message: string }>('/admin/send-invoice', {
+      method: 'POST',
+      body: JSON.stringify({ loan_id: loanId, recipient_email: recipientEmail }),
+    }),
 };
