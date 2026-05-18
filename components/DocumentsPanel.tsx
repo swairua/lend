@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { uploadsApi, UploadedDocument, getFileUrl } from "../utils/api";
 import FileUpload, { DOC_TYPES } from "./FileUpload";
+import DocumentPreviewModal from "./DocumentPreviewModal";
 import { FileText, Image, Trash2, Eye, Plus, Loader2, FolderOpen } from "lucide-react";
 
 interface DocumentsPanelProps {
@@ -139,26 +140,13 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
           </div>
         </DialogContent>
       </Dialog>
-      {/* View Dialog */}
-      <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{viewDoc && docLabel(viewDoc.doc_type)}</DialogTitle></DialogHeader>
-          {viewDoc && (() => {
-            const fullUrl = getFileUrl(viewDoc.file_url);
-            return isImg(fullUrl) ? (
-              <img src={fullUrl} alt={viewDoc.original_name} className="w-full rounded-lg" />
-            ) : (
-              <div className="flex flex-col items-center gap-4 py-8">
-                <FileText className="h-16 w-16 text-blue-300" aria-hidden="true" />
-                <p className="text-sm text-muted-foreground">{viewDoc.original_name}</p>
-                <a href={fullUrl} target="_blank" rel="noreferrer" aria-label={`Open document: ${viewDoc.original_name} in new window`}>
-                  <Button>Open Document</Button>
-                </a>
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        document={viewDoc}
+        isOpen={!!viewDoc}
+        onOpenChange={(open) => !open && setViewDoc(null)}
+        docLabel={docLabel}
+      />
     </Card>
   );
 }
