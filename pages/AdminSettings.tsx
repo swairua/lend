@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { adminApi } from '../types/api';
+import { adminApi, pdfApi } from '../utils/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
@@ -203,7 +203,6 @@ export default function AdminSettings() {
 
   const loadEmailSettings = async () => {
     try {
-      const { pdfApi } = await import('../types/api');
       const response: any = await pdfApi.getEmailSettings();
       if (response.success && response.data) {
         setEmailSettings({
@@ -214,8 +213,12 @@ export default function AdminSettings() {
           smtp_from: response.data.smtp_from || '',
         });
       }
-    } catch (error) {
-      console.error('Failed to load email settings:', error);
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log('Email settings endpoint not available');
+      } else {
+        console.error('Failed to load email settings:', error);
+      }
     }
   };
 
@@ -316,7 +319,6 @@ export default function AdminSettings() {
 
     setEmailSaving(true);
     try {
-      const { pdfApi } = await import('../types/api');
       await pdfApi.updateEmailSettings(
         emailSettings.smtp_host,
         parseInt(emailSettings.smtp_port),
@@ -335,7 +337,6 @@ export default function AdminSettings() {
   const handleTestEmailSettings = async () => {
     setEmailTesting(true);
     try {
-      const { pdfApi } = await import('../types/api');
       const result = await pdfApi.testEmailSettings();
       if (result.success) {
         showAlert({ type: 'success', message: result.message || 'Email connection successful!' });
