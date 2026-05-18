@@ -48,6 +48,24 @@ function log_access($method, $uri, $statusCode, $responseTime = null) {
     @file_put_contents($ACCESS_LOG_FILE, $logMessage, FILE_APPEND);
 }
 
+function logAudit($userId, $action, $entityType, $entityId, $details = []) {
+    global $db;
+    try {
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+        $detailsJson = json_encode($details);
+
+        $stmt = $db->prepare("
+            INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, ip_address, user_agent, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ");
+
+        $stmt->execute([$userId, $action, $entityType, $entityId, $detailsJson, $ipAddress, $userAgent]);
+    } catch (Exception $e) {
+        error_log("Audit logging failed: " . $e->getMessage());
+    }
+}
+
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     log_error("PHP Error ($errno)", [
         'message' => $errstr,
@@ -920,6 +938,13 @@ try {
                            [$user['id'], $a['id'], $loanId, 'New Loan Application',
                             "New loan application #$loanId. Amount: $amount, Term: $term months."]);
                     }
+                    logAudit($user['id'], 'loan_created', 'loan', $loanId, [
+                        'loan_amount' => $amount,
+                        'annual_interest_rate' => $product['interest_rate'],
+                        'term_months' => $term,
+                        'product_id' => $product['id'],
+                        'product_name' => $product['name']
+                    ]);
                     log_access('POST', 'borrower/loans', 201);
                     echo json_encode(['success' => true, 'data' => ['id' => $loanId]]);
                     exit;
@@ -1103,8 +1128,14 @@ try {
                    $approve ? 'Loan Approved' : 'Loan Rejected',
                    $approve ? "Your loan #{$m[1]} has been approved." : "Your loan #{$m[1]} has been rejected.",
                    $approve ? 'approval' : 'rejection']);
+                logAudit($user['id'], $approve ? 'loan_approved' : 'loan_rejected', 'loan', $m[1], [
+                    'previous_status' => 'pending',
+                    'new_status' => $ns,
+                    'approved_by_user_id' => $user['id'],
+                    'rejection_reason' => $approve ? null : ($d['reason'] ?? null)
+                ]);
                 log_access('POST', 'admin/loans/' . $m[1] . '/approve', 200);
-                echo json_encode(['success' => true]); 
+                echo json_encode(['success' => true]);
                 exit;
             } catch (Exception $e) {
                 log_error("Loan approval exception", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
@@ -1128,8 +1159,15 @@ try {
                 q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type)
                    VALUES (?,?,?,'Loan Disbursed',?,'disbursement')",
                   [$user['id'], $b['user_id'], $m[1], "Your loan #{$m[1]} has been disbursed."]);
+                logAudit($user['id'], 'loan_disbursed', 'loan', $m[1], [
+                    'disbursement_amount' => $amt,
+                    'method' => 'bank',
+                    'reference' => $d['reference'] ?? null,
+                    'disbursed_by_user_id' => $user['id'],
+                    'principal_amount' => floatval($loan['principal_amount'])
+                ]);
                 log_access('POST', 'admin/loans/' . $m[1] . '/disburse', 200);
-                echo json_encode(['success' => true]); 
+                echo json_encode(['success' => true]);
                 exit;
             } catch (Exception $e) {
                 log_error("Loan disbursement exception", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
@@ -1915,6 +1953,16 @@ try {
                         q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number)
                            VALUES (?, ?, ?, 0, 'mpesa', ?)",
                           [$txn['loan_id'], $amount, $amount, $receipt]);
+                        $loan = one("SELECT borrower_id FROM loans WHERE id = ?", [$txn['loan_id']]);
+                        $borrower = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
+                        logAudit($borrower['user_id'], 'payment_received', 'repayment', $txn['loan_id'], [
+                            'amount' => $amount,
+                            'payment_method' => 'mpesa',
+                            'reference_number' => $receipt,
+                            'principal_paid' => $amount,
+                            'interest_paid' => 0,
+                            'mpesa_transaction_id' => $receipt
+                        ]);
                         log_error("STK callback success: repayment created", ['loan_id' => $txn['loan_id'], 'amount' => $amount, 'receipt' => $receipt]);
                     }
                 } else {
