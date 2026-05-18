@@ -82,26 +82,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ---------- Database connection ----------
-// Use SQLite for local development (easier setup, no MySQL required)
-$DB_FILE = __DIR__ . '/lending.db';
-$DB_TYPE = 'sqlite'; // or 'mysql'
+// MySQL Production Database Configuration
+$DB_TYPE = 'mysql';
+$DB_HOST = 'localhost';
+$DB_NAME = 'wayrusc1_lending';
+$DB_USER = 'wayrusc1_lending';
+$DB_PASS = 'Sirgeorge.12';
+$DB_FILE = __DIR__ . '/lending.db'; // Used only if DB_TYPE is 'sqlite'
 
 $PDO_INSTANCE = null;
 function pdo() {
-    global $PDO_INSTANCE, $DB_FILE;
+    global $PDO_INSTANCE, $DB_TYPE, $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS, $DB_FILE;
     if ($PDO_INSTANCE === null) {
         try {
-            $dsn = "sqlite:$DB_FILE";
-            $PDO_INSTANCE = new PDO($dsn, null, null, [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-            ]);
-            // Enable foreign keys for SQLite
-            $PDO_INSTANCE->exec("PRAGMA foreign_keys = ON");
+            if ($DB_TYPE === 'mysql') {
+                $dsn = "mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4";
+                $PDO_INSTANCE = new PDO($dsn, $DB_USER, $DB_PASS, [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES   => false,
+                ]);
+            } else {
+                $dsn = "sqlite:$DB_FILE";
+                $PDO_INSTANCE = new PDO($dsn, null, null, [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES   => false,
+                ]);
+            }
         } catch (PDOException $e) {
             log_error("Database Connection Failed", [
-                'database' => $DB_FILE,
+                'type' => $DB_TYPE,
+                'host' => $DB_HOST,
+                'database' => $DB_NAME,
                 'error' => $e->getMessage()
             ]);
             throw $e;
@@ -130,13 +143,13 @@ function bootstrap() {
         $p = pdo();
 
         $p->exec("CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             email TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL,
             name TEXT NOT NULL,
             phone TEXT,
             photo_url TEXT,
-            role TEXT NOT NULL DEFAULT 'borrower',
+            role VARCHAR(50) NOT NULL DEFAULT 'borrower',
             permissions TEXT,
             last_login TIMESTAMP,
             is_active INTEGER DEFAULT 1,
@@ -145,7 +158,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS tokens (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             user_id INTEGER NOT NULL,
             token TEXT NOT NULL UNIQUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -153,7 +166,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS borrowers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             user_id INTEGER NOT NULL UNIQUE,
             national_id TEXT,
             address TEXT,
@@ -167,7 +180,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             name TEXT NOT NULL,
             code TEXT NOT NULL UNIQUE,
             description TEXT,
@@ -177,7 +190,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             category_id INTEGER,
             name TEXT NOT NULL,
             description TEXT,
@@ -186,7 +199,7 @@ function bootstrap() {
             min_term_months INTEGER NOT NULL,
             max_term_months INTEGER NOT NULL,
             interest_rate REAL NOT NULL,
-            interest_type TEXT DEFAULT 'flat',
+            interest_type VARCHAR(50) DEFAULT 'flat',
             processing_fee_percent REAL DEFAULT 0,
             asset_transfer_fee REAL DEFAULT 0,
             tracking_system_fee REAL DEFAULT 0,
@@ -202,7 +215,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS loans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             borrower_id INTEGER NOT NULL,
             product_id INTEGER NOT NULL,
             principal_amount REAL NOT NULL,
@@ -213,7 +226,7 @@ function bootstrap() {
             late_fee_rate REAL DEFAULT 0,
             total_amount REAL NOT NULL,
             term_months INTEGER NOT NULL,
-            status TEXT DEFAULT 'pending',
+            status VARCHAR(50) DEFAULT 'pending',
             approved_by INTEGER,
             approved_at TIMESTAMP,
             disbursed_at TIMESTAMP,
@@ -232,27 +245,27 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             loan_id INTEGER NOT NULL,
             type TEXT NOT NULL,
             amount REAL NOT NULL,
-            method TEXT DEFAULT 'mpesa',
+            method VARCHAR(50) DEFAULT 'mpesa',
             reference TEXT,
-            status TEXT DEFAULT 'completed',
+            status VARCHAR(50) DEFAULT 'completed',
             processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS repayments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             loan_id INTEGER NOT NULL,
             amount REAL NOT NULL,
             principal_paid REAL NOT NULL,
             interest_paid REAL NOT NULL,
             penalty_paid REAL DEFAULT 0,
             late_fee_paid REAL DEFAULT 0,
-            payment_method TEXT DEFAULT 'mpesa',
+            payment_method VARCHAR(50) DEFAULT 'mpesa',
             reference_number TEXT,
             paid_by INTEGER,
             paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -262,13 +275,13 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             sender_id INTEGER NOT NULL,
             recipient_id INTEGER NOT NULL,
             loan_id INTEGER,
             subject TEXT NOT NULL,
             message TEXT NOT NULL,
-            type TEXT DEFAULT 'general',
+            type VARCHAR(50) DEFAULT 'general',
             is_read INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -277,7 +290,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             key_name TEXT NOT NULL UNIQUE,
             key_value TEXT,
             description TEXT,
@@ -285,7 +298,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             user_id INTEGER,
             action TEXT NOT NULL,
             entity_type TEXT,
@@ -298,7 +311,7 @@ function bootstrap() {
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS documents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
             borrower_id INTEGER,
             user_id INTEGER,
             file_name TEXT NOT NULL,
@@ -365,7 +378,7 @@ function bootstrap() {
             log_error("Loan products seeded", []);
         }
 
-        // Seed default settings (SQLite doesn't support ON DUPLICATE KEY, use INSERT OR IGNORE)
+        // Seed default settings
         $defaults = [
             'company_name' => 'Wayrus Lending',
             'currency' => 'KES',
@@ -376,7 +389,7 @@ function bootstrap() {
             'tracking_system_fee' => '25000',
         ];
         foreach ($defaults as $k => $v) {
-            q("INSERT OR IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
+            q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
         }
     } catch (Exception $e) {
         log_error("Bootstrap failed", [
@@ -1012,9 +1025,9 @@ try {
             $collected = one("SELECT COALESCE(SUM(amount),0) t FROM repayments");
             $defaultRate  = $tot > 0 ? ($defaulted / $tot * 100) : 0;
             $approvalRate = ($tot - $pending) > 0 ? ($approved / ($tot - $pending) * 100) : 0;
-            $monthly = all("SELECT strftime('%Y-%m', created_at) month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
-                            FROM loans WHERE status IN ('active','completed') AND created_at >= datetime('now', '-6 months')
-                            GROUP BY strftime('%Y-%m', created_at) ORDER BY month");
+            $monthly = all("SELECT DATE_FORMAT(created_at, '%Y-%m') month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
+                            FROM loans WHERE status IN ('active','completed') AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                            GROUP BY DATE_FORMAT(created_at, '%Y-%m') ORDER BY month");
             $catDist = [];
             if ($tot > 0) {
                 $catRows = all("SELECT lc.id, lc.name category, COUNT(*) count
@@ -1406,7 +1419,7 @@ try {
 
             $file = $_FILES['file'];
             $doc_type = $_POST['doc_type'] ?? 'general';
-            $borrower_id = $_POST['borrower_id'] ?? null;
+            $borrower_id = isset($_POST['borrower_id']) ? (int) trim($_POST['borrower_id']) : 0;
 
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 log_error("Upload failed - upload error", ['error' => $file['error']]);
@@ -1417,7 +1430,7 @@ try {
 
             // Validate borrower_id is provided
             if (!$borrower_id) {
-                log_error("Upload failed - borrower_id required", []);
+                log_error("Upload failed - Borrower ID is required", ['borrower_id' => $_POST['borrower_id'] ?? null]);
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Borrower ID is required']);
                 exit;
@@ -1426,7 +1439,14 @@ try {
             // Validate borrower exists
             $borrower = one("SELECT id FROM borrowers WHERE id = ?", [$borrower_id]);
             if (!$borrower) {
-                log_error("Upload failed - borrower not found", ['borrower_id' => $borrower_id]);
+                // Debug: Check if table exists and has any rows
+                $allBorrowers = all("SELECT id FROM borrowers");
+                log_error("Upload failed - borrower not found", [
+                    'borrower_id' => $borrower_id,
+                    'borrower_id_type' => gettype($borrower_id),
+                    'total_borrowers' => count($allBorrowers),
+                    'all_borrower_ids' => array_column($allBorrowers, 'id')
+                ]);
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Borrower not found']);
                 exit;
