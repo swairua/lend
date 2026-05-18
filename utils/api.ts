@@ -380,6 +380,33 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // M-Pesa Payment Endpoints
+  mpesaInitiatePayment: (loan_id: number, phone: string, paid_amount?: number) =>
+    request<{ success: boolean; checkout_request_id?: string; error?: string }>('/admin/mpesa/payment', {
+      method: 'POST',
+      body: JSON.stringify({ loan_id, phone, paid_amount }),
+    }),
+
+  mpesaInitiateDisbursement: (loan_id: number, phone: string) =>
+    request<{ success: boolean; command_id?: string; error?: string }>('/admin/mpesa/disburse', {
+      method: 'POST',
+      body: JSON.stringify({ loan_id, phone }),
+    }),
+
+  mpesaGetTransactions: (loan_id?: number) =>
+    request<{ success: boolean; data: any[] }>(
+      `/admin/mpesa/transactions${loan_id ? `?loan_id=${loan_id}` : ''}`
+    ),
+
+  post: (endpoint: string, data: any) =>
+    request<any>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  get: (endpoint: string) =>
+    request<any>(endpoint),
 };
 
 // ==================== Helpers ====================
