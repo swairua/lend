@@ -45,7 +45,12 @@ interface SystemConfig {
   mpesa_consumer_secret?: string;
   mpesa_business_shortcode?: string;
   mpesa_passkey?: string;
-  mpesa_callback_url?: string;
+  mpesa_c2b_validation_url?: string;
+  mpesa_c2b_confirmation_url?: string;
+  mpesa_c2b_timeout_url?: string;
+  mpesa_stk_callback_url?: string;
+  mpesa_b2c_result_url?: string;
+  mpesa_b2c_timeout_url?: string;
   mpesa_environment?: string;
   enable_mpesa?: string;
 }
@@ -248,7 +253,12 @@ export default function AdminSettings() {
       { key: 'mpesa_consumer_secret', label: 'Consumer Secret' },
       { key: 'mpesa_business_shortcode', label: 'Business Short Code' },
       { key: 'mpesa_passkey', label: 'Passkey' },
-      { key: 'mpesa_callback_url', label: 'Callback URL' },
+      { key: 'mpesa_c2b_validation_url', label: 'C2B Validation URL' },
+      { key: 'mpesa_c2b_confirmation_url', label: 'C2B Confirmation URL' },
+      { key: 'mpesa_c2b_timeout_url', label: 'C2B Timeout URL' },
+      { key: 'mpesa_stk_callback_url', label: 'STK Callback URL' },
+      { key: 'mpesa_b2c_result_url', label: 'B2C Result URL' },
+      { key: 'mpesa_b2c_timeout_url', label: 'B2C Timeout URL' },
     ];
 
     for (const field of required) {
@@ -997,40 +1007,165 @@ export default function AdminSettings() {
                 />
               </div>
 
-              <div>
-                <Label>Callback URL</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={config.mpesa_callback_url || `${window.location.origin}/api/mpesa/callback`}
-                    onChange={(e) => handleChange('mpesa_callback_url', e.target.value)}
-                    placeholder="Where M-Pesa sends payment notifications"
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const url = config.mpesa_callback_url || `${window.location.origin}/api/mpesa/callback`;
-                      navigator.clipboard.writeText(url);
-                      setMpesaCopied(true);
-                      setTimeout(() => setMpesaCopied(false), 2000);
-                    }}
-                  >
-                    {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+              <div className="border-t pt-4 mt-4">
+                <p className="font-medium mb-4 text-sm">Callback URLs (Register in Safaricom API Console)</p>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>C2B Validation URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_c2b_validation_url || `${window.location.origin}/api/mpesa/c2b/validate`}
+                        onChange={(e) => handleChange('mpesa_c2b_validation_url', e.target.value)}
+                        placeholder="Customer validation endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_c2b_validation_url || `${window.location.origin}/api/mpesa/c2b/validate`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs here to validate customer data</p>
+                  </div>
+
+                  <div>
+                    <Label>C2B Confirmation URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_c2b_confirmation_url || `${window.location.origin}/api/mpesa/c2b/confirm`}
+                        onChange={(e) => handleChange('mpesa_c2b_confirmation_url', e.target.value)}
+                        placeholder="Transaction confirmation endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_c2b_confirmation_url || `${window.location.origin}/api/mpesa/c2b/confirm`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs confirmed transactions here</p>
+                  </div>
+
+                  <div>
+                    <Label>C2B Timeout URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_c2b_timeout_url || `${window.location.origin}/api/mpesa/c2b/timeout`}
+                        onChange={(e) => handleChange('mpesa_c2b_timeout_url', e.target.value)}
+                        placeholder="Timeout/cancellation endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_c2b_timeout_url || `${window.location.origin}/api/mpesa/c2b/timeout`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs timeouts/cancellations here</p>
+                  </div>
+
+                  <div>
+                    <Label>STK Push Callback URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_stk_callback_url || `${window.location.origin}/api/mpesa/stk/callback`}
+                        onChange={(e) => handleChange('mpesa_stk_callback_url', e.target.value)}
+                        placeholder="STK response endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_stk_callback_url || `${window.location.origin}/api/mpesa/stk/callback`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs STK results here (borrower payment)</p>
+                  </div>
+
+                  <div>
+                    <Label>B2C Result URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_b2c_result_url || `${window.location.origin}/api/mpesa/b2c/result`}
+                        onChange={(e) => handleChange('mpesa_b2c_result_url', e.target.value)}
+                        placeholder="B2C result endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_b2c_result_url || `${window.location.origin}/api/mpesa/b2c/result`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs disbursement results here</p>
+                  </div>
+
+                  <div>
+                    <Label>B2C Timeout URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_b2c_timeout_url || `${window.location.origin}/api/mpesa/b2c/timeout`}
+                        onChange={(e) => handleChange('mpesa_b2c_timeout_url', e.target.value)}
+                        placeholder="B2C timeout endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_b2c_timeout_url || `${window.location.origin}/api/mpesa/b2c/timeout`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs B2C timeouts here</p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Register this URL in Safaricom API console under M-Pesa Express (STK Push)
-                </p>
               </div>
 
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-900 font-medium mb-2">Configuration Checklist:</p>
+                <p className="text-sm text-yellow-900 font-medium mb-2">URL Registration Checklist:</p>
                 <ul className="text-xs text-yellow-800 space-y-1 list-disc list-inside">
-                  <li>Register callback URL above in Safaricom API console</li>
-                  <li>Ensure Short Code has STK Push and B2C APIs enabled</li>
-                  <li>Test credentials in Sandbox before switching to Production</li>
-                  <li>Callback URL must be publicly accessible (not localhost)</li>
+                  <li>Copy each URL above (use copy buttons)</li>
+                  <li>Register C2B URLs in Safaricom for Paybill/Till</li>
+                  <li>Register STK URL for STK Push callback</li>
+                  <li>Register B2C URLs for disbursement results</li>
+                  <li>All URLs must be HTTPS and publicly accessible</li>
+                  <li>Test in Sandbox before registering Production URLs</li>
                 </ul>
               </div>
 
