@@ -109,8 +109,6 @@ function pdo() {
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES   => false,
                 ]);
-                // Enable foreign keys for SQLite
-                $PDO_INSTANCE->exec("PRAGMA foreign_keys = ON");
             }
         } catch (PDOException $e) {
             log_error("Database Connection Failed", [
@@ -380,7 +378,7 @@ function bootstrap() {
             log_error("Loan products seeded", []);
         }
 
-        // Seed default settings (SQLite doesn't support ON DUPLICATE KEY, use INSERT OR IGNORE)
+        // Seed default settings
         $defaults = [
             'company_name' => 'Wayrus Lending',
             'currency' => 'KES',
@@ -391,7 +389,7 @@ function bootstrap() {
             'tracking_system_fee' => '25000',
         ];
         foreach ($defaults as $k => $v) {
-            q("INSERT OR IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
+            q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
         }
     } catch (Exception $e) {
         log_error("Bootstrap failed", [
@@ -1027,9 +1025,9 @@ try {
             $collected = one("SELECT COALESCE(SUM(amount),0) t FROM repayments");
             $defaultRate  = $tot > 0 ? ($defaulted / $tot * 100) : 0;
             $approvalRate = ($tot - $pending) > 0 ? ($approved / ($tot - $pending) * 100) : 0;
-            $monthly = all("SELECT strftime('%Y-%m', created_at) month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
-                            FROM loans WHERE status IN ('active','completed') AND created_at >= datetime('now', '-6 months')
-                            GROUP BY strftime('%Y-%m', created_at) ORDER BY month");
+            $monthly = all("SELECT DATE_FORMAT(created_at, '%Y-%m') month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
+                            FROM loans WHERE status IN ('active','completed') AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                            GROUP BY DATE_FORMAT(created_at, '%Y-%m') ORDER BY month");
             $catDist = [];
             if ($tot > 0) {
                 $catRows = all("SELECT lc.id, lc.name category, COUNT(*) count
