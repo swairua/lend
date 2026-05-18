@@ -496,6 +496,193 @@ app.get('/api/auth/me', authenticate, (req, res) => {
   });
 });
 
+// ===== Borrower Endpoints =====
+
+// Create loan application
+app.post('/api/borrower/loans', authenticate, (req, res) => {
+  try {
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+    if (!borrower) {
+      return res.status(403).json({ success: false, error: 'Borrower profile not found' });
+    }
+
+    const { product_id, amount, term_months } = req.body;
+    if (!product_id || !amount || !term_months) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
+    if (!product) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    const interest_rate = product.interest_rate || 10;
+    const total_amount = amount + (amount * interest_rate * term_months / 100 / 12);
+    const due_date = new Date();
+    due_date.setMonth(due_date.getMonth() + term_months);
+
+    const result = db.prepare(`
+      INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, duration_months, interest_rate, status, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+    `).run(borrower.id, product_id, amount, total_amount, term_months, interest_rate, due_date.toISOString());
+
+    res.json({
+      success: true,
+      message: 'Loan application created successfully',
+      data: { id: result.lastInsertRowid }
+    });
+  } catch (error) {
+    console.error('Error creating loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to create loan application' });
+  }
+});
+
+// Get borrower's loans
+app.get('/api/borrower/loans', authenticate, (req, res) => {
+  try {
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+    if (!borrower) {
+      return res.json({ success: true, data: { loans: [], pagination: { total: 0 } } });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const total = db.prepare('SELECT COUNT(*) as count FROM loans WHERE borrower_id = ?').get(borrower.id)?.count || 0;
+    const loans = db.prepare(`
+      SELECT l.*, p.name as product_name
+      FROM loans l
+      LEFT JOIN products p ON l.product_id = p.id
+      WHERE l.borrower_id = ?
+      ORDER BY l.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(borrower.id, limit, offset);
+
+    res.json({
+      success: true,
+      data: {
+        loans: loans || [],
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching borrower loans:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch loans' });
+  }
+});
+
+// Get single loan details
+app.get('/api/borrower/loans/:id', authenticate, (req, res) => {
+  try {
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+    if (!borrower) {
+      return res.status(403).json({ success: false, error: 'Borrower profile not found' });
+    }
+
+    const loanId = parseInt(req.params.id);
+    const loan = db.prepare(`
+      SELECT l.*, p.name as product_name
+      FROM loans l
+      LEFT JOIN products p ON l.product_id = p.id
+      WHERE l.id = ? AND l.borrower_id = ?
+    `).get(loanId, borrower.id);
+
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    const repayments = db.prepare('SELECT * FROM repayments WHERE loan_id = ? ORDER BY paid_at DESC').all(loanId);
+    const totalPaid = repayments.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        ...loan,
+        repayments: repayments || [],
+        total_paid: totalPaid,
+        balance: loan.total_amount - totalPaid
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch loan' });
+  }
+});
+
+// Get borrower dashboard
+app.get('/api/borrower/dashboard', authenticate, (req, res) => {
+  try {
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+
+    let activeLoanCount = 0;
+    let pendingLoanCount = 0;
+    let totalBorrowed = 0;
+    let totalPaid = 0;
+    let recentLoans = [];
+
+    if (borrower) {
+      activeLoanCount = db.prepare('SELECT COUNT(*) as count FROM loans WHERE borrower_id = ? AND status IN ("active", "approved")').get(borrower.id)?.count || 0;
+      pendingLoanCount = db.prepare('SELECT COUNT(*) as count FROM loans WHERE borrower_id = ? AND status = "pending"').get(borrower.id)?.count || 0;
+
+      const borrowed = db.prepare('SELECT COALESCE(SUM(principal_amount), 0) as total FROM loans WHERE borrower_id = ?').get(borrower.id);
+      totalBorrowed = borrowed?.total || 0;
+
+      const paid = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM repayments r JOIN loans l ON r.loan_id = l.id WHERE l.borrower_id = ?').get(borrower.id);
+      totalPaid = paid?.total || 0;
+
+      recentLoans = db.prepare(`
+        SELECT l.*, p.name as product_name
+        FROM loans l
+        LEFT JOIN products p ON l.product_id = p.id
+        WHERE l.borrower_id = ?
+        ORDER BY l.created_at DESC
+        LIMIT 5
+      `).all(borrower.id) || [];
+    }
+
+    res.json({
+      success: true,
+      data: {
+        active_loans: activeLoanCount,
+        pending_loans: pendingLoanCount,
+        total_borrowed: totalBorrowed,
+        total_paid: totalPaid,
+        credit_score: 750,
+        recent_loans: recentLoans
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching borrower dashboard:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch dashboard' });
+  }
+});
+
+// Get borrower repayments
+app.get('/api/borrower/repayments', authenticate, (req, res) => {
+  try {
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+
+    let repayments = [];
+    if (borrower) {
+      repayments = db.prepare(`
+        SELECT r.* FROM repayments r
+        JOIN loans l ON r.loan_id = l.id
+        WHERE l.borrower_id = ?
+        ORDER BY r.paid_at DESC
+      `).all(borrower.id) || [];
+    }
+
+    res.json({
+      success: true,
+      data: repayments
+    });
+  } catch (error) {
+    console.error('Error fetching repayments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch repayments' });
+  }
+});
+
 // Admin - Get dashboard stats
 app.get('/api/admin/dashboard', authenticate, (req, res) => {
   // Check if user is admin
@@ -1752,6 +1939,183 @@ app.post('/api/admin/generate-invoice', authenticate, async (req, res) => {
   }
 });
 
+// Send Receipt via Email
+app.post('/api/admin/send-receipt', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { loan_id, repayment_id, recipient_email } = req.body;
+
+  if (!loan_id || !repayment_id || !recipient_email) {
+    return res.status(400).json({ success: false, error: 'Missing required fields' });
+  }
+
+  try {
+    // Get repayment details
+    const repayment = db.prepare('SELECT * FROM repayments WHERE id = ? AND loan_id = ?').get(repayment_id, loan_id);
+    if (!repayment) {
+      return res.status(404).json({ success: false, error: 'Repayment not found' });
+    }
+
+    // Get loan and borrower details
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loan_id);
+    const borrower = db.prepare('SELECT u.name, u.phone FROM borrowers b JOIN users u ON b.user_id = u.id WHERE b.id = ?').get(loan.borrower_id);
+
+    // Calculate remaining balance
+    const paidTotal = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM repayments WHERE loan_id = ?').get(loan_id);
+    const remainingBalance = loan.total_amount - (parseFloat(paidTotal.total) || 0);
+
+    // Prepare receipt data
+    const receiptData = {
+      loanId: loan_id,
+      borrowerName: borrower.name,
+      borrowerPhone: borrower.phone,
+      repaymentId: repayment_id,
+      amount: repayment.amount,
+      principalPaid: repayment.principal_paid || 0,
+      interestPaid: repayment.interest_paid || 0,
+      penaltyPaid: repayment.penalty_paid || 0,
+      paymentMethod: repayment.payment_method || 'cash',
+      referenceNumber: repayment.reference_number,
+      paidAt: repayment.paid_at,
+      remainingBalance: remainingBalance
+    };
+
+    // Generate PDF
+    const { generateReceiptPDF } = await import('./utils/pdfGenerator.ts');
+    const pdfBuffer = await generateReceiptPDF(receiptData);
+
+    // Load email settings
+    const settings = db.prepare(`
+      SELECT setting_key, setting_value FROM admin_settings
+      WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from')
+    `).all();
+
+    if (settings.length === 0) {
+      return res.status(400).json({ success: false, error: 'Email settings not configured' });
+    }
+
+    const config = {};
+    settings.forEach(s => {
+      config[s.setting_key] = s.setting_value;
+    });
+
+    // Import and configure email service
+    const emailService = await import('./utils/emailService.ts').then(m => m.default);
+    emailService.setConfig({
+      host: config.smtp_host,
+      port: parseInt(config.smtp_port),
+      secure: parseInt(config.smtp_port) === 465,
+      auth: {
+        user: config.smtp_user,
+        pass: config.smtp_pass
+      },
+      from: config.smtp_from
+    });
+
+    // Send email with attachment
+    const result = await emailService.sendReceipt(recipient_email, borrower.name, loan_id, repayment_id, pdfBuffer, `receipt-${loan_id}-${repayment_id}.pdf`);
+
+    if (result.success) {
+      res.json({ success: true, message: 'Receipt sent via email successfully' });
+    } else {
+      res.status(400).json({ success: false, error: result.message });
+    }
+  } catch (error) {
+    console.error('Error sending receipt:', error);
+    res.status(500).json({ success: false, error: 'Failed to send receipt' });
+  }
+});
+
+// Send Invoice via Email
+app.post('/api/admin/send-invoice', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { loan_id, recipient_email } = req.body;
+
+  if (!loan_id || !recipient_email) {
+    return res.status(400).json({ success: false, error: 'Missing required fields' });
+  }
+
+  try {
+    // Get loan details
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loan_id);
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    const borrower = db.prepare('SELECT u.name, u.email FROM borrowers b JOIN users u ON b.user_id = u.id WHERE b.id = ?').get(loan.borrower_id);
+
+    // Calculate totals
+    const paidTotal = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM repayments WHERE loan_id = ?').get(loan_id);
+    const totalPaid = parseFloat(paidTotal.total) || 0;
+    const balance = loan.total_amount - totalPaid;
+
+    // Prepare invoice data
+    const invoiceData = {
+      loanId: loan_id,
+      borrowerName: borrower.name,
+      borrowerEmail: borrower.email,
+      principalAmount: loan.principal_amount,
+      totalAmount: loan.total_amount,
+      interestRate: loan.interest_rate,
+      durationMonths: loan.duration_months,
+      totalPaid: totalPaid,
+      balance: balance,
+      status: loan.status,
+      createdAt: loan.created_at,
+      dueDate: loan.due_date
+    };
+
+    // Generate PDF
+    const { generateInvoicePDF } = await import('./utils/pdfGenerator.ts');
+    const pdfBuffer = await generateInvoicePDF(invoiceData);
+
+    // Load email settings
+    const settings = db.prepare(`
+      SELECT setting_key, setting_value FROM admin_settings
+      WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from')
+    `).all();
+
+    if (settings.length === 0) {
+      return res.status(400).json({ success: false, error: 'Email settings not configured' });
+    }
+
+    const config = {};
+    settings.forEach(s => {
+      config[s.setting_key] = s.setting_value;
+    });
+
+    // Import and configure email service
+    const emailService = await import('./utils/emailService.ts').then(m => m.default);
+    emailService.setConfig({
+      host: config.smtp_host,
+      port: parseInt(config.smtp_port),
+      secure: parseInt(config.smtp_port) === 465,
+      auth: {
+        user: config.smtp_user,
+        pass: config.smtp_pass
+      },
+      from: config.smtp_from
+    });
+
+    // Send email with attachment
+    const result = await emailService.sendInvoice(recipient_email, borrower.name, loan_id, pdfBuffer, `invoice-${loan_id}.pdf`);
+
+    if (result.success) {
+      res.json({ success: true, message: 'Invoice sent via email successfully' });
+    } else {
+      res.status(400).json({ success: false, error: result.message });
+    }
+  } catch (error) {
+    console.error('Error sending invoice:', error);
+    res.status(500).json({ success: false, error: 'Failed to send invoice' });
+  }
+});
+
 // Download PDF Document
 app.get('/api/documents/:id', authenticate, (req, res) => {
   const { id } = req.params;
@@ -1892,6 +2256,422 @@ app.post('/api/admin/email-settings/test', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error testing email configuration:', error);
     res.status(500).json({ success: false, error: 'Failed to test email configuration' });
+  }
+});
+
+// ===== Admin Loans Management =====
+
+// Get all loans with pagination and filters
+app.get('/api/admin/loans', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const status = req.query.status;
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT l.*, u.name as borrower_name, u.email as borrower_email, p.name as product_name
+      FROM loans l
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      LEFT JOIN products p ON l.product_id = p.id
+    `;
+    const params = [];
+
+    if (status) {
+      query += ' WHERE l.status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY l.created_at DESC';
+
+    const total = db.prepare(
+      query.replace('SELECT l.*,', 'SELECT COUNT(*) as count FROM (SELECT l.id')
+    ).get(...params)?.count || 0;
+
+    const loans = db.prepare(query + ` LIMIT ? OFFSET ?`).all(...params, limit, offset);
+
+    res.json({
+      success: true,
+      data: {
+        loans: loans || [],
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching loans:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch loans' });
+  }
+});
+
+// Get single loan details
+app.get('/api/admin/loans/:id', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const loanId = parseInt(req.params.id);
+    const loan = db.prepare(`
+      SELECT l.*, u.name as borrower_name, u.email as borrower_email, u.phone as borrower_phone, p.name as product_name
+      FROM loans l
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      LEFT JOIN products p ON l.product_id = p.id
+      WHERE l.id = ?
+    `).get(loanId);
+
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    const repayments = db.prepare('SELECT * FROM repayments WHERE loan_id = ? ORDER BY paid_at DESC').all(loanId);
+
+    res.json({
+      success: true,
+      data: {
+        ...loan,
+        repayments: repayments || []
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch loan' });
+  }
+});
+
+// Approve or reject loan application
+app.post('/api/admin/loans/:id/approve', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const loanId = parseInt(req.params.id);
+    const { approve = true, reason } = req.body;
+
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loanId);
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    const newStatus = approve ? 'approved' : 'rejected';
+    db.prepare('UPDATE loans SET status = ? WHERE id = ?').run(newStatus, loanId);
+
+    res.json({ success: true, message: `Loan ${newStatus} successfully` });
+  } catch (error) {
+    console.error('Error approving loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to process loan approval' });
+  }
+});
+
+// Disburse loan
+app.post('/api/admin/loans/:id/disburse', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const loanId = parseInt(req.params.id);
+    const { reference } = req.body;
+
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loanId);
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    db.prepare('UPDATE loans SET status = ?, disbursed_at = ? WHERE id = ?')
+      .run('active', new Date().toISOString(), loanId);
+
+    res.json({ success: true, message: 'Loan disbursed successfully' });
+  } catch (error) {
+    console.error('Error disbursing loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to disburse loan' });
+  }
+});
+
+// Mark loan as defaulted
+app.post('/api/admin/loans/:id/default', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const loanId = parseInt(req.params.id);
+    db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('defaulted', loanId);
+    res.json({ success: true, message: 'Loan marked as defaulted' });
+  } catch (error) {
+    console.error('Error marking loan as defaulted:', error);
+    res.status(500).json({ success: false, error: 'Failed to mark loan as defaulted' });
+  }
+});
+
+// Reactivate defaulted loan
+app.post('/api/admin/loans/:id/reactivate', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const loanId = parseInt(req.params.id);
+    db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('active', loanId);
+    res.json({ success: true, message: 'Loan reactivated successfully' });
+  } catch (error) {
+    console.error('Error reactivating loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to reactivate loan' });
+  }
+});
+
+// ===== Admin Borrowers Management =====
+
+// Get all borrowers
+app.get('/api/admin/borrowers', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const borrowers = db.prepare(`
+      SELECT b.*, u.name, u.email, u.phone, u.created_at,
+             COUNT(l.id) as total_loans,
+             COALESCE(SUM(l.principal_amount), 0) as total_borrowed
+      FROM borrowers b
+      JOIN users u ON b.user_id = u.id
+      LEFT JOIN loans l ON b.id = l.borrower_id
+      GROUP BY b.id
+      LIMIT ?
+    `).all(limit);
+
+    res.json({
+      success: true,
+      data: { borrowers: borrowers || [], pagination: { total: borrowers?.length || 0 } }
+    });
+  } catch (error) {
+    console.error('Error fetching borrowers:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch borrowers' });
+  }
+});
+
+// Get single borrower details
+app.get('/api/admin/borrowers/:id', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const borrowerId = parseInt(req.params.id);
+    const borrower = db.prepare(`
+      SELECT b.*, u.name, u.email, u.phone
+      FROM borrowers b
+      JOIN users u ON b.user_id = u.id
+      WHERE b.id = ?
+    `).get(borrowerId);
+
+    if (!borrower) {
+      return res.status(404).json({ success: false, error: 'Borrower not found' });
+    }
+
+    const documents = db.prepare('SELECT * FROM uploads WHERE borrower_id = ? ORDER BY created_at DESC').all(borrowerId);
+
+    res.json({
+      success: true,
+      data: { ...borrower, documents: documents || [] }
+    });
+  } catch (error) {
+    console.error('Error fetching borrower:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch borrower' });
+  }
+});
+
+// Update borrower KYC
+app.put('/api/admin/borrowers/:id', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const borrowerId = parseInt(req.params.id);
+    const { national_id, kra_pin, id_type } = req.body;
+
+    const borrower = db.prepare('SELECT * FROM borrowers WHERE id = ?').get(borrowerId);
+    if (!borrower) {
+      return res.status(404).json({ success: false, error: 'Borrower not found' });
+    }
+
+    db.prepare('UPDATE borrowers SET national_id = ?, kra_pin = ?, id_type = ? WHERE id = ?')
+      .run(national_id, kra_pin, id_type, borrowerId);
+
+    res.json({ success: true, message: 'Borrower KYC updated successfully' });
+  } catch (error) {
+    console.error('Error updating borrower:', error);
+    res.status(500).json({ success: false, error: 'Failed to update borrower' });
+  }
+});
+
+// ===== Admin Users Management =====
+
+// Get all users
+app.get('/api/admin/users', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const users = db.prepare('SELECT id, name, email, phone, role, is_active, created_at FROM users ORDER BY created_at DESC').all();
+    res.json({ success: true, data: { users: users || [] } });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch users' });
+  }
+});
+
+// Create new user
+app.post('/api/admin/users', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const { name, email, phone, role, password } = req.body;
+
+    if (!name || !email || !role || !password) {
+      return res.status(400).json({ success: false, error: 'Name, email, role, and password are required' });
+    }
+
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'User with this email already exists' });
+    }
+
+    const hashedPassword = hashPassword(password);
+    const result = db.prepare(`
+      INSERT INTO users (name, email, phone, password, role, is_active)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run(name, email, phone || null, hashedPassword, role);
+
+    res.json({ success: true, data: { id: result.lastInsertRowid } });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ success: false, error: 'Failed to create user' });
+  }
+});
+
+// Update user
+app.put('/api/admin/users/:id', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const userId = parseInt(req.params.id);
+    const { name, phone, role, password } = req.body;
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (name) db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, userId);
+    if (phone) db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(phone, userId);
+    if (role) db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
+    if (password) {
+      const hashedPassword = hashPassword(password);
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, userId);
+    }
+
+    res.json({ success: true, message: 'User updated successfully' });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ success: false, error: 'Failed to update user' });
+  }
+});
+
+// Delete user
+app.delete('/api/admin/users/:id', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const userId = parseInt(req.params.id);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete user' });
+  }
+});
+
+// Toggle user active status
+app.post('/api/admin/users/:id/toggle', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const userId = parseInt(req.params.id);
+    const user = db.prepare('SELECT is_active FROM users WHERE id = ?').get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const newStatus = user.is_active ? 0 : 1;
+    db.prepare('UPDATE users SET is_active = ? WHERE id = ?').run(newStatus, userId);
+    res.json({ success: true, message: 'User status updated successfully' });
+  } catch (error) {
+    console.error('Error toggling user:', error);
+    res.status(500).json({ success: false, error: 'Failed to toggle user' });
+  }
+});
+
+// ===== Borrower Operations =====
+
+// Create loan application
+app.post('/api/loans', authenticate, (req, res) => {
+  try {
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+    if (!borrower) {
+      return res.status(403).json({ success: false, error: 'Borrower profile not found' });
+    }
+
+    const { product_id, principal_amount, duration_months } = req.body;
+    if (!product_id || !principal_amount || !duration_months) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
+    if (!product) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    const interest_rate = product.interest_rate || 10;
+    const total_amount = principal_amount + (principal_amount * interest_rate * duration_months / 100 / 12);
+    const due_date = new Date();
+    due_date.setMonth(due_date.getMonth() + duration_months);
+
+    const result = db.prepare(`
+      INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, duration_months, interest_rate, status, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+    `).run(borrower.id, product_id, principal_amount, total_amount, duration_months, interest_rate, due_date.toISOString());
+
+    res.json({
+      success: true,
+      message: 'Loan application created successfully',
+      data: { id: result.lastInsertRowid }
+    });
+  } catch (error) {
+    console.error('Error creating loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to create loan application' });
   }
 });
 
