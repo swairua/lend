@@ -336,27 +336,8 @@ function initializeSchema() {
       console.log('✓ Loan products seeded');
     }
 
-    // Seed demo loans if they don't exist
-    const loanCount = db.prepare('SELECT COUNT(*) as count FROM loans').get().count;
-    if (loanCount === 0) {
-      const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = (SELECT id FROM users WHERE email = ?)').get('borrower@lending.com');
-      const assetProduct = db.prepare('SELECT id FROM loan_products WHERE name = ?').get('Asset-Backed Loans');
-
-      if (borrower && assetProduct) {
-        db.prepare(`
-          INSERT INTO loans (
-            borrower_id, product_id, principal_amount, interest_amount,
-            processing_fee, total_amount, term_months, status,
-            approved_by, approved_at, disbursed_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `).run(
-          borrower.id, assetProduct.id, 500000, 97500,
-          20000, 617500, 12, 'active',
-          (db.prepare('SELECT id FROM users WHERE role = ?').get('admin'))?.id || 1
-        );
-        console.log('✓ Demo loans seeded');
-      }
-    }
+    // Demo loans seeding disabled to preserve user data
+    // Loans should be created through the application UI
 
     console.log('✓ Database schema initialized');
   } catch (error) {
