@@ -650,6 +650,7 @@ app.get('/api/borrower/loans', authenticate, (req, res) => {
       ORDER BY l.created_at DESC
       LIMIT ? OFFSET ?
     `).all(borrower.id, limit, offset);
+    console.log(`[getMyLoans] Borrower ${borrower.id}: Found ${total} total loans, returning ${loans.length} (page ${page}, limit ${limit})`);
 
     res.json({
       success: true,
@@ -716,6 +717,7 @@ app.get('/api/borrower/dashboard', authenticate, (req, res) => {
     if (borrower) {
       activeLoanCount = db.prepare('SELECT COUNT(*) as count FROM loans WHERE borrower_id = ? AND status IN ("active", "approved")').get(borrower.id)?.count || 0;
       pendingLoanCount = db.prepare('SELECT COUNT(*) as count FROM loans WHERE borrower_id = ? AND status = "pending"').get(borrower.id)?.count || 0;
+      console.log(`[Dashboard] Borrower ${borrower.id}: ${activeLoanCount} active, ${pendingLoanCount} pending`);
 
       const borrowed = db.prepare('SELECT COALESCE(SUM(principal_amount), 0) as total FROM loans WHERE borrower_id = ?').get(borrower.id);
       totalBorrowed = borrowed?.total || 0;
