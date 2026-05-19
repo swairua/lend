@@ -64,6 +64,9 @@ export default function AdminRepayments() {
     reference_number: '',
   });
   const [syncing, setSyncing] = useState(false);
+  const [orphanedCount, setOrphanedCount] = useState(0);
+  const [syncResults, setSyncResults] = useState<any>(null);
+  const [syncResultsDialogOpen, setSyncResultsDialogOpen] = useState(false);
   const [matchingDialogOpen, setMatchingDialogOpen] = useState(false);
   const [selectedRepaymentForMatch, setSelectedRepaymentForMatch] = useState<Repayment | null>(null);
   const [matchingLoanId, setMatchingLoanId] = useState('');
@@ -72,7 +75,19 @@ export default function AdminRepayments() {
 
   useEffect(() => {
     loadRepayments();
+    loadOrphanedPaymentsCount();
   }, []);
+
+  const loadOrphanedPaymentsCount = async () => {
+    try {
+      const response = await adminApi.getOrphanedPayments();
+      if (response.success && response.data) {
+        setOrphanedCount(response.data.total_orphaned || 0);
+      }
+    } catch (error) {
+      console.error('Failed to load orphaned payments count:', error);
+    }
+  };
 
   useEffect(() => {
     if (loanPopoverOpen) {
@@ -225,11 +240,29 @@ export default function AdminRepayments() {
     setSyncing(true);
     try {
       const result = await adminApi.syncMpesaPayments();
-      toast({
-        title: 'Sync Complete',
-        description: result.data.message || `Created: ${result.data.created}, Applied: ${result.data.applied}, Errors: ${result.data.errors}`,
-        variant: 'default'
+
+      // Store detailed results for modal
+      setSyncResults({
+        success: result.success,
+        message: result.message,
+        stats: result.data
       });
+
+      // Show summary toast
+      const { created, applied, errors, skipped } = result.data;
+      const summary = `Synced: ${created} created${applied > 0 ? `, ${applied} applied` : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}${errors > 0 ? `, ${errors} failed` : ''}`;
+
+      toast({
+        title: result.message || 'Sync Complete',
+        description: summary || 'M-Pesa payments synchronized',
+        variant: result.success && errors === 0 ? 'default' : errors > 0 ? 'destructive' : 'default'
+      });
+
+      // Show detailed results modal
+      setSyncResultsDialogOpen(true);
+
+      // Refresh orphaned count and repayments
+      await loadOrphanedPaymentsCount();
       await loadRepayments();
     } catch (error: any) {
       toast({
@@ -334,11 +367,12 @@ export default function AdminRepayments() {
             variant="secondary"
             size="sm"
             onClick={handleSyncAllPayments}
-            disabled={syncing}
+            disabled={syncing || orphanedCount === 0}
             className="flex-1 sm:flex-none"
+            title={orphanedCount === 0 ? 'No orphaned payments to sync' : `Sync ${orphanedCount} orphaned payment(s)`}
           >
             {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Sync M-Pesa
+            Sync M-Pesa ({orphanedCount})
           </Button>
           <Button size="sm" onClick={() => setAddPaymentDialogOpen(true)} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4 mr-2" />
@@ -837,6 +871,45 @@ export default function AdminRepayments() {
             >
               {matchingLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Match Repayment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sync Results Dialog */}
+      <Dialog open={syncResultsDialogOpen} onOpenChange={setSyncResultsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>M-Pesa Sync Results</DialogTitle>
+          </DialogHeader>
+          {syncResults && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                <p className="text-sm font-medium text-blue-900">{syncResults.message}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3 bg-green-50">
+                  <p className="text-sm text-gray-600">Created</p>
+                  <p className="text-2xl font-bold text-green-600">{syncResults.stats?.created || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-blue-50">
+                  <p className="text-sm text-gray-600">Applied</p>
+                  <p className="text-2xl font-bold text-blue-600">{syncResults.stats?.applied || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-yellow-50">
+                  <p className="text-sm text-gray-600">Skipped</p>
+                  <p className="text-2xl font-bold text-yellow-600">{syncResults.stats?.skipped || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-red-50">
+                  <p className="text-sm text-gray-600">Failed</p>
+                  <p className="text-2xl font-bold text-red-600">{syncResults.stats?.errors || 0}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncResultsDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

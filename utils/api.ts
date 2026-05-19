@@ -408,14 +408,39 @@ export const adminApi = {
   get: (endpoint: string) =>
     request<any>(endpoint),
 
-  syncMpesaPayments: (loanId?: number) => {
-    const endpoint = loanId
-      ? `/admin/mpesa/sync-payments?loan_id=${loanId}`
-      : '/admin/mpesa/sync-payments';
-    return request<{ success: boolean; message: string; data: { applied: number; created: number; skipped: number; errors: number } }>(
-      endpoint,
-      { method: 'POST' }
-    );
+  syncMpesaPayments: async (loanId?: number) => {
+    try {
+      // First, fetch orphaned payments to get transaction IDs
+      const orphanedResponse = await request<{ success: boolean; data: { orphaned: any[]; total_orphaned: number } }>(
+        '/admin/mpesa/orphaned-payments'
+      );
+
+      if (!orphanedResponse.success || !orphanedResponse.data?.orphaned?.length) {
+        return {
+          success: true,
+          message: 'No orphaned payments to sync',
+          data: { applied: 0, created: 0, skipped: 0, errors: 0 }
+        };
+      }
+
+      // Extract transaction IDs from orphaned payments
+      const transactionIds = orphanedResponse.data.orphaned.map((p: any) => p.id);
+
+      // Now sync the payments with transaction IDs
+      const endpoint = loanId
+        ? `/admin/mpesa/sync-payments?loan_id=${loanId}`
+        : '/admin/mpesa/sync-payments';
+
+      return request<{ success: boolean; message: string; data: { applied: number; created: number; skipped: number; errors: number } }>(
+        endpoint,
+        {
+          method: 'POST',
+          body: JSON.stringify({ transaction_ids: transactionIds })
+        }
+      );
+    } catch (error) {
+      throw error;
+    }
   },
 
   getOrphanedPayments: () =>
