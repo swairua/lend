@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus, Check, ChevronsUpDown, Download } from 'lucide-react';
 import { adminApi, repaymentsApi, formatKES, formatDate, pdfApi } from '../types/api';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
 import { Label } from '@/components/ui/label';
@@ -41,7 +41,6 @@ interface LoanOption {
 
 export default function AdminRepayments() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [selectedRepayment, setSelectedRepayment] = useState<Repayment | null>(null);
@@ -247,9 +246,9 @@ export default function AdminRepayments() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast({ title: 'Success', description: 'Receipt downloaded successfully' });
+      toast.success('Receipt downloaded successfully');
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast.error(error.message || 'Failed to download receipt');
     } finally {
       setDownloadingReceiptId(null);
     }
@@ -281,10 +280,7 @@ export default function AdminRepayments() {
         reference_number: paymentForm.reference_number || undefined,
       });
 
-      showAlert({
-        type: 'success',
-        message: `Payment of ${formatKES(parseFloat(paymentForm.amount))} recorded successfully`,
-      });
+      toast.success(`Payment of ${formatKES(parseFloat(paymentForm.amount))} recorded successfully`);
 
       setPaymentForm({
         loan_id: '',
@@ -320,11 +316,13 @@ export default function AdminRepayments() {
       const { created, applied, errors, skipped } = result.data;
       const summary = `Synced: ${created} created${applied > 0 ? `, ${applied} applied` : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}${errors > 0 ? `, ${errors} failed` : ''}`;
 
-      toast({
-        title: result.message || 'Sync Complete',
-        description: summary || 'M-Pesa payments synchronized',
-        variant: result.success && errors === 0 ? 'default' : errors > 0 ? 'destructive' : 'default'
-      });
+      if (result.success && errors === 0) {
+        toast.success(summary || 'M-Pesa payments synchronized');
+      } else if (errors > 0) {
+        toast.error(summary || 'Some payments failed to sync');
+      } else {
+        toast.success(summary || 'M-Pesa payments synchronized');
+      }
 
       // Show detailed results modal
       setSyncResultsDialogOpen(true);
@@ -333,11 +331,7 @@ export default function AdminRepayments() {
       await loadOrphanedPaymentsCount();
       await loadRepayments();
     } catch (error: any) {
-      toast({
-        title: 'Sync Failed',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast.error(error.message || 'Failed to sync payments');
     } finally {
       setSyncing(false);
     }
@@ -372,21 +366,13 @@ export default function AdminRepayments() {
       }
 
       const result = await response.json();
-      toast({
-        title: 'Success',
-        description: result.data.warning ? `Matched with warning: ${result.data.warning}` : 'Repayment matched successfully',
-        variant: 'default'
-      });
+      toast.success(result.data.warning ? `Matched with warning: ${result.data.warning}` : 'Repayment matched successfully');
       setMatchingDialogOpen(false);
       setSelectedRepaymentForMatch(null);
       setMatchingLoanId('');
       await loadRepayments();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to match repayment',
-        variant: 'destructive'
-      });
+      toast.error(error.message || 'Failed to match repayment');
     } finally {
       setMatchingLoading(false);
     }
