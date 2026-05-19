@@ -10,7 +10,7 @@ import { adminApi, formatKES, formatDate, Loan, pdfApi } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { Loader2, Eye, Check, X, Wallet, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar, FileText } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 
 interface LoanCounts {
@@ -41,7 +41,7 @@ const getStatusLabel = (status: string) => {
 
 export default function AdminLoans() {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { showAlert, confirm } = useAlert();
   const [loading, setLoading] = useState(true);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [counts, setCounts] = useState<LoanCounts>({ all: 0, pending: 0, approved: 0, active: 0, completed: 0, rejected: 0, defaulted: 0 });
@@ -266,9 +266,9 @@ export default function AdminLoans() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast({ title: 'Success', description: 'Invoice downloaded successfully' });
+      toast.success('Invoice downloaded successfully');
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast.error(error.message || 'Failed to download invoice');
     } finally {
       setDownloadingInvoiceId(null);
     }
@@ -306,21 +306,13 @@ export default function AdminLoans() {
     setActionLoading(true);
     try {
       const result = await adminApi.syncMpesaPayments(loanId);
-      toast({
-        title: 'Sync Complete',
-        description: result.data.message || `Applied: ${result.data.applied}, Created: ${result.data.created}`,
-        variant: 'default'
-      });
+      toast.success(result.data.message || `Applied: ${result.data.applied}, Created: ${result.data.created}`);
       await loadLoans();
       if (selectedLoan) {
         setSelectedLoan({ ...selectedLoan });
       }
     } catch (error: any) {
-      toast({
-        title: 'Sync Failed',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast.error(error.message || 'Failed to sync payments');
     } finally {
       setActionLoading(false);
     }
