@@ -270,6 +270,20 @@ function initializeSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS document_audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        borrower_id INTEGER NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        document_id INTEGER,
+        doc_type VARCHAR(100),
+        performed_by_user_id INTEGER,
+        performed_by_role VARCHAR(50),
+        details TEXT,
+        status VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (borrower_id) REFERENCES borrowers(id)
+      );
     `);
 
     // Seed demo users if they don't exist
@@ -398,6 +412,18 @@ function logAudit(userId, action, entityType, entityId, details = null) {
     `).run(userId || null, action, entityType, entityId || null, details ? JSON.stringify(details) : null);
   } catch (error) {
     console.error('Audit log error:', error.message);
+  }
+}
+
+// Document Audit Logging Helper
+function logDocumentAudit(borrowerId, action, documentId, docType, performedByUserId, performedByRole, status, details = null) {
+  try {
+    db.prepare(`
+      INSERT INTO document_audit_log (borrower_id, action, document_id, doc_type, performed_by_user_id, performed_by_role, status, details)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(borrowerId, action, documentId || null, docType || null, performedByUserId, performedByRole, status, details || null);
+  } catch (error) {
+    console.error('Document audit log error:', error.message);
   }
 }
 
@@ -811,6 +837,18 @@ app.post('/api/uploads', authenticate, upload.single('file'), (req, res) => {
     return res.status(400).json({ success: false, error: 'Borrower not found' });
   }
 
+  const isBorrower = req.user.role === 'borrower';
+
+  // If borrower, check if document type already exists
+  if (isBorrower) {
+    const existingDoc = db.prepare('SELECT id FROM documents WHERE borrower_id = ? AND doc_type = ?').get(borrower_id, doc_type);
+    if (existingDoc) {
+      fs.unlink(req.file.path, () => {});
+      logDocumentAudit(borrower_id, 'upload_attempt_rejected', null, doc_type, req.user.id, 'borrower', 'rejected', 'Document type already exists');
+      return res.status(400).json({ success: false, error: 'Document type already exists for this borrower' });
+    }
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO documents (borrower_id, filename, original_name, file_type, doc_type, file_url)
@@ -826,6 +864,8 @@ app.post('/api/uploads', authenticate, upload.single('file'), (req, res) => {
 
     const document = db.prepare('SELECT id, filename, original_name as file_name, doc_type, uploaded_at as created_at, file_url FROM documents WHERE id = ?').get(result.lastInsertRowid);
 
+    logDocumentAudit(borrower_id, 'upload', result.lastInsertRowid, doc_type, req.user.id, req.user.role, 'success', null);
+
     res.json({
       success: true,
       data: document
@@ -834,6 +874,7 @@ app.post('/api/uploads', authenticate, upload.single('file'), (req, res) => {
     console.error('Upload error:', error);
     // Clean up uploaded file on error
     fs.unlink(req.file.path, () => {});
+    logDocumentAudit(borrower_id, 'upload', null, doc_type, req.user.id, req.user.role, 'error', error.message);
     res.status(500).json({ success: false, error: 'Failed to save document info' });
   }
 });
@@ -869,10 +910,16 @@ app.delete('/api/uploads/:id', authenticate, (req, res) => {
   const doc_id = parseInt(req.params.id);
 
   try {
-    const document = db.prepare('SELECT filename, file_url FROM documents WHERE id = ?').get(doc_id);
+    const document = db.prepare('SELECT filename, file_url, borrower_id, doc_type FROM documents WHERE id = ?').get(doc_id);
 
     if (!document) {
       return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    // Block borrower from deleting documents
+    if (req.user.role === 'borrower') {
+      logDocumentAudit(document.borrower_id, 'delete_attempt_rejected', doc_id, document.doc_type, req.user.id, 'borrower', 'rejected', 'Borrower attempted to delete document');
+      return res.status(403).json({ success: false, error: 'You cannot delete documents. Contact your administrator for assistance.' });
     }
 
     // Delete the file from disk
@@ -883,6 +930,8 @@ app.delete('/api/uploads/:id', authenticate, (req, res) => {
 
     // Delete the database record
     db.prepare('DELETE FROM documents WHERE id = ?').run(doc_id);
+
+    logDocumentAudit(document.borrower_id, 'delete', doc_id, document.doc_type, req.user.id, 'admin', 'success', null);
 
     res.json({ success: true });
   } catch (error) {
