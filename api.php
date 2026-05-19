@@ -1513,7 +1513,7 @@ try {
             set_time_limit(0);
 
             $lastCheckTime = isset($_GET['since']) ? intval($_GET['since']) : 0;
-            $pollInterval = 3;
+            $pollInterval = 1;
             $maxDuration = 300;
             $startTime = time();
 
@@ -1527,12 +1527,20 @@ try {
 
             function getDashboardStats() {
                 $stats = [];
-                $stats['total_borrowers'] = intval(one("SELECT COUNT(*) c FROM users WHERE role='borrower'")['c'] ?? 0);
-                $stats['total_loans'] = intval(one("SELECT COUNT(*) c FROM loans")['c'] ?? 0);
-                $stats['active_loans'] = intval(one("SELECT COUNT(*) c FROM loans WHERE status='active'")['c'] ?? 0);
-                $stats['pending_loans'] = intval(one("SELECT COUNT(*) c FROM loans WHERE status='pending'")['c'] ?? 0);
-                $stats['total_disbursed'] = floatval(one("SELECT COALESCE(SUM(principal_amount), 0) c FROM loans WHERE status IN ('active','completed','defaulted')")['c'] ?? 0);
-                $stats['total_collected'] = floatval(one("SELECT COALESCE(SUM(amount), 0) c FROM repayments")['c'] ?? 0);
+                $result = one("SELECT
+                    (SELECT COUNT(*) FROM users WHERE role='borrower') as total_borrowers,
+                    (SELECT COUNT(*) FROM loans) as total_loans,
+                    (SELECT COUNT(*) FROM loans WHERE status='active') as active_loans,
+                    (SELECT COUNT(*) FROM loans WHERE status='pending') as pending_loans,
+                    (SELECT COALESCE(SUM(principal_amount), 0) FROM loans WHERE status IN ('active','completed','defaulted')) as total_disbursed,
+                    (SELECT COALESCE(SUM(amount), 0) FROM repayments) as total_collected");
+
+                $stats['total_borrowers'] = intval($result['total_borrowers'] ?? 0);
+                $stats['total_loans'] = intval($result['total_loans'] ?? 0);
+                $stats['active_loans'] = intval($result['active_loans'] ?? 0);
+                $stats['pending_loans'] = intval($result['pending_loans'] ?? 0);
+                $stats['total_disbursed'] = floatval($result['total_disbursed'] ?? 0);
+                $stats['total_collected'] = floatval($result['total_collected'] ?? 0);
                 $stats['timestamp'] = time();
                 return $stats;
             }
@@ -1545,6 +1553,7 @@ try {
             ], 'connected');
 
             $lastStats = null;
+            $lastStatsJson = null;
 
             while (true) {
                 if (time() - $startTime > $maxDuration) {
@@ -1553,10 +1562,11 @@ try {
                 }
 
                 $currentStats = getDashboardStats();
+                $currentStatsJson = json_encode($currentStats);
 
-                if ($lastStats === null || json_encode($lastStats) !== json_encode($currentStats)) {
+                if ($lastStatsJson === null || $lastStatsJson !== $currentStatsJson) {
                     sendStatsSSEData($currentStats['timestamp'], $currentStats);
-                    $lastStats = $currentStats;
+                    $lastStatsJson = $currentStatsJson;
                 }
 
                 if (connection_aborted()) {
