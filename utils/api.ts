@@ -590,6 +590,9 @@ export const uploadsApi = {
     return request<{ success: boolean; data: UploadedDocument[] }>("/uploads" + q);
   },
 
+  getDocument: (id: number) =>
+    request<{ success: boolean; data: UploadedDocument }>("/uploads/" + id),
+
   deleteDocument: (id: number) =>
     request<{ success: boolean }>("/uploads/" + id, { method: "DELETE" }),
 };

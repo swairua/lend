@@ -156,31 +156,36 @@ export default function ApplyLoan() {
       const user = await secureStorage.getUser();
       const borrowerId = user?.borrower_id;
 
+      let securityDocId: number | undefined;
+      let guarantorDocId: number | undefined;
+
+      // Upload files first if present
+      if (borrowerId && (form.security_file || form.guarantor_file)) {
+        try {
+          if (form.security_file) {
+            const res: any = await uploadsApi.upload(form.security_file, "security_document", borrowerId);
+            securityDocId = res.data?.id || res.data?.doc_id;
+          }
+          if (form.guarantor_file) {
+            const res: any = await uploadsApi.upload(form.guarantor_file, "guarantor_document", borrowerId);
+            guarantorDocId = res.data?.id || res.data?.doc_id;
+          }
+        } catch (uploadErr) {
+          console.error("File upload failed:", uploadErr);
+          showAlert({ type: "warning", message: "Document upload failed. Continuing with application." });
+        }
+      }
+
       const payload: any = {
         product_id: selectedProduct.id,
         amount: form.amount,
         term_months: form.term_months,
         purpose: form.purpose || undefined,
-        security_details: form.security_details || undefined,
-        guarantor_details: form.guarantor_details || undefined,
+        security_details: securityDocId ? String(securityDocId) : (form.security_details || undefined),
+        guarantor_details: guarantorDocId ? String(guarantorDocId) : (form.guarantor_details || undefined),
       };
 
       await loansApi.apply(payload);
-
-      if (borrowerId && (form.security_file || form.guarantor_file)) {
-        try {
-          if (form.security_file) {
-            await uploadsApi.upload(form.security_file, "security_document", borrowerId);
-          }
-          if (form.guarantor_file) {
-            await uploadsApi.upload(form.guarantor_file, "guarantor_document", borrowerId);
-          }
-        } catch (uploadErr) {
-          console.error("File upload failed:", uploadErr);
-          showAlert({ type: "warning", message: "Application submitted but document upload failed. You can upload documents later from your Profile." });
-        }
-      }
-
       setSubmitted(true);
     } catch (err: any) {
       showAlert({ type: "error", message: err.message || "Failed to submit application. Please try again." });
