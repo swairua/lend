@@ -66,6 +66,20 @@ function logAudit($userId, $action, $entityType, $entityId, $details = []) {
     }
 }
 
+function logSystem($logType, $action, $details = [], $userId = null, $status = 'success') {
+    global $db;
+    try {
+        $detailsJson = !empty($details) ? json_encode($details) : null;
+        $stmt = $db->prepare("
+            INSERT INTO system_logs (log_type, action, details, user_id, status, timestamp)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ");
+        $stmt->execute([$logType, $action, $detailsJson, $userId, $status]);
+    } catch (Exception $e) {
+        error_log("System logging failed: " . $e->getMessage());
+    }
+}
+
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     log_error("PHP Error ($errno)", [
         'message' => $errstr,
@@ -361,6 +375,17 @@ function bootstrap() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE SET NULL
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            log_type VARCHAR(50) NOT NULL,
+            action VARCHAR(255) NOT NULL,
+            details TEXT,
+            user_id INTEGER,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status VARCHAR(50) DEFAULT 'success',
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )");
 
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
@@ -1511,6 +1536,143 @@ try {
             exit;
         }
 
+        // GET /admin/mpesa/orphaned-payments - Find M-Pesa transactions without repayment records
+        if ($method === 'GET' && strpos($uri, 'admin/mpesa/orphaned-payments') !== false) {
+            $u = auth();
+            requireAdmin($u);
+
+            $rows = all("
+                SELECT mt.* FROM mpesa_transactions mt
+                LEFT JOIN repayments r ON mt.safaricom_receipt = r.reference_number
+                WHERE mt.status = 'confirmed'
+                AND r.id IS NULL
+                AND mt.safaricom_receipt IS NOT NULL
+                ORDER BY mt.created_at DESC
+            ");
+
+            logSystem('api_request', 'orphaned_payments_fetched', ['count' => count($rows)], $u['id']);
+            log_access('GET', 'admin/mpesa/orphaned-payments', 200);
+            echo json_encode(['success' => true, 'data' => $rows]);
+            exit;
+        }
+
+        // POST /admin/mpesa/sync-payments - Create repayment records from orphaned M-Pesa transactions
+        if ($method === 'POST' && strpos($uri, 'admin/mpesa/sync-payments') !== false) {
+            $u = auth();
+            requireAdmin($u);
+            $d = input();
+            $transactionIds = $d['transaction_ids'] ?? [];
+
+            if (empty($transactionIds)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'transaction_ids required']);
+                exit;
+            }
+
+            $results = [];
+            foreach ($transactionIds as $txnId) {
+                try {
+                    $txn = one("SELECT * FROM mpesa_transactions WHERE id = ? AND status = 'confirmed'", [$txnId]);
+                    if (!$txn) {
+                        $results[] = ['transaction_id' => $txnId, 'success' => false, 'error' => 'Transaction not found or not confirmed'];
+                        continue;
+                    }
+
+                    $existing = one("SELECT id FROM repayments WHERE reference_number = ?", [$txn['safaricom_receipt']]);
+                    if ($existing) {
+                        $results[] = ['transaction_id' => $txnId, 'success' => false, 'error' => 'Repayment already exists for this transaction'];
+                        continue;
+                    }
+
+                    $loanId = null;
+                    if ($txn['loan_id']) {
+                        $loanId = $txn['loan_id'];
+                    } else {
+                        $loan = one("SELECT id FROM loans WHERE status = 'active' ORDER BY created_at DESC LIMIT 1");
+                        if ($loan) $loanId = $loan['id'];
+                    }
+
+                    if ($loanId) {
+                        q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number, paid_at, created_at)
+                           VALUES (?, ?, ?, 0, 'mpesa', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                          [$loanId, $txn['amount'], $txn['amount'], $txn['safaricom_receipt']]);
+
+                        $repaymentId = pdo()->lastInsertId();
+                        $results[] = ['transaction_id' => $txnId, 'repayment_id' => $repaymentId, 'success' => true, 'loan_id' => $loanId];
+                        logSystem('mpesa_transaction', 'repayment_created_from_orphaned',
+                            ['transaction_id' => $txnId, 'amount' => $txn['amount'], 'loan_id' => $loanId], $u['id']);
+                    } else {
+                        $results[] = ['transaction_id' => $txnId, 'success' => false, 'error' => 'No loan found to link repayment'];
+                    }
+                } catch (Exception $e) {
+                    $results[] = ['transaction_id' => $txnId, 'success' => false, 'error' => $e->getMessage()];
+                    logSystem('error', 'sync_payments_exception', ['transaction_id' => $txnId, 'error' => $e->getMessage()], $u['id'], 'failed');
+                }
+            }
+
+            logSystem('api_request', 'sync_payments_completed', ['total' => count($transactionIds), 'successful' => count(array_filter($results, fn($r) => $r['success']))], $u['id']);
+            log_access('POST', 'admin/mpesa/sync-payments', 200);
+            echo json_encode(['success' => true, 'data' => $results]);
+            exit;
+        }
+
+        // POST /admin/mpesa/match-repayment - Link an orphaned repayment to a specific loan
+        if ($method === 'POST' && strpos($uri, 'admin/mpesa/match-repayment') !== false) {
+            $u = auth();
+            requireAdmin($u);
+            $d = input();
+            $repaymentId = $d['repayment_id'] ?? null;
+            $loanId = $d['loan_id'] ?? null;
+
+            if (!$repaymentId || !$loanId) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'repayment_id and loan_id are required']);
+                exit;
+            }
+
+            try {
+                $repayment = one("SELECT * FROM repayments WHERE id = ?", [$repaymentId]);
+                if (!$repayment) {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Repayment not found']);
+                    exit;
+                }
+
+                if ($repayment['loan_id'] && $repayment['loan_id'] != $loanId) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Repayment is already linked to another loan']);
+                    exit;
+                }
+
+                $loan = one("SELECT * FROM loans WHERE id = ?", [$loanId]);
+                if (!$loan) {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Loan not found']);
+                    exit;
+                }
+
+                $loanBalance = $loan['total_amount'] - floatval(one("SELECT COALESCE(SUM(amount), 0) total FROM repayments WHERE loan_id = ? AND id != ?", [$loanId, $repaymentId])['total'] ?? 0);
+                $warning = null;
+                if ($repayment['amount'] > $loanBalance) {
+                    $warning = "Repayment amount exceeds remaining loan balance";
+                }
+
+                q("UPDATE repayments SET loan_id = ? WHERE id = ?", [$loanId, $repaymentId]);
+
+                logSystem('mpesa_transaction', 'repayment_matched_to_loan',
+                    ['repayment_id' => $repaymentId, 'loan_id' => $loanId, 'amount' => $repayment['amount']], $u['id']);
+
+                log_access('POST', 'admin/mpesa/match-repayment', 200);
+                echo json_encode(['success' => true, 'data' => ['repayment_id' => $repaymentId, 'loan_id' => $loanId, 'warning' => $warning]]);
+                exit;
+            } catch (Exception $e) {
+                logSystem('error', 'match_repayment_exception', ['error' => $e->getMessage()], $u['id'], 'failed');
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                exit;
+            }
+        }
+
         // M-Pesa Transaction Status (authenticated)
         if (strpos($uri, 'admin/mpesa/transactions') !== false) {
             $loan_id = $_GET['loan_id'] ?? null;
@@ -1541,6 +1703,61 @@ try {
             log_access('GET', 'admin/repayments', 200);
             echo json_encode(['success' => true, 'data' => ['repayments' => $rows,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+            exit;
+        }
+
+        // System Logs
+        if (strpos($uri, 'admin/logs') !== false) {
+            $u = auth();
+            requireAdmin($u);
+
+            $page = intval($_GET['page'] ?? 1);
+            $limit = intval($_GET['limit'] ?? 20);
+            $off = ($page - 1) * $limit;
+            $logType = $_GET['log_type'] ?? null;
+            $status = $_GET['status'] ?? null;
+            $search = $_GET['search'] ?? null;
+            $startDate = $_GET['start_date'] ?? null;
+            $endDate = $_GET['end_date'] ?? null;
+
+            $where = "WHERE 1=1";
+            $params = [];
+
+            if ($logType) {
+                $where .= " AND log_type = ?";
+                $params[] = $logType;
+            }
+            if ($status) {
+                $where .= " AND status = ?";
+                $params[] = $status;
+            }
+            if ($search) {
+                $where .= " AND (action LIKE ? OR details LIKE ?)";
+                $likeSearch = "%$search%";
+                $params[] = $likeSearch;
+                $params[] = $likeSearch;
+            }
+            if ($startDate) {
+                $where .= " AND DATE(timestamp) >= ?";
+                $params[] = $startDate;
+            }
+            if ($endDate) {
+                $where .= " AND DATE(timestamp) <= ?";
+                $params[] = $endDate;
+            }
+
+            $rows = all("SELECT sl.*, u.name user_name, u.email user_email
+                         FROM system_logs sl
+                         LEFT JOIN users u ON sl.user_id = u.id
+                         $where
+                         ORDER BY sl.timestamp DESC LIMIT $limit OFFSET $off", $params);
+
+            $countResult = one("SELECT COUNT(*) c FROM system_logs sl $where", $params);
+            $tot = $countResult['c'] ?? 0;
+
+            log_access('GET', 'admin/logs', 200);
+            echo json_encode(['success' => true, 'data' => ['logs' => $rows,
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot]]]);
             exit;
         }
 

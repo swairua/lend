@@ -42,6 +42,7 @@ export const navigationItems: NavItem[] = [
   { label: 'Repayments', href: '/admin/repayments', icon: DollarSign, roles: ['admin'] },
   { label: 'Users', href: '/admin/users', icon: User, roles: ['admin'] },
   { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin'] },
+  { label: 'System Logs', href: '/admin/logs', icon: History, roles: ['admin'] },
   { label: 'Admin Messages', href: '/admin/messages', icon: MessageSquare, roles: ['admin'], badge: 'messages' },
   { label: 'Settings', href: '/admin/config', icon: Settings, roles: ['admin'] },
 ];
