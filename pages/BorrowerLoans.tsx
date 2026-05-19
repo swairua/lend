@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,13 +15,7 @@ export default function BorrowerLoans() {
   const [loans, setLoans] = useState<any[]>([]);
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    loadLoans();
-    const pollInterval = setInterval(loadLoans, 4000);
-    return () => clearInterval(pollInterval);
-  }, []);
-
-  const loadLoans = async () => {
+  const loadLoans = useCallback(async () => {
     try {
       const res = await loansApi.getMyLoans();
       const loansData = normalizeList<any>(res);
@@ -32,7 +26,13 @@ export default function BorrowerLoans() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadLoans();
+    const pollInterval = setInterval(loadLoans, 4000);
+    return () => clearInterval(pollInterval);
+  }, [loadLoans]);
 
   const filteredLoans = useMemo(() => filterLoansByStatus(loans, filter), [loans, filter]);
 

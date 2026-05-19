@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -57,7 +57,7 @@ export default function AdminLoans() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const loadCounts = async () => {
+  const loadCounts = useCallback(async () => {
     try {
       const response: any = await adminApi.getLoans({ limit: 1 });
       const total = response?.data?.pagination?.total ?? response?.pagination?.total ?? 0;
@@ -65,7 +65,7 @@ export default function AdminLoans() {
     } catch (error) {
       console.error('Failed to load counts:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadLoans();
@@ -89,9 +89,9 @@ export default function AdminLoans() {
       }
     }, 4000);
     return () => clearInterval(pollInterval);
-  }, [statusFilter]);
+  }, [statusFilter, loadLoans, loadCountsByStatus, loadCounts]);
 
-  const loadCountsByStatus = async (status: string) => {
+  const loadCountsByStatus = useCallback(async (status: string) => {
     try {
       const res: any = await adminApi.getLoans({ status, limit: 1 });
       const total = res?.data?.pagination?.total ?? res?.pagination?.total ?? 0;
@@ -99,9 +99,9 @@ export default function AdminLoans() {
     } catch (error) {
       console.error('Failed to load counts:', error);
     }
-  };
+  }, []);
 
-  const loadLoans = async () => {
+  const loadLoans = useCallback(async () => {
     setLoading(true);
     try {
       const status = statusFilter === 'all' ? undefined : statusFilter;
@@ -116,7 +116,7 @@ export default function AdminLoans() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, page]);
 
   const handleRefresh = async () => {
     setLoading(true);
