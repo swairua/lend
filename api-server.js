@@ -471,6 +471,16 @@ function logLoanAudit(userId, action, loanId, status = 'success', details = null
   logSystemEvent(userId, 'loan_action', action, 'loan', loanId, status, details);
 }
 
+// SMS Audit Logging Helper
+function logSmsAudit(userId, action, borrowerId, status = 'success', details = null) {
+  logSystemEvent(userId, 'sms', action, 'sms_log', borrowerId, status, details);
+}
+
+// Admin Action Audit Logging Helper
+function logAdminActionAudit(userId, action, entityType, entityId, status = 'success', details = null) {
+  logSystemEvent(userId, 'admin_action', action, entityType, entityId, status, details);
+}
+
 // Routes
 
 // Auth - Login
@@ -1461,6 +1471,14 @@ app.post('/api/mpesa/callback', (req, res) => {
             JSON.stringify({ phone: phoneNumber, date: transactionDate })
           );
 
+          logPaymentAudit(null, 'mpesa_callback_received', 'mpesa_transaction', transaction.id, 'success', {
+            reference: mpesaReceiptNumber,
+            amount: transaction.amount,
+            phone: phoneNumber,
+            date: transactionDate,
+            loan_id: transaction.loan_id
+          });
+
           // Check if loan is fully paid
           const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(transaction.loan_id);
           const totalRepaid = db.prepare(`
@@ -1488,6 +1506,12 @@ app.post('/api/mpesa/callback', (req, res) => {
             'failed',
             JSON.stringify({ code: resultCode, message: resultDesc })
           );
+
+          logPaymentAudit(null, 'mpesa_callback_received', 'mpesa_transaction', transaction.id, 'failed', {
+            code: resultCode,
+            message: resultDesc,
+            loan_id: transaction.loan_id
+          });
         }
       }
     }
@@ -1566,18 +1590,27 @@ app.post('/api/sms/send', authenticate, (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?)
     `).run(borrower_id, loan_id || null, message_type, phone_number, messageText, 'pending');
 
+    const smsLogId = result.lastInsertRowid;
+    logSmsAudit(req.user.id, 'sms_sent', borrower_id, 'success', {
+      sms_log_id: smsLogId,
+      message_type: message_type,
+      phone_number: phone_number,
+      loan_id: loan_id || null,
+      message_length: messageText.length
+    });
+
     // In production: Integrate with SMS provider (e.g., Twilio, Africa's Talking)
     // For now, simulate sending and mark as sent
     setTimeout(() => {
       db.prepare(`
         UPDATE sms_logs SET sms_status = ?, provider_reference = ? WHERE id = ?
-      `).run('sent', 'SMS_' + Date.now(), result.lastInsertRowid);
+      `).run('sent', 'SMS_' + Date.now(), smsLogId);
     }, 100);
 
     res.json({
       success: true,
       data: {
-        id: result.lastInsertRowid,
+        id: smsLogId,
         phone_number,
         message_type,
         status: 'pending',
@@ -1778,6 +1811,11 @@ app.post('/api/admin/settings/bulk', authenticate, (req, res) => {
       stmt.run(key, settingValue, settingType);
     });
 
+    logAdminActionAudit(req.user.id, 'settings_bulk_updated', 'setting', 0, 'success', {
+      count: settingsArray.length,
+      keys: settingsArray.map(s => s.key_name || s.key)
+    });
+
     res.json({ success: true, message: 'Settings updated' });
   } catch (error) {
     console.error('Error updating settings:', error);
@@ -1818,6 +1856,12 @@ app.put('/api/admin/settings/:key', authenticate, (req, res) => {
         setting_type = excluded.setting_type,
         updated_at = CURRENT_TIMESTAMP
     `).run(key, settingValue, settingType);
+
+    logAdminActionAudit(req.user.id, 'setting_updated', 'setting', 0, 'success', {
+      key: key,
+      type: settingType,
+      value_preview: settingValue.substring(0, 100)
+    });
 
     res.json({ success: true, message: 'Setting updated' });
   } catch (error) {
@@ -2739,7 +2783,11 @@ app.post('/api/admin/loans/:id/reactivate', authenticate, (req, res) => {
 
   try {
     const loanId = parseInt(req.params.id);
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loanId);
     db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('active', loanId);
+    logLoanAudit(req.user.id, 'loan_reactivated', loanId, 'success', {
+      principal: loan?.principal_amount
+    });
     res.json({ success: true, message: 'Loan reactivated successfully' });
   } catch (error) {
     console.error('Error reactivating loan:', error);
@@ -3012,10 +3060,19 @@ app.post('/api/loans', authenticate, (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
     `).run(borrower.id, product_id, principal_amount, total_amount, duration_months, interest_rate, due_date.toISOString());
 
+    const loanId = result.lastInsertRowid;
+    logLoanAudit(req.user.id, 'loan_created', loanId, 'success', {
+      product_id: product_id,
+      principal: principal_amount,
+      duration: duration_months,
+      total_amount: total_amount,
+      interest_rate: interest_rate
+    });
+
     res.json({
       success: true,
       message: 'Loan application created successfully',
-      data: { id: result.lastInsertRowid }
+      data: { id: loanId }
     });
   } catch (error) {
     console.error('Error creating loan:', error);
