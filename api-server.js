@@ -456,6 +456,21 @@ function logDocumentAudit(borrowerId, action, documentId, docType, performedByUs
   }
 }
 
+// Payment Audit Logging Helper
+function logPaymentAudit(userId, action, entityType, entityId, status = 'success', details = null) {
+  logSystemEvent(userId, 'payment', action, entityType, entityId, status, details);
+}
+
+// User Management Audit Logging Helper
+function logUserManagementAudit(userId, action, targetUserId, status = 'success', details = null) {
+  logSystemEvent(userId, 'user_mgmt', action, 'user', targetUserId, status, details);
+}
+
+// Loan Action Audit Logging Helper (explicit wrapper)
+function logLoanAudit(userId, action, loanId, status = 'success', details = null) {
+  logSystemEvent(userId, 'loan_action', action, 'loan', loanId, status, details);
+}
+
 // Routes
 
 // Auth - Login
@@ -1268,6 +1283,13 @@ app.post('/api/mpesa/payment', authenticate, (req, res) => {
       JSON.stringify({ phone: phone_number, request_id: checkoutRequestId })
     );
 
+    logPaymentAudit(req.user.id, 'mpesa_stk_push_initiated', 'mpesa_transaction', result.lastInsertRowid, 'pending', {
+      loan_id: loan_id,
+      amount: amount,
+      phone: phone_number,
+      reference: mpesaRef
+    });
+
     // In production: Call M-Pesa API to initiate STK push
     // For now, return success response
     res.json({
@@ -1330,7 +1352,7 @@ app.post('/api/mpesa/disburse', authenticate, (req, res) => {
     `).run('disbursed', loan_id);
 
     // Audit log
-    logAudit(req.user.id, 'loan_disbursed', 'loan', loan_id, {
+    logPaymentAudit(req.user.id, 'loan_disbursed', 'loan', loan_id, 'success', {
       amount: disbursementAmount,
       method: 'mpesa_b2c',
       phone: phone_number
@@ -1927,15 +1949,28 @@ app.post('/api/admin/repayments', authenticate, (req, res) => {
 
     // Check if loan is now fully paid
     const newTotalPaid = totalPaid + amount;
+    let loanCompleted = false;
     if (newTotalPaid >= loan.total_amount) {
       db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('completed', loan_id);
+      loanCompleted = true;
     }
+
+    const repaymentId = result.lastInsertRowid;
+    logPaymentAudit(req.user.id, 'repayment_recorded', 'repayment', repaymentId, 'success', {
+      loan_id: loan_id,
+      amount: amount,
+      principal_paid: paidPrincipal,
+      interest_paid: paidInterest,
+      payment_method: payment_method,
+      reference: reference_number || null,
+      loan_completed: loanCompleted
+    });
 
     res.json({
       success: true,
       message: 'Payment recorded successfully',
       data: {
-        repayment_id: result.lastInsertRowid,
+        repayment_id: repaymentId,
         loan_id: loan_id,
         amount: amount,
         principal_paid: paidPrincipal,
@@ -2632,6 +2667,12 @@ app.post('/api/admin/loans/:id/approve', authenticate, (req, res) => {
     const newStatus = approve ? 'approved' : 'rejected';
     db.prepare('UPDATE loans SET status = ? WHERE id = ?').run(newStatus, loanId);
 
+    logLoanAudit(req.user.id, `loan_${newStatus}`, loanId, 'success', {
+      reason: reason || null,
+      principal: loan.principal_amount,
+      term: loan.term_months
+    });
+
     res.json({ success: true, message: `Loan ${newStatus} successfully` });
   } catch (error) {
     console.error('Error approving loan:', error);
@@ -2657,6 +2698,12 @@ app.post('/api/admin/loans/:id/disburse', authenticate, (req, res) => {
     db.prepare('UPDATE loans SET status = ?, disbursed_at = ? WHERE id = ?')
       .run('active', new Date().toISOString(), loanId);
 
+    logLoanAudit(req.user.id, 'loan_disbursed_manual', loanId, 'success', {
+      reference: reference || null,
+      principal: loan.principal_amount,
+      method: 'bank_transfer'
+    });
+
     res.json({ success: true, message: 'Loan disbursed successfully' });
   } catch (error) {
     console.error('Error disbursing loan:', error);
@@ -2672,7 +2719,11 @@ app.post('/api/admin/loans/:id/default', authenticate, (req, res) => {
 
   try {
     const loanId = parseInt(req.params.id);
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loanId);
     db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('defaulted', loanId);
+    logLoanAudit(req.user.id, 'loan_defaulted', loanId, 'success', {
+      principal: loan.principal_amount
+    });
     res.json({ success: true, message: 'Loan marked as defaulted' });
   } catch (error) {
     console.error('Error marking loan as defaulted:', error);
@@ -2824,7 +2875,15 @@ app.post('/api/admin/users', authenticate, (req, res) => {
       VALUES (?, ?, ?, ?, ?, 1)
     `).run(name, email, phone || null, hashedPassword, role);
 
-    res.json({ success: true, data: { id: result.lastInsertRowid } });
+    const userId = result.lastInsertRowid;
+    logUserManagementAudit(req.user.id, 'user_created', userId, 'success', {
+      name,
+      email,
+      role,
+      phone: phone || null
+    });
+
+    res.json({ success: true, data: { id: userId } });
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ success: false, error: 'Failed to create user' });
@@ -2846,14 +2905,26 @@ app.put('/api/admin/users/:id', authenticate, (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    if (name) db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, userId);
-    if (phone) db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(phone, userId);
-    if (role) db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
+    const changes = {};
+    if (name) {
+      db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, userId);
+      changes.name = name;
+    }
+    if (phone) {
+      db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(phone, userId);
+      changes.phone = phone;
+    }
+    if (role) {
+      db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
+      changes.role = role;
+    }
     if (password) {
       const hashedPassword = hashPassword(password);
       db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, userId);
+      changes.password_changed = true;
     }
 
+    logUserManagementAudit(req.user.id, 'user_updated', userId, 'success', changes);
     res.json({ success: true, message: 'User updated successfully' });
   } catch (error) {
     console.error('Error updating user:', error);
@@ -2875,6 +2946,10 @@ app.delete('/api/admin/users/:id', authenticate, (req, res) => {
     }
 
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    logUserManagementAudit(req.user.id, 'user_deleted', userId, 'success', {
+      name: user.name,
+      email: user.email
+    });
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
@@ -2897,6 +2972,9 @@ app.post('/api/admin/users/:id/toggle', authenticate, (req, res) => {
 
     const newStatus = user.is_active ? 0 : 1;
     db.prepare('UPDATE users SET is_active = ? WHERE id = ?').run(newStatus, userId);
+    logUserManagementAudit(req.user.id, newStatus ? 'user_activated' : 'user_deactivated', userId, 'success', {
+      new_status: newStatus === 1 ? 'active' : 'inactive'
+    });
     res.json({ success: true, message: 'User status updated successfully' });
   } catch (error) {
     console.error('Error toggling user:', error);
