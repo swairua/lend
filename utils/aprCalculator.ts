@@ -35,7 +35,11 @@ function calculateAPRNewtonRaphson(
   processingFee: number
 ): number {
   const disbursedAmount = principalAmount - processingFee;
-  
+
+  if (disbursedAmount <= 0 || monthlyPayment <= 0 || loanTermMonths <= 0) {
+    return 0;
+  }
+
   // Initial guess: simple annualized interest rate
   let r = 0.02; // 2% per month initial guess
   let iterations = 0;
@@ -61,13 +65,25 @@ function calculateAPRNewtonRaphson(
       break;
     }
 
-    r = r - npv / derivative;
+    const rNew = r - npv / derivative;
+
+    // Constrain r to valid range to prevent NaN
+    if (rNew <= -0.99 || rNew > 1) {
+      break;
+    }
+
+    r = rNew;
     iterations++;
+  }
+
+  // Guard against invalid r values
+  if (r <= -0.99 || isNaN(r)) {
+    return 0;
   }
 
   // Convert monthly rate to annual APR
   const apr = ((1 + r) ** 12 - 1) * 100;
-  return Math.max(0, apr); // Ensure non-negative
+  return Math.max(0, isNaN(apr) ? 0 : apr); // Ensure non-negative and valid
 }
 
 /**
@@ -132,12 +148,17 @@ export function calculateAPR(input: APRInput): APRResult {
   const totalFees = interestCost + totalUpfrontFees;
 
   // Calculate APR using Newton-Raphson method
-  const apr = calculateAPRNewtonRaphson(
+  let apr = calculateAPRNewtonRaphson(
     principalAmount,
     monthlyPayment,
     loanTermMonths,
     totalUpfrontFees
   );
+
+  // Fallback to simple APR if Newton-Raphson fails
+  if (isNaN(apr) || apr <= 0) {
+    apr = calculateSimpleAPR(input);
+  }
 
   return {
     apr: Math.round(apr * 100) / 100, // Round to 2 decimal places
