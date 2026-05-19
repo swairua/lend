@@ -35,6 +35,7 @@ export default function AdminDashboard() {
   const [recentLoans, setRecentLoans] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -54,15 +55,30 @@ export default function AdminDashboard() {
 
   const loadDashboard = async () => {
     try {
+      setIsRefreshing(true);
       const response = await adminApi.getDashboard();
       setStats(response.data);
       setRecentLoans(response.data.recent_loans || []);
+      setLastRefreshTime(Date.now());
     } catch (error) {
       console.error('Failed to load dashboard:', error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
+
+  // Refresh dashboard when tab becomes visible (e.g., user returns from another tab/page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDashboard();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   useEffect(() => {
     let eventSource: EventSource | null = null;
@@ -150,10 +166,16 @@ export default function AdminDashboard() {
             <h1 className="text-xl font-bold">Admin Dashboard</h1>
             <p className="text-xs text-muted-foreground">{user?.name}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 text-red-500 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={loadDashboard} disabled={isRefreshing} title="Refresh dashboard data">
+              <Activity className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 text-red-500 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 

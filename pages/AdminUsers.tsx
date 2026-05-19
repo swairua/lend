@@ -12,6 +12,7 @@ import { adminApi, formatKES, formatDate, User as ApiUser } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { Loader2, Plus, Edit, Trash2, ChevronLeft, Check, X, User, UserPlus, Mail, Phone } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
+import { toast } from 'sonner';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
