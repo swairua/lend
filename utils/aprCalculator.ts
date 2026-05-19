@@ -155,9 +155,14 @@ export function calculateAPR(input: APRInput): APRResult {
     totalUpfrontFees
   );
 
-  // Fallback to simple APR if Newton-Raphson fails
-  if (isNaN(apr) || apr <= 0) {
+  // Fallback to simple APR if Newton-Raphson fails (NaN or unreasonably small)
+  if (isNaN(apr) || apr < 0) {
     apr = calculateSimpleAPR(input);
+  }
+
+  // Final guard against NaN
+  if (isNaN(apr)) {
+    apr = interestRate; // Fallback to base interest rate
   }
 
   return {
@@ -186,6 +191,10 @@ export function calculateSimpleAPR(input: APRInput): number {
     trackingSystemFee = 0,
   } = input;
 
+  if (principalAmount <= 0 || loanTermMonths <= 0) {
+    return interestRate;
+  }
+
   const processingFee = processingFeeFixed || (principalAmount * processingFeePercent) / 100;
   const totalFees = processingFee + assetTransferFee + trackingSystemFee;
   const termInYears = loanTermMonths / 12;
@@ -194,7 +203,7 @@ export function calculateSimpleAPR(input: APRInput): number {
   const feeComponent = (totalFees / principalAmount / termInYears) * 100;
   const apr = interestRate + feeComponent;
 
-  return Math.round(apr * 100) / 100;
+  return isNaN(apr) ? interestRate : Math.round(apr * 100) / 100;
 }
 
 /**
