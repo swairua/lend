@@ -996,7 +996,8 @@ try {
                               LEFT JOIN loan_categories lc ON lp.category_id = lc.id
                               WHERE l.borrower_id = ? ORDER BY l.created_at DESC LIMIT $limit OFFSET $off", [$bid]);
                 $tot = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
-                error_log("[borrower/loans] User={$user['id']}, Borrower={$bid}, Found={$tot['c']} total, Returning={count($loans)}, Page=$page, Limit=$limit, Offset=$off");
+                $totalCount = isset($tot['c']) ? $tot['c'] : 0;
+                error_log("[borrower/loans] User={$user['id']}, Borrower={$bid}, Found={$totalCount} total, Returning={count($loans)}, Page=$page, Limit=$limit, Offset=$off");
                 error_log("[borrower/loans] Raw loan data: " . json_encode($loans));
                 foreach ($loans as &$l) {
                     $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
@@ -1006,9 +1007,10 @@ try {
                 error_log("[borrower/loans] Final loan data with repayments: " . json_encode($loans));
             }
             log_access('GET', 'borrower/loans', 200);
-            error_log("[borrower/loans] Final response: " . json_encode(['success' => true, 'data' => ['loans' => $loans, 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]));
+            $finalTotalCount = isset($tot['c']) ? $tot['c'] : 0;
+            error_log("[borrower/loans] Final response: " . json_encode(['success' => true, 'data' => ['loans' => $loans, 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $finalTotalCount]]]));
             echo json_encode(['success' => true, 'data' => ['loans' => $loans,
-                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $finalTotalCount]]]);
             exit;
         }
     }
@@ -1267,9 +1269,10 @@ try {
             $tot = $status && $status !== 'all'
                 ? one("SELECT COUNT(*) c FROM loans WHERE status = ?", [$status])
                 : one("SELECT COUNT(*) c FROM loans");
+            $totalCount = isset($tot['c']) ? $tot['c'] : 0;
             log_access('GET', 'admin/loans', 200);
             echo json_encode(['success' => true, 'data' => ['loans' => $loans,
-                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $totalCount]]]);
             exit;
         }
 
