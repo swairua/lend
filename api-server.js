@@ -284,6 +284,22 @@ function initializeSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (borrower_id) REFERENCES borrowers(id)
       );
+
+      CREATE TABLE IF NOT EXISTS system_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        log_type VARCHAR(50) NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        entity_type VARCHAR(50),
+        entity_id INTEGER,
+        status VARCHAR(50),
+        details TEXT,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+
+      DROP TABLE IF EXISTS audit_logs;
     `);
 
     // Seed demo users if they don't exist
@@ -403,16 +419,29 @@ function authenticate(req, res, next) {
   next();
 }
 
-// Audit Logging Helper
-function logAudit(userId, action, entityType, entityId, details = null) {
+// System Event Logging Helper
+function logSystemEvent(userId, logType, action, entityType, entityId, status = 'success', details = null) {
   try {
     db.prepare(`
-      INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, created_at)
-      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `).run(userId || null, action, entityType, entityId || null, details ? JSON.stringify(details) : null);
+      INSERT INTO system_logs (user_id, log_type, action, entity_type, entity_id, status, details)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      userId || null,
+      logType,
+      action,
+      entityType || null,
+      entityId || null,
+      status,
+      details ? JSON.stringify(details) : null
+    );
   } catch (error) {
-    console.error('Audit log error:', error.message);
+    console.error('System log error:', error.message);
   }
+}
+
+// Backward compatibility alias for existing code
+function logAudit(userId, action, entityType, entityId, details = null) {
+  logSystemEvent(userId, 'loan_action', action, entityType, entityId, 'success', details);
 }
 
 // Document Audit Logging Helper

@@ -1,6 +1,7 @@
 -- Fully rewritten lending DB schema (FK corrected)
 
 -- Drop existing objects (safe to re-run)
+DROP TABLE IF EXISTS system_logs;
 DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS repayments;
 DROP TABLE IF EXISTS payments;
@@ -43,18 +44,22 @@ CREATE TABLE borrowers (
   CONSTRAINT borrowers_ibfk_1 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Audit Logs
-CREATE TABLE audit_logs (
+-- Unified System Logs (replaces incomplete audit_logs)
+CREATE TABLE system_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NULL,
+  log_type VARCHAR(50) NOT NULL,
   action VARCHAR(100) NOT NULL,
   entity_type VARCHAR(50) NULL,
   entity_id INT NULL,
+  status VARCHAR(50) NULL,
   details LONGTEXT NULL,
   ip_address VARCHAR(45) NULL,
-  user_agent VARCHAR(255) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT audit_logs_ibfk_1 FOREIGN KEY (user_id) REFERENCES users(id)
+  INDEX idx_user_id (user_id),
+  INDEX idx_log_type (log_type),
+  INDEX idx_created_at (created_at),
+  CONSTRAINT system_logs_ibfk_1 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Loan Categories
