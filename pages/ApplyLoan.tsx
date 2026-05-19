@@ -37,6 +37,8 @@ export default function ApplyLoan() {
     purpose: "",
     security_details: "",
     guarantor_details: "",
+    security_file: null as File | null,
+    guarantor_file: null as File | null,
   });
 
   const debouncedCalculateEstimate = useMemo(
@@ -124,6 +126,15 @@ export default function ApplyLoan() {
     }));
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleGoStep2 = () => {
     if (!selectedProduct) {
       showAlert({ type: "error", message: "Please select a loan product." });
@@ -140,14 +151,23 @@ export default function ApplyLoan() {
     if (!selectedProduct) return;
     setSubmitting(true);
     try {
-      await loansApi.apply({
+      const payload: any = {
         product_id: selectedProduct.id,
         amount: form.amount,
         term_months: form.term_months,
         purpose: form.purpose || undefined,
         security_details: form.security_details || undefined,
         guarantor_details: form.guarantor_details || undefined,
-      });
+      };
+
+      if (form.security_file) {
+        payload.security_file = await fileToBase64(form.security_file);
+      }
+      if (form.guarantor_file) {
+        payload.guarantor_file = await fileToBase64(form.guarantor_file);
+      }
+
+      await loansApi.apply(payload);
       setSubmitted(true);
     } catch (err: any) {
       showAlert({ type: "error", message: err.message || "Failed to submit application. Please try again." });
@@ -274,12 +294,40 @@ export default function ApplyLoan() {
                 <FieldGroup label="Security Details" required id="security">
                   <Textarea id="security" placeholder="Describe the collateral/security for this loan" value={form.security_details}
                     onChange={(e) => setForm(f => ({ ...f, security_details: e.target.value }))} className="min-h-[80px]" />
+                  <div className="mt-3 space-y-2">
+                    <label className="block text-sm font-medium">Attach Document (Optional)</label>
+                    <div className="flex items-center gap-2">
+                      <input type="file" id="security_file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => setForm(f => ({ ...f, security_file: e.target.files?.[0] || null }))} className="text-sm" />
+                      {form.security_file && (
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>{form.security_file.name}</span>
+                          <button type="button" onClick={() => setForm(f => ({ ...f, security_file: null }))} className="text-red-500 hover:text-red-700 font-medium">Remove</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </FieldGroup>
               )}
               {selectedProduct?.requires_guarantor && (
                 <FieldGroup label="Guarantor Details" required id="guarantor">
                   <Textarea id="guarantor" placeholder="Guarantor full name, phone, relationship" value={form.guarantor_details}
                     onChange={(e) => setForm(f => ({ ...f, guarantor_details: e.target.value }))} className="min-h-[80px]" />
+                  <div className="mt-3 space-y-2">
+                    <label className="block text-sm font-medium">Attach Document (Optional)</label>
+                    <div className="flex items-center gap-2">
+                      <input type="file" id="guarantor_file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => setForm(f => ({ ...f, guarantor_file: e.target.files?.[0] || null }))} className="text-sm" />
+                      {form.guarantor_file && (
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>{form.guarantor_file.name}</span>
+                          <button type="button" onClick={() => setForm(f => ({ ...f, guarantor_file: null }))} className="text-red-500 hover:text-red-700 font-medium">Remove</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </FieldGroup>
               )}
             </CardContent>
