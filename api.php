@@ -55,7 +55,7 @@ function logAudit($userId, $action, $entityType, $entityId, $details = []) {
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
         $detailsJson = json_encode($details);
 
-        $stmt = $db->prepare("
+        $stmt = pdo()->prepare("
             INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, ip_address, user_agent, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ");
@@ -70,7 +70,7 @@ function logSystem($logType, $action, $details = [], $userId = null, $status = '
     global $db;
     try {
         $detailsJson = !empty($details) ? json_encode($details) : null;
-        $stmt = $db->prepare("
+        $stmt = pdo()->prepare("
             INSERT INTO system_logs (log_type, action, details, user_id, status, timestamp)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ");
