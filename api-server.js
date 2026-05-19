@@ -707,6 +707,7 @@ app.get('/api/borrower/loans/:id', authenticate, (req, res) => {
 app.get('/api/borrower/dashboard', authenticate, (req, res) => {
   try {
     const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(req.user.id);
+    console.log(`[Dashboard] User ${req.user.id} => Borrower ${borrower?.id}`);
 
     let activeLoanCount = 0;
     let pendingLoanCount = 0;
@@ -715,6 +716,8 @@ app.get('/api/borrower/dashboard', authenticate, (req, res) => {
     let recentLoans = [];
 
     if (borrower) {
+      const allLoans = db.prepare('SELECT id, status FROM loans WHERE borrower_id = ?').all(borrower.id);
+      console.log(`[Dashboard] Borrower ${borrower.id}: All loans:`, allLoans);
       activeLoanCount = db.prepare('SELECT COUNT(*) as count FROM loans WHERE borrower_id = ? AND status IN ("active", "approved")').get(borrower.id)?.count || 0;
       pendingLoanCount = db.prepare('SELECT COUNT(*) as count FROM loans WHERE borrower_id = ? AND status = "pending"').get(borrower.id)?.count || 0;
       console.log(`[Dashboard] Borrower ${borrower.id}: ${activeLoanCount} active, ${pendingLoanCount} pending`);
