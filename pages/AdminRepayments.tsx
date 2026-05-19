@@ -64,6 +64,10 @@ export default function AdminRepayments() {
     reference_number: '',
   });
   const [syncing, setSyncing] = useState(false);
+  const [matchingDialogOpen, setMatchingDialogOpen] = useState(false);
+  const [selectedRepaymentForMatch, setSelectedRepaymentForMatch] = useState<Repayment | null>(null);
+  const [matchingLoanId, setMatchingLoanId] = useState('');
+  const [matchingLoading, setMatchingLoading] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
 
   useEffect(() => {
@@ -236,6 +240,61 @@ export default function AdminRepayments() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleMatchRepayment = async () => {
+    if (!selectedRepaymentForMatch || !matchingLoanId) {
+      showAlert({
+        type: 'error',
+        message: 'Please select a loan to match'
+      });
+      return;
+    }
+
+    setMatchingLoading(true);
+    try {
+      const response = await fetch('/api/admin/mpesa/match-repayment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          repayment_id: selectedRepaymentForMatch.id,
+          loan_id: parseInt(matchingLoanId)
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to match repayment');
+      }
+
+      const result = await response.json();
+      toast({
+        title: 'Success',
+        description: result.data.warning ? `Matched with warning: ${result.data.warning}` : 'Repayment matched successfully',
+        variant: 'default'
+      });
+      setMatchingDialogOpen(false);
+      setSelectedRepaymentForMatch(null);
+      setMatchingLoanId('');
+      await loadRepayments();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to match repayment',
+        variant: 'destructive'
+      });
+    } finally {
+      setMatchingLoading(false);
+    }
+  };
+
+  const openMatchingDialog = (repayment: Repayment) => {
+    setSelectedRepaymentForMatch(repayment);
+    setMatchingLoanId('');
+    setMatchingDialogOpen(true);
   };
 
   const filteredRepayments = repayments.filter(r => {
