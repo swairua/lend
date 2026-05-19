@@ -17,6 +17,8 @@ export default function BorrowerLoans() {
 
   useEffect(() => {
     loadLoans();
+    const pollInterval = setInterval(loadLoans, 4000);
+    return () => clearInterval(pollInterval);
   }, []);
 
   const loadLoans = async () => {

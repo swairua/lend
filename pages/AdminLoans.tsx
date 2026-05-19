@@ -79,6 +79,18 @@ export default function AdminLoans() {
     }
   }, [statusFilter]);
 
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadLoans();
+      if (statusFilter !== 'all') {
+        loadCountsByStatus(statusFilter);
+      } else {
+        loadCounts();
+      }
+    }, 4000);
+    return () => clearInterval(pollInterval);
+  }, [statusFilter]);
+
   const loadCountsByStatus = async (status: string) => {
     try {
       const res: any = await adminApi.getLoans({ status, limit: 1 });
