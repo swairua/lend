@@ -7,7 +7,7 @@ import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, Responsive
 import { PageTitle } from '@/components/PageTitle';
 import { Loader2, Download } from 'lucide-react';
 import { loansApi, formatKES, formatDate, pdfApi } from '../types/api';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface RepaymentWithLoan {
   id: number;
@@ -24,7 +24,6 @@ interface RepaymentWithLoan {
 
 export default function BorrowerPayments() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [repayments, setRepayments] = useState<RepaymentWithLoan[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -80,13 +79,13 @@ export default function BorrowerPayments() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ title: 'Success', description: 'Receipt downloaded successfully' });
+        toast.success('Receipt downloaded successfully');
       } else {
-        toast({ title: 'Error', description: 'Failed to generate receipt', variant: 'destructive' });
+        toast.error('Failed to generate receipt');
       }
     } catch (err: any) {
       console.error('Failed to download receipt:', err);
-      toast({ title: 'Error', description: 'Failed to download receipt', variant: 'destructive' });
+      toast.error('Failed to download receipt');
     } finally {
       setDownloadingReceiptId(null);
     }

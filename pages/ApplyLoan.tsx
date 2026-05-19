@@ -17,6 +17,7 @@ import { LoanWizardStepper } from "@/components/LoanWizardStepper";
 import { PageTitle } from "@/components/PageTitle";
 import { Loader2, CheckCircle, ArrowRight, AlertCircle, CreditCard, Info, ArrowLeft } from "lucide-react";
 import { useAlert } from "@/hooks/use-alert";
+import { toast } from "sonner";
 
 export default function ApplyLoan() {
   const navigate = useNavigate();
@@ -186,9 +187,11 @@ export default function ApplyLoan() {
       };
 
       await loansApi.apply(payload);
+      toast.success('Loan application submitted successfully!');
       setSubmitted(true);
     } catch (err: any) {
       showAlert({ type: "error", message: err.message || "Failed to submit application. Please try again." });
+      toast.error(err.message || 'Failed to submit loan application');
     } finally { setSubmitting(false); }
   };
 

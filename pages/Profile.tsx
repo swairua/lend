@@ -10,8 +10,8 @@ import { PageTitle } from '@/components/PageTitle';
 import { authApi, formatKES } from '@/utils/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Banknote } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useAuthenticatedUser } from '@/hooks/useAuthenticatedUser';
+import { toast } from 'sonner';
 
 interface BorrowerProfile {
   national_id: string;
@@ -42,7 +42,6 @@ interface PasswordFormData {
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user, loading: authLoading } = useAuthenticatedUser();
   const [saving, setSaving] = useState(false);
   const [borrower, setBorrower] = useState<BorrowerProfile | null>(null);
@@ -134,9 +133,10 @@ export default function Profile() {
         photo_url: photoUrl,
       } as any);
 
-      toast({ title: 'Profile updated successfully' });
+      toast.success('Profile updated successfully');
+      await loadProfile();
     } catch (error: any) {
-      toast({ title: error.message || 'Failed to update profile', variant: 'destructive' });
+      toast.error(error.message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -146,12 +146,12 @@ export default function Profile() {
     e.preventDefault();
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({ title: 'Passwords do not match', variant: 'destructive' });
+      toast.error('Passwords do not match');
       return;
     }
 
     if (passwordForm.newPassword.length < 6) {
-      toast({ title: 'Password must be at least 6 characters', variant: 'destructive' });
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
@@ -159,10 +159,10 @@ export default function Profile() {
 
     try {
       await authApi.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-      toast({ title: 'Password changed successfully' });
+      toast.success('Password changed successfully');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
-      toast({ title: error.message || 'Failed to change password', variant: 'destructive' });
+      toast.error(error.message || 'Failed to change password');
     } finally {
       setSaving(false);
     }

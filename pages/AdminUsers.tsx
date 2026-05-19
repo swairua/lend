@@ -151,13 +151,16 @@ export default function AdminUsers() {
     try {
       if (isEditing && selectedUser) {
         await adminApi.updateUser(selectedUser.id, form);
+        toast.success(`User "${form.name}" updated successfully`);
       } else {
         await adminApi.createUser(form);
+        toast.success(`User "${form.name}" created successfully`);
       }
       await loadUsers();
       setDialogOpen(false);
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to save user');
     } finally {
       setSaving(false);
     }
@@ -166,9 +169,12 @@ export default function AdminUsers() {
   const handleToggle = async (user: ApiUser) => {
     try {
       await adminApi.toggleUser(user.id);
+      const newStatus = user.is_active ? 'deactivated' : 'activated';
+      toast.success(`User "${user.name}" ${newStatus}`);
       await loadUsers();
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to toggle user');
     }
   };
 

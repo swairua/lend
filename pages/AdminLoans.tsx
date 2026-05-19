@@ -209,9 +209,11 @@ export default function AdminLoans() {
         setActionLoading(true);
         try {
           await adminApi.approveLoan(loanId, true);
+          toast.success('Loan approved successfully');
           await loadLoans();
         } catch (error: any) {
           showAlert({ type: 'error', message: error.message });
+          toast.error(error.message || 'Failed to approve loan');
         } finally {
           setActionLoading(false);
         }
@@ -222,17 +224,19 @@ export default function AdminLoans() {
       return;
     }
   };
-  
+
   const handleReject = async () => {
     if (!selectedLoan) return;
     setActionLoading(true);
     try {
       await adminApi.approveLoan(selectedLoan.id, false, rejectionReason);
+      toast.success('Loan rejected successfully');
       await loadLoans();
       setRejectDialogOpen(false);
       setRejectionReason('');
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to reject loan');
     } finally {
       setActionLoading(false);
     }
@@ -243,9 +247,11 @@ export default function AdminLoans() {
       setActionLoading(true);
       try {
         await adminApi.disburseLoan(loanId);
+        toast.success('Loan disbursed successfully');
         await loadLoans();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to disburse loan');
       } finally {
         setActionLoading(false);
       }
@@ -292,9 +298,11 @@ export default function AdminLoans() {
       setActionLoading(true);
       try {
         await adminApi.reactivateLoan(loanId);
+        toast.success('Loan reactivated successfully');
         await loadLoans();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to reactivate loan');
       } finally {
         setActionLoading(false);
       }
