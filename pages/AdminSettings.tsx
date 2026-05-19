@@ -11,6 +11,7 @@ import { adminApi, pdfApi } from '../utils/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
+import { toast } from 'sonner';
 
 interface SystemConfig {
   company_name: string;
@@ -232,10 +233,9 @@ export default function AdminSettings() {
     setMessage(null);
     try {
       await adminApi.saveConfig(config);
-      setMessage({ type: 'success', text: 'Settings saved successfully' });
-      setTimeout(() => setMessage(null), 3000);
+      toast.success('Settings saved successfully');
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to save settings' });
+      toast.error(error.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -336,9 +336,9 @@ export default function AdminSettings() {
         emailSettings.smtp_pass,
         emailSettings.smtp_from
       );
-      showAlert({ type: 'success', message: 'Email settings saved successfully' });
+      toast.success('Email settings saved successfully');
     } catch (error: any) {
-      showAlert({ type: 'error', message: error.message || 'Failed to save email settings' });
+      toast.error(error.message || 'Failed to save email settings');
     } finally {
       setEmailSaving(false);
     }
@@ -349,12 +349,12 @@ export default function AdminSettings() {
     try {
       const result = await pdfApi.testEmailSettings();
       if (result.success) {
-        showAlert({ type: 'success', message: result.message || 'Email connection successful!' });
+        toast.success(result.message || 'Email connection successful!');
       } else {
-        showAlert({ type: 'error', message: result.message || 'Email connection failed' });
+        toast.error(result.message || 'Email connection failed');
       }
     } catch (error: any) {
-      showAlert({ type: 'error', message: error.message || 'Failed to test email settings' });
+      toast.error(error.message || 'Failed to test email settings');
     } finally {
       setEmailTesting(false);
     }
@@ -381,13 +381,15 @@ export default function AdminSettings() {
     try {
       if (editingCategory) {
         await adminApi.updateCategory(editingCategory.id, categoryForm);
+        toast.success(`Category "${categoryForm.name}" updated successfully`);
       } else {
         await adminApi.createCategory(categoryForm);
+        toast.success(`Category "${categoryForm.name}" created successfully`);
       }
       await loadCategories();
       setCategoryDialogOpen(false);
     } catch (error: any) {
-      showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to save category');
     } finally {
       setCategorySaving(false);
     }
@@ -397,9 +399,10 @@ export default function AdminSettings() {
     confirm('Delete this category?', async () => {
       try {
         await adminApi.deleteCategory(id);
+        toast.success('Category deleted successfully');
         await loadCategories();
       } catch (error: any) {
-        showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to delete category');
       }
     });
   };
@@ -407,9 +410,11 @@ export default function AdminSettings() {
   const handleToggleCategory = async (id: number, currentStatus: boolean) => {
     try {
       await adminApi.toggleCategory(id, !currentStatus);
+      const newStatus = !currentStatus ? 'activated' : 'deactivated';
+      toast.success(`Category ${newStatus} successfully`);
       await loadCategories();
     } catch (error: any) {
-      showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to toggle category');
     }
   };
 
@@ -471,13 +476,15 @@ export default function AdminSettings() {
       };
       if (editingProduct) {
         await adminApi.updateProduct(editingProduct.id, data);
+        toast.success(`Product "${productForm.name}" updated successfully`);
       } else {
         await adminApi.createProduct(data);
+        toast.success(`Product "${productForm.name}" created successfully`);
       }
       await loadProducts();
       setProductDialogOpen(false);
     } catch (error: any) {
-      showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to save product');
     } finally {
       setProductSaving(false);
     }
@@ -487,9 +494,10 @@ export default function AdminSettings() {
     confirm('Delete this loan product?', async () => {
       try {
         await adminApi.deleteProduct(id);
+        toast.success('Product deleted successfully');
         await loadProducts();
       } catch (error: any) {
-        showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to delete product');
       }
     });
   };
@@ -497,9 +505,11 @@ export default function AdminSettings() {
   const handleToggleProduct = async (id: number, currentStatus: boolean) => {
     try {
       await adminApi.updateProduct(id, { is_active: !currentStatus });
+      const newStatus = !currentStatus ? 'activated' : 'deactivated';
+      toast.success(`Product ${newStatus} successfully`);
       await loadProducts();
     } catch (error: any) {
-      showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to toggle product');
     }
   };
 

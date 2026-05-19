@@ -13,6 +13,7 @@ import DocumentsPanel from "../components/DocumentsPanel";
 import ProfilePhoto from "../components/ProfilePhoto";
 import { adminApi, formatKES, formatDate } from '../types/api';
 import { Loader2, Plus, Edit, Trash2, Search, ChevronLeft, Filter, User, Users, FileText, CreditCard, Eye, Shield } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Borrower {
   id: number;
@@ -148,10 +149,12 @@ export default function AdminBorrowers() {
     setSaving(true);
     try {
       await adminApi.updateBorrowerKYC(selectedBorrower.id, kycForm);
+      toast.success(`KYC for ${selectedBorrower.name} updated successfully`);
       await loadBorrowers();
       setKycDialogOpen(false);
     } catch (e: any) {
       console.error(e);
+      toast.error(e.message || 'Failed to update KYC');
     } finally {
       setSaving(false);
     }

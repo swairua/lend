@@ -11,7 +11,7 @@ import { messagesApi, formatDate, adminApi, authApi } from '../types/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { normalizeList } from '../utils/normalize';
 import { Mail, MailOpen, Trash2, Send, Search, Archive, Star } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface Message {
   id: number;
@@ -44,7 +44,6 @@ export default function Messages() {
   const [borrowersLoading, setBorrowersLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [adminUserId, setAdminUserId] = useState<number | null>(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     loadMessages();
@@ -79,7 +78,7 @@ export default function Messages() {
             setBorrowers(borrowerOptions);
           } catch (error) {
             console.error('Failed to load borrowers:', error);
-            toast({ title: 'Failed to load borrowers list', variant: 'destructive' });
+            toast.error('Failed to load borrowers list');
           } finally {
             setBorrowersLoading(false);
           }
@@ -140,7 +139,7 @@ export default function Messages() {
       await messagesApi.delete(id);
       setSelectedMessage(null);
       await loadMessages();
-      toast({ title: 'Message deleted' });
+      toast.success('Message deleted');
     } catch (error) {
       console.error('Failed to delete message:', error);
     }
@@ -157,7 +156,7 @@ export default function Messages() {
     }
 
     if (!recipientId || !composeData.subject || !composeData.message) {
-      toast({ title: 'Please fill all fields', variant: 'destructive' });
+      toast.error('Please fill all fields');
       return;
     }
 
@@ -169,10 +168,10 @@ export default function Messages() {
       });
       setComposeOpen(false);
       setComposeData({ recipient_id: 0, subject: '', message: '' });
-      toast({ title: 'Message sent successfully' });
-      loadMessages();
+      toast.success('Message sent successfully');
+      await loadMessages();
     } catch (error) {
-      toast({ title: 'Failed to send message', variant: 'destructive' });
+      toast.error('Failed to send message');
     }
   };
 
