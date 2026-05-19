@@ -614,7 +614,7 @@ app.post('/api/borrower/loans', authenticate, (req, res) => {
     due_date.setMonth(due_date.getMonth() + term_months);
 
     const result = db.prepare(`
-      INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, duration_months, interest_rate, status, due_date, security_details, guarantor_details, postdated_check_no, logbook_no, asset_description, asset_value)
+      INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, term_months, interest_rate, status, due_date, security_details, guarantor_details, postdated_check_no, logbook_no, asset_description, asset_value)
       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
     `).run(borrower.id, product_id, amount, total_amount, term_months, interest_rate, due_date.toISOString(), security_details || null, guarantor_details || null, postdated_check_no || null, logbook_no || null, asset_description || null, asset_value || null);
 
