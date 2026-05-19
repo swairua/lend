@@ -41,7 +41,6 @@ const getStatusLabel = (status: string) => {
 
 export default function AdminLoans() {
   const navigate = useNavigate();
-  const { showAlert, confirm } = useAlert();
   const [loading, setLoading] = useState(true);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [counts, setCounts] = useState<LoanCounts>({ all: 0, pending: 0, approved: 0, active: 0, completed: 0, rejected: 0, defaulted: 0 });
