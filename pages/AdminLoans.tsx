@@ -57,50 +57,6 @@ export default function AdminLoans() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const loadCounts = useCallback(async () => {
-    try {
-      const response: any = await adminApi.getLoans({ limit: 1 });
-      const total = response?.data?.pagination?.total ?? response?.pagination?.total ?? 0;
-      setCounts(prev => ({ ...prev, all: total }));
-    } catch (error) {
-      console.error('Failed to load counts:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadLoans();
-  }, [page, statusFilter]);
-
-  useEffect(() => {
-    if (statusFilter !== 'all') {
-      loadCountsByStatus(statusFilter);
-    } else {
-      loadCounts();
-    }
-  }, [statusFilter]);
-
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadLoans();
-      if (statusFilter !== 'all') {
-        loadCountsByStatus(statusFilter);
-      } else {
-        loadCounts();
-      }
-    }, 4000);
-    return () => clearInterval(pollInterval);
-  }, [statusFilter, loadLoans, loadCountsByStatus, loadCounts]);
-
-  const loadCountsByStatus = useCallback(async (status: string) => {
-    try {
-      const res: any = await adminApi.getLoans({ status, limit: 1 });
-      const total = res?.data?.pagination?.total ?? res?.pagination?.total ?? 0;
-      setCounts(prev => ({ ...prev, [status]: total }));
-    } catch (error) {
-      console.error('Failed to load counts:', error);
-    }
-  }, []);
-
   const loadLoans = useCallback(async () => {
     setLoading(true);
     try {
@@ -117,6 +73,50 @@ export default function AdminLoans() {
       setLoading(false);
     }
   }, [statusFilter, page]);
+
+  const loadCounts = useCallback(async () => {
+    try {
+      const response: any = await adminApi.getLoans({ limit: 1 });
+      const total = response?.data?.pagination?.total ?? response?.pagination?.total ?? 0;
+      setCounts(prev => ({ ...prev, all: total }));
+    } catch (error) {
+      console.error('Failed to load counts:', error);
+    }
+  }, []);
+
+  const loadCountsByStatus = useCallback(async (status: string) => {
+    try {
+      const res: any = await adminApi.getLoans({ status, limit: 1 });
+      const total = res?.data?.pagination?.total ?? res?.pagination?.total ?? 0;
+      setCounts(prev => ({ ...prev, [status]: total }));
+    } catch (error) {
+      console.error('Failed to load counts:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLoans();
+  }, [page, statusFilter, loadLoans]);
+
+  useEffect(() => {
+    if (statusFilter !== 'all') {
+      loadCountsByStatus(statusFilter);
+    } else {
+      loadCounts();
+    }
+  }, [statusFilter, loadCountsByStatus, loadCounts]);
+
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadLoans();
+      if (statusFilter !== 'all') {
+        loadCountsByStatus(statusFilter);
+      } else {
+        loadCounts();
+      }
+    }, 4000);
+    return () => clearInterval(pollInterval);
+  }, [statusFilter, loadLoans, loadCountsByStatus, loadCounts]);
 
   const handleRefresh = async () => {
     setLoading(true);
