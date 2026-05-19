@@ -11,6 +11,7 @@ import { adminApi, formatKES, LoanCategory } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { Loader2, Plus, Edit, Trash2, ChevronLeft, Check, X, Folder, FolderOpen } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
+import { toast } from 'sonner';
 
 type Category = LoanCategory;
 
@@ -141,13 +142,16 @@ export default function AdminCategories() {
     try {
       if (isEditing && selectedCategory) {
         await adminApi.updateCategory(selectedCategory.id, form);
+        toast.success(`Category "${form.name}" updated successfully`);
       } else {
         await adminApi.createCategory(form);
+        toast.success(`Category "${form.name}" created successfully`);
       }
       await loadCategories();
       setDialogOpen(false);
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to save category');
     } finally {
       setSaving(false);
     }
@@ -159,11 +163,13 @@ export default function AdminCategories() {
       setSaving(true);
       try {
         await adminApi.deleteCategory(selectedCategory.id);
+        toast.success(`Category "${selectedCategory.name}" deleted successfully`);
         await loadCategories();
         setDeleteDialogOpen(false);
         setDialogOpen(false);
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to delete category');
       } finally {
         setSaving(false);
       }
@@ -173,9 +179,12 @@ export default function AdminCategories() {
   const handleToggle = async (category: Category) => {
     try {
       await adminApi.toggleCategory(category.id, !category.is_active);
+      const newStatus = !category.is_active ? 'activated' : 'deactivated';
+      toast.success(`Category "${category.name}" ${newStatus}`);
       await loadCategories();
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to toggle category');
     }
   };
 
