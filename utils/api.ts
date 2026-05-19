@@ -407,6 +407,21 @@ export const adminApi = {
 
   get: (endpoint: string) =>
     request<any>(endpoint),
+
+  syncMpesaPayments: (loanId?: number) => {
+    const endpoint = loanId
+      ? `/admin/mpesa/sync-payments?loan_id=${loanId}`
+      : '/admin/mpesa/sync-payments';
+    return request<{ success: boolean; message: string; data: { applied: number; created: number; skipped: number; errors: number } }>(
+      endpoint,
+      { method: 'POST' }
+    );
+  },
+
+  getOrphanedPayments: () =>
+    request<{ success: boolean; data: { orphaned: any[]; pending_timeout: any[]; total_orphaned: number; total_pending: number } }>(
+      '/admin/mpesa/orphaned-payments'
+    ),
 };
 
 // ==================== Helpers ====================

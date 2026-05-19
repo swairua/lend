@@ -30,6 +30,7 @@ interface Repayment {
   paid_at: string;
   created_at: string;
   loan_status: string;
+  payment_status?: 'applied' | 'pending' | 'unreconciled';
 }
 
 interface LoanOption {
@@ -62,6 +63,7 @@ export default function AdminRepayments() {
     payment_method: 'cash',
     reference_number: '',
   });
+  const [syncing, setSyncing] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
 
   useEffect(() => {
@@ -215,6 +217,27 @@ export default function AdminRepayments() {
     }
   };
 
+  const handleSyncAllPayments = async () => {
+    setSyncing(true);
+    try {
+      const result = await adminApi.syncMpesaPayments();
+      toast({
+        title: 'Sync Complete',
+        description: result.data.message || `Created: ${result.data.created}, Applied: ${result.data.applied}, Errors: ${result.data.errors}`,
+        variant: 'default'
+      });
+      await loadRepayments();
+    } catch (error: any) {
+      toast({
+        title: 'Sync Failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const filteredRepayments = repayments.filter(r => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
@@ -247,6 +270,16 @@ export default function AdminRepayments() {
           <Button variant="outline" size="sm" onClick={loadRepayments} className="flex-1 sm:flex-none">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleSyncAllPayments}
+            disabled={syncing}
+            className="flex-1 sm:flex-none"
+          >
+            {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Sync M-Pesa
           </Button>
           <Button size="sm" onClick={() => setAddPaymentDialogOpen(true)} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4 mr-2" />

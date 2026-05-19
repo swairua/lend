@@ -120,6 +120,7 @@ export interface Repayment {
   reference_number: string | null;
   paid_by: number | null;
   paid_at: string;
+  payment_status?: 'applied' | 'pending' | 'unreconciled';
 }
 
 export interface Payment {
