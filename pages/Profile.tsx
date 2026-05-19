@@ -213,7 +213,7 @@ export default function Profile() {
       )}
 
       {/* Documents Section */}
-      <DocumentsPanel borrowerId={user?.borrower_id} />
+      <DocumentsPanel borrowerId={user?.borrower_id} isBorrower={true} />
 
       {/* Password Form */}
       <PasswordChangeForm

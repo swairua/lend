@@ -12,9 +12,10 @@ import { FileText, Image, Trash2, Eye, Plus, Loader2, FolderOpen } from "lucide-
 interface DocumentsPanelProps {
   borrowerId?: number;
   readOnly?: boolean;
+  isBorrower?: boolean;
 }
 
-export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelProps) {
+export default function DocumentsPanel({ borrowerId, readOnly, isBorrower }: DocumentsPanelProps) {
   const [docs, setDocs] = useState<UploadedDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -53,7 +54,7 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
       <CardHeader className="p-4 pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2"><FolderOpen className="h-4 w-4" /> Documents</CardTitle>
-          {!readOnly && (
+          {!readOnly && (!isBorrower || docs.length === 0) && (
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAddOpen(true)} aria-label="Upload new document">
               <Plus className="h-3 w-3 mr-1" /> Upload
             </Button>
@@ -69,7 +70,7 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
           <div className="text-center py-6">
             <FolderOpen className="h-8 w-8 text-gray-200 mx-auto mb-2" />
             <p className="text-xs text-muted-foreground">No documents uploaded yet</p>
-            {!readOnly && <Button size="sm" variant="ghost" className="mt-2 text-xs" onClick={() => setAddOpen(true)}><Plus className="h-3 w-3 mr-1" /> Add document</Button>}
+            {!readOnly && (!isBorrower || docs.length === 0) && <Button size="sm" variant="ghost" className="mt-2 text-xs" onClick={() => setAddOpen(true)}><Plus className="h-3 w-3 mr-1" /> Add document</Button>}
           </div>
         ) : (
           <div className="space-y-2" role="region" aria-label="Uploaded documents list">
@@ -92,7 +93,7 @@ export default function DocumentsPanel({ borrowerId, readOnly }: DocumentsPanelP
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  {!readOnly && (
+                  {!readOnly && !isBorrower && (
                     <Button
                       size="icon"
                       variant="ghost"

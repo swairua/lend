@@ -1617,9 +1617,21 @@ try {
                 }
             }
 
-            logSystem('api_request', 'sync_payments_completed', ['total' => count($transactionIds), 'successful' => count(array_filter($results, fn($r) => $r['success']))], $u['id']);
+            $successCount = count(array_filter($results, fn($r) => $r['success']));
+            $errorCount = count(array_filter($results, fn($r) => !$r['success']));
+
+            logSystem('api_request', 'sync_payments_completed', ['total' => count($transactionIds), 'successful' => $successCount], $u['id']);
             log_access('POST', 'admin/mpesa/sync-payments', 200);
-            echo json_encode(['success' => true, 'data' => $results]);
+            echo json_encode([
+                'success' => true,
+                'message' => "Synced payments successfully",
+                'data' => [
+                    'applied' => $successCount,
+                    'created' => $successCount,
+                    'skipped' => $errorCount,
+                    'errors' => $errorCount
+                ]
+            ]);
             exit;
         }
 
