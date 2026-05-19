@@ -215,6 +215,30 @@ export default function AdminLoans() {
     });
   };
 
+  const handleSyncPayments = async (loanId: number) => {
+    setActionLoading(true);
+    try {
+      const result = await adminApi.syncMpesaPayments(loanId);
+      toast({
+        title: 'Sync Complete',
+        description: result.data.message || `Applied: ${result.data.applied}, Created: ${result.data.created}`,
+        variant: 'default'
+      });
+      await loadLoans();
+      if (selectedLoan) {
+        setSelectedLoan({ ...selectedLoan });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Sync Failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const filteredLoans = loans.filter((loan: any) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
@@ -475,6 +499,17 @@ export default function AdminLoans() {
           )}
           <DialogFooter className="gap-2 flex-col sm:flex-row">
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Close</Button>
+            {(selectedLoan?.status === 'active' || selectedLoan?.status === 'completed') && (
+              <Button
+                variant="secondary"
+                onClick={() => handleSyncPayments(selectedLoan.id)}
+                disabled={actionLoading}
+                className="w-full sm:w-auto"
+              >
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Sync Payments
+              </Button>
+            )}
             {selectedLoan?.status === 'pending' && (
               <>
                 <Button variant="destructive" onClick={() => { setDialogOpen(false); handleApprove(selectedLoan.id, false); }} className="w-full sm:w-auto">Reject</Button>

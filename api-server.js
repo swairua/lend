@@ -299,6 +299,18 @@ function initializeSchema() {
       console.log('✓ Borrower user created: borrower@lending.com / Pass123');
     }
 
+    // Migration: Add payment_status column to repayments if it doesn't exist
+    try {
+      db.prepare('SELECT payment_status FROM repayments LIMIT 1').get();
+    } catch (e) {
+      if (e.message.includes('no such column')) {
+        db.prepare(`
+          ALTER TABLE repayments ADD COLUMN payment_status VARCHAR(50) DEFAULT 'applied'
+        `).run();
+        console.log('✓ Added payment_status column to repayments');
+      }
+    }
+
     // Seed categories if they don't exist
     const categoryCount = db.prepare('SELECT COUNT(*) as count FROM loan_categories').get().count;
     if (categoryCount === 0) {
@@ -951,6 +963,183 @@ app.post('/api/admin/mpesa/test', authenticate, (req, res) => {
   }
 });
 
+// GET /api/admin/mpesa/orphaned-payments - Get orphaned M-Pesa transactions
+app.get('/api/admin/mpesa/orphaned-payments', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    // Find orphaned M-Pesa transactions (successful but no linked repayment)
+    const orphanedTransactions = db.prepare(`
+      SELECT
+        mt.*,
+        l.borrower_id,
+        b.user_id as borrower_user_id,
+        u.name as borrower_name,
+        u.phone as borrower_phone,
+        l.total_amount,
+        (SELECT COALESCE(SUM(amount), 0) FROM repayments WHERE loan_id = mt.loan_id) as total_repaid
+      FROM mpesa_transactions mt
+      JOIN loans l ON mt.loan_id = l.id
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      WHERE mt.status = 'success' AND mt.repayment_id IS NULL
+      ORDER BY mt.created_at DESC
+    `).all();
+
+    // Find pending M-Pesa transactions (timeout scenarios)
+    const pendingTransactions = db.prepare(`
+      SELECT
+        mt.*,
+        l.borrower_id,
+        b.user_id as borrower_user_id,
+        u.name as borrower_name,
+        u.phone as borrower_phone,
+        l.total_amount,
+        (SELECT COALESCE(SUM(amount), 0) FROM repayments WHERE loan_id = mt.loan_id) as total_repaid
+      FROM mpesa_transactions mt
+      JOIN loans l ON mt.loan_id = l.id
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      WHERE mt.status = 'pending'
+      AND mt.created_at < datetime('now', '-24 hours')
+      ORDER BY mt.created_at DESC
+    `).all();
+
+    res.json({
+      success: true,
+      data: {
+        orphaned: orphanedTransactions,
+        pending_timeout: pendingTransactions,
+        total_orphaned: orphanedTransactions.length,
+        total_pending: pendingTransactions.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching orphaned payments:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orphaned payments: ' + error.message
+    });
+  }
+});
+
+// POST /api/admin/mpesa/sync-payments - Sync orphaned M-Pesa payments to repayments
+app.post('/api/admin/mpesa/sync-payments', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { loan_id } = req.query;
+
+  try {
+    const syncReport = {
+      applied: 0,
+      created: 0,
+      skipped: 0,
+      errors: 0,
+      errorDetails: []
+    };
+
+    // Find orphaned M-Pesa transactions (successful but no linked repayment)
+    let orphanedTransactions;
+    if (loan_id) {
+      orphanedTransactions = db.prepare(`
+        SELECT mt.* FROM mpesa_transactions mt
+        WHERE mt.status = 'success'
+        AND mt.repayment_id IS NULL
+        AND mt.loan_id = ?
+        ORDER BY mt.created_at ASC
+      `).all(loan_id);
+    } else {
+      orphanedTransactions = db.prepare(`
+        SELECT mt.* FROM mpesa_transactions mt
+        WHERE mt.status = 'success'
+        AND mt.repayment_id IS NULL
+        ORDER BY mt.created_at ASC
+      `).all();
+    }
+
+    // Process each orphaned transaction
+    for (const transaction of orphanedTransactions) {
+      try {
+        // Get loan details for principal/interest allocation
+        const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(transaction.loan_id);
+        if (!loan) {
+          syncReport.skipped++;
+          continue;
+        }
+
+        // Calculate total repaid so far (excluding this transaction)
+        const totalRepaid = db.prepare(`
+          SELECT COALESCE(SUM(amount), 0) as total FROM repayments WHERE loan_id = ?
+        `).get(transaction.loan_id).total;
+
+        // Allocate principal and interest
+        let principalPaid = transaction.amount;
+        let interestPaid = 0;
+
+        const remainingPrincipal = loan.principal_amount - (totalRepaid - loan.interest_amount);
+        if (remainingPrincipal > 0 && remainingPrincipal < principalPaid) {
+          principalPaid = remainingPrincipal;
+          interestPaid = transaction.amount - principalPaid;
+        }
+
+        // Create repayment record
+        const repaymentResult = db.prepare(`
+          INSERT INTO repayments (
+            loan_id, amount, principal_paid, interest_paid,
+            payment_method, reference_number, payment_status, paid_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).run(
+          transaction.loan_id,
+          transaction.amount,
+          principalPaid,
+          interestPaid,
+          'mpesa',
+          transaction.mpesa_reference,
+          'applied'
+        );
+
+        // Link repayment to M-Pesa transaction
+        db.prepare(`
+          UPDATE mpesa_transactions SET repayment_id = ? WHERE id = ?
+        `).run(repaymentResult.lastInsertRowid, transaction.id);
+
+        // Check if loan is fully paid
+        const newTotalRepaid = db.prepare(`
+          SELECT COALESCE(SUM(amount), 0) as total FROM repayments WHERE loan_id = ?
+        `).get(transaction.loan_id).total;
+
+        if (newTotalRepaid >= loan.total_amount) {
+          db.prepare('UPDATE loans SET status = ? WHERE id = ?').run('completed', transaction.loan_id);
+        }
+
+        syncReport.created++;
+      } catch (error) {
+        syncReport.errors++;
+        syncReport.errorDetails.push({
+          transaction_id: transaction.id,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Sync completed. Created: ${syncReport.created}, Applied: ${syncReport.applied}, Skipped: ${syncReport.skipped}, Errors: ${syncReport.errors}`,
+      data: syncReport
+    });
+  } catch (error) {
+    console.error('M-Pesa sync error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync payments: ' + error.message
+    });
+  }
+});
+
 // POST /api/mpesa/payment - Initiate STK Push for repayment
 app.post('/api/mpesa/payment', authenticate, (req, res) => {
   const { loan_id, amount, phone_number } = req.body;
@@ -1140,15 +1329,16 @@ app.post('/api/mpesa/callback', (req, res) => {
           const repaymentResult = db.prepare(`
             INSERT INTO repayments (
               loan_id, amount, principal_paid, interest_paid,
-              payment_method, reference_number, paid_at
-            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+              payment_method, reference_number, payment_status, paid_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
           `).run(
             transaction.loan_id,
             transaction.amount,
             transaction.amount,
             0,
             'mpesa',
-            mpesaReceiptNumber
+            mpesaReceiptNumber,
+            'applied'
           );
 
           // Update M-Pesa transaction with repayment link
