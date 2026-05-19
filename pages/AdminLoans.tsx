@@ -56,6 +56,7 @@ export default function AdminLoans() {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<number | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadLoans = useCallback(async () => {
     setLoading(true);
@@ -96,7 +97,7 @@ export default function AdminLoans() {
 
   useEffect(() => {
     loadLoans();
-  }, [page, statusFilter, loadLoans]);
+  }, [page, statusFilter]);
 
   useEffect(() => {
     if (statusFilter !== 'all') {
@@ -119,11 +120,16 @@ export default function AdminLoans() {
   }, [statusFilter, loadLoans, loadCountsByStatus, loadCounts]);
 
   const handleRefresh = async () => {
-    setLoading(true);
-    await loadLoans();
-    await loadCounts();
-    if (statusFilter !== 'all') {
-      await loadCountsByStatus(statusFilter);
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await loadLoans();
+      await loadCounts();
+      if (statusFilter !== 'all') {
+        await loadCountsByStatus(statusFilter);
+      }
+    } finally {
+      setTimeout(() => setRefreshing(false), 500);
     }
   };
   
@@ -281,10 +287,10 @@ export default function AdminLoans() {
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <span className="text-xs md:text-sm text-muted-foreground self-start sm:self-center">{totalLoans} loans</span>
-          <Button variant="outline" size="sm" onClick={handleRefresh} className="w-full sm:w-auto">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Refresh</span>
-            <span className="sm:hidden">Refresh</span>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="w-full sm:w-auto">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+            <span className="sm:hidden">{refreshing ? '...' : 'Refresh'}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')} className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
