@@ -13,6 +13,7 @@ import { adminApi, loansApi, formatKES, LoanProduct } from '../types/api';
 import { normalizeList } from '../utils/normalize';
 import { Loader2, Plus, Edit, Trash2, ChevronLeft, Check, X, Package } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
+import { toast } from 'sonner';
 
 type Product = LoanProduct & { category_name?: string };
 
@@ -197,16 +198,19 @@ export default function AdminProducts() {
         late_fee_percent: Number(form.late_fee_percent) || 2.5,
         min_income: Number(form.min_income) || 0,
       };
-      
+
       if (isEditing && selectedProduct) {
         await adminApi.updateProduct(selectedProduct.id, data);
+        toast.success(`Product "${form.name}" updated successfully`);
       } else {
         await adminApi.createProduct(data);
+        toast.success(`Product "${form.name}" created successfully`);
       }
       await loadData();
       setDialogOpen(false);
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to save product');
     } finally {
       setSaving(false);
     }
@@ -218,11 +222,13 @@ export default function AdminProducts() {
       setSaving(true);
       try {
         await adminApi.deleteProduct(selectedProduct.id);
+        toast.success(`Product "${selectedProduct.name}" deleted successfully`);
         await loadData();
         setDeleteDialogOpen(false);
         setDialogOpen(false);
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to delete product');
       } finally {
         setSaving(false);
       }
