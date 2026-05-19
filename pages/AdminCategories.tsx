@@ -49,6 +49,70 @@ export default function AdminCategories() {
     }
   };
 
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let pollFallback: NodeJS.Timeout | null = null;
+
+    const setupSSE = () => {
+      try {
+        const since = Math.floor(Date.now() / 1000) - 60;
+        const url = `/api/admin/categories/stream?since=${since}`;
+
+        eventSource = new EventSource(url);
+
+        eventSource.addEventListener('category-updated', (event) => {
+          const category = JSON.parse(event.data);
+          setCategories(prev => {
+            const existing = prev.findIndex(c => c.id === category.id);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...updated[existing], ...category };
+              return updated;
+            }
+            return [category, ...prev];
+          });
+        });
+
+        eventSource.addEventListener('connected', () => {
+          if (pollFallback) {
+            clearInterval(pollFallback);
+            pollFallback = null;
+          }
+        });
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (!pollFallback) {
+            pollFallback = setInterval(() => {
+              loadCategories();
+            }, 4000);
+          }
+        };
+      } catch (error) {
+        console.error('SSE connection failed, falling back to polling:', error);
+        if (!pollFallback) {
+          pollFallback = setInterval(() => {
+            loadCategories();
+          }, 4000);
+        }
+      }
+    };
+
+    setupSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (pollFallback) {
+        clearInterval(pollFallback);
+      }
+    };
+  }, []);
+
   const handleOpenNew = () => {
     setForm({ name: '', code: '', description: '', is_active: true });
     setIsEditing(false);

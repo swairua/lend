@@ -20,3 +20,5 @@ ALTER TABLE loans ADD INDEX idx_status_created_at (status, created_at);
 ALTER TABLE users ADD INDEX idx_role_updated_at (role, updated_at);
 ALTER TABLE borrowers ADD INDEX idx_updated_at (updated_at);
 ALTER TABLE repayments ADD INDEX idx_created_at (created_at);
+ALTER TABLE loan_categories ADD INDEX idx_updated_at (updated_at);
+ALTER TABLE loan_products ADD INDEX idx_updated_at (updated_at);
