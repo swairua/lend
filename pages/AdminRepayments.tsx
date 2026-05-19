@@ -64,6 +64,9 @@ export default function AdminRepayments() {
     reference_number: '',
   });
   const [syncing, setSyncing] = useState(false);
+  const [orphanedCount, setOrphanedCount] = useState(0);
+  const [syncResults, setSyncResults] = useState<any>(null);
+  const [syncResultsDialogOpen, setSyncResultsDialogOpen] = useState(false);
   const [matchingDialogOpen, setMatchingDialogOpen] = useState(false);
   const [selectedRepaymentForMatch, setSelectedRepaymentForMatch] = useState<Repayment | null>(null);
   const [matchingLoanId, setMatchingLoanId] = useState('');
@@ -72,7 +75,19 @@ export default function AdminRepayments() {
 
   useEffect(() => {
     loadRepayments();
+    loadOrphanedPaymentsCount();
   }, []);
+
+  const loadOrphanedPaymentsCount = async () => {
+    try {
+      const response = await adminApi.getOrphanedPayments();
+      if (response.success && response.data) {
+        setOrphanedCount(response.data.total_orphaned || 0);
+      }
+    } catch (error) {
+      console.error('Failed to load orphaned payments count:', error);
+    }
+  };
 
   useEffect(() => {
     if (loanPopoverOpen) {
@@ -225,11 +240,29 @@ export default function AdminRepayments() {
     setSyncing(true);
     try {
       const result = await adminApi.syncMpesaPayments();
-      toast({
-        title: 'Sync Complete',
-        description: result.data.message || `Created: ${result.data.created}, Applied: ${result.data.applied}, Errors: ${result.data.errors}`,
-        variant: 'default'
+
+      // Store detailed results for modal
+      setSyncResults({
+        success: result.success,
+        message: result.message,
+        stats: result.data
       });
+
+      // Show summary toast
+      const { created, applied, errors, skipped } = result.data;
+      const summary = `Synced: ${created} created${applied > 0 ? `, ${applied} applied` : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}${errors > 0 ? `, ${errors} failed` : ''}`;
+
+      toast({
+        title: result.message || 'Sync Complete',
+        description: summary || 'M-Pesa payments synchronized',
+        variant: result.success && errors === 0 ? 'default' : errors > 0 ? 'destructive' : 'default'
+      });
+
+      // Show detailed results modal
+      setSyncResultsDialogOpen(true);
+
+      // Refresh orphaned count and repayments
+      await loadOrphanedPaymentsCount();
       await loadRepayments();
     } catch (error: any) {
       toast({
@@ -334,11 +367,12 @@ export default function AdminRepayments() {
             variant="secondary"
             size="sm"
             onClick={handleSyncAllPayments}
-            disabled={syncing}
+            disabled={syncing || orphanedCount === 0}
             className="flex-1 sm:flex-none"
+            title={orphanedCount === 0 ? 'No orphaned payments to sync' : `Sync ${orphanedCount} orphaned payment(s)`}
           >
             {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Sync M-Pesa
+            Sync M-Pesa ({orphanedCount})
           </Button>
           <Button size="sm" onClick={() => setAddPaymentDialogOpen(true)} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4 mr-2" />
@@ -461,6 +495,15 @@ export default function AdminRepayments() {
                         ) : (
                           <Download className="h-3 w-3 md:h-4 md:w-4" />
                         )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2 text-purple-600 hover:text-purple-700"
+                        onClick={() => openMatchingDialog(repayment)}
+                        title="Match to loan"
+                      >
+                        <Check className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                       <Button size="sm" variant="ghost" className="text-red-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleDelete(repayment.id)}>
                         <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
@@ -697,6 +740,176 @@ export default function AdminRepayments() {
             <Button onClick={handleAddPayment} disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Record Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Match Payment Dialog */}
+      <Dialog open={matchingDialogOpen} onOpenChange={setMatchingDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md p-3 md:p-6 space-y-3 md:space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-base md:text-lg">Match Repayment to Loan</DialogTitle>
+          </DialogHeader>
+          {selectedRepaymentForMatch && (
+            <div className="space-y-4 md:space-y-5">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4">
+                <p className="text-xs md:text-sm text-blue-900 font-medium mb-2">Selected Repayment</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs md:text-sm text-blue-800">Amount:</span>
+                    <span className="text-xs md:text-sm font-semibold text-blue-900">{formatKES(selectedRepaymentForMatch.amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs md:text-sm text-blue-800">Reference:</span>
+                    <span className="text-xs md:text-sm font-mono text-blue-900 truncate">{selectedRepaymentForMatch.reference_number || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs md:text-sm text-blue-800">Date:</span>
+                    <span className="text-xs md:text-sm text-blue-900">{formatDate(selectedRepaymentForMatch.paid_at || selectedRepaymentForMatch.created_at)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="match_loan_id" className="text-xs md:text-sm">
+                  Select Loan *
+                </Label>
+                <Popover open={loanPopoverOpen} onOpenChange={setLoanPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={loanPopoverOpen}
+                      className="w-full justify-between text-xs md:text-sm mt-1"
+                    >
+                      {matchingLoanId
+                        ? loans.find(l => String(l.id) === matchingLoanId)?.borrower_name
+                          ? `#${matchingLoanId} - ${loans.find(l => String(l.id) === matchingLoanId)?.borrower_name}`
+                          : `#${matchingLoanId}`
+                        : "Select a loan..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search loan ID or borrower..."
+                        value={loanSearchTerm}
+                        onValueChange={setLoanSearchTerm}
+                      />
+                      <CommandEmpty>
+                        {loadingLoans ? 'Loading loans...' : 'No active loans found.'}
+                      </CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {loans.map((loan) => (
+                            <CommandItem
+                              key={loan.id}
+                              value={String(loan.id)}
+                              onSelect={(currentValue) => {
+                                setMatchingLoanId(currentValue);
+                                setLoanPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  matchingLoanId === String(loan.id)
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm">#{loan.id}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {loan.borrower_name} • {formatKES(loan.principal_amount)}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {matchingLoanId && loans.find(l => String(l.id) === matchingLoanId) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 md:p-4">
+                  <p className="text-xs md:text-sm text-amber-900 font-medium mb-2">Loan Summary</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-xs md:text-sm text-amber-800">Loan Amount:</span>
+                      <span className="text-xs md:text-sm font-semibold text-amber-900">
+                        {formatKES(loans.find(l => String(l.id) === matchingLoanId)?.principal_amount || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs md:text-sm text-amber-800">Repayment Amount:</span>
+                      <span className="text-xs md:text-sm font-semibold text-amber-900">{formatKES(selectedRepaymentForMatch.amount)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMatchingDialogOpen(false);
+                setSelectedRepaymentForMatch(null);
+                setMatchingLoanId('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMatchRepayment}
+              disabled={!matchingLoanId || matchingLoading}
+            >
+              {matchingLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Match Repayment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sync Results Dialog */}
+      <Dialog open={syncResultsDialogOpen} onOpenChange={setSyncResultsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>M-Pesa Sync Results</DialogTitle>
+          </DialogHeader>
+          {syncResults && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                <p className="text-sm font-medium text-blue-900">{syncResults.message}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border p-3 bg-green-50">
+                  <p className="text-sm text-gray-600">Created</p>
+                  <p className="text-2xl font-bold text-green-600">{syncResults.stats?.created || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-blue-50">
+                  <p className="text-sm text-gray-600">Applied</p>
+                  <p className="text-2xl font-bold text-blue-600">{syncResults.stats?.applied || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-yellow-50">
+                  <p className="text-sm text-gray-600">Skipped</p>
+                  <p className="text-2xl font-bold text-yellow-600">{syncResults.stats?.skipped || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3 bg-red-50">
+                  <p className="text-sm text-gray-600">Failed</p>
+                  <p className="text-2xl font-bold text-red-600">{syncResults.stats?.errors || 0}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncResultsDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
