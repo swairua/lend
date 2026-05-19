@@ -56,50 +56,7 @@ export default function AdminLoans() {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<number | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
-
-  const loadCounts = useCallback(async () => {
-    try {
-      const response: any = await adminApi.getLoans({ limit: 1 });
-      const total = response?.data?.pagination?.total ?? response?.pagination?.total ?? 0;
-      setCounts(prev => ({ ...prev, all: total }));
-    } catch (error) {
-      console.error('Failed to load counts:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadLoans();
-  }, [page, statusFilter]);
-
-  useEffect(() => {
-    if (statusFilter !== 'all') {
-      loadCountsByStatus(statusFilter);
-    } else {
-      loadCounts();
-    }
-  }, [statusFilter]);
-
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadLoans();
-      if (statusFilter !== 'all') {
-        loadCountsByStatus(statusFilter);
-      } else {
-        loadCounts();
-      }
-    }, 4000);
-    return () => clearInterval(pollInterval);
-  }, [statusFilter, loadLoans, loadCountsByStatus, loadCounts]);
-
-  const loadCountsByStatus = useCallback(async (status: string) => {
-    try {
-      const res: any = await adminApi.getLoans({ status, limit: 1 });
-      const total = res?.data?.pagination?.total ?? res?.pagination?.total ?? 0;
-      setCounts(prev => ({ ...prev, [status]: total }));
-    } catch (error) {
-      console.error('Failed to load counts:', error);
-    }
-  }, []);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadLoans = useCallback(async () => {
     setLoading(true);
@@ -118,12 +75,61 @@ export default function AdminLoans() {
     }
   }, [statusFilter, page]);
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    await loadLoans();
-    await loadCounts();
+  const loadCounts = useCallback(async () => {
+    try {
+      const response: any = await adminApi.getLoans({ limit: 1 });
+      const total = response?.data?.pagination?.total ?? response?.pagination?.total ?? 0;
+      setCounts(prev => ({ ...prev, all: total }));
+    } catch (error) {
+      console.error('Failed to load counts:', error);
+    }
+  }, []);
+
+  const loadCountsByStatus = useCallback(async (status: string) => {
+    try {
+      const res: any = await adminApi.getLoans({ status, limit: 1 });
+      const total = res?.data?.pagination?.total ?? res?.pagination?.total ?? 0;
+      setCounts(prev => ({ ...prev, [status]: total }));
+    } catch (error) {
+      console.error('Failed to load counts:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLoans();
+  }, [page, statusFilter]);
+
+  useEffect(() => {
     if (statusFilter !== 'all') {
-      await loadCountsByStatus(statusFilter);
+      loadCountsByStatus(statusFilter);
+    } else {
+      loadCounts();
+    }
+  }, [statusFilter, loadCountsByStatus, loadCounts]);
+
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadLoans();
+      if (statusFilter !== 'all') {
+        loadCountsByStatus(statusFilter);
+      } else {
+        loadCounts();
+      }
+    }, 4000);
+    return () => clearInterval(pollInterval);
+  }, [statusFilter, loadLoans, loadCountsByStatus, loadCounts]);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await loadLoans();
+      await loadCounts();
+      if (statusFilter !== 'all') {
+        await loadCountsByStatus(statusFilter);
+      }
+    } finally {
+      setTimeout(() => setRefreshing(false), 500);
     }
   };
   
@@ -281,10 +287,10 @@ export default function AdminLoans() {
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <span className="text-xs md:text-sm text-muted-foreground self-start sm:self-center">{totalLoans} loans</span>
-          <Button variant="outline" size="sm" onClick={handleRefresh} className="w-full sm:w-auto">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Refresh</span>
-            <span className="sm:hidden">Refresh</span>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="w-full sm:w-auto">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+            <span className="sm:hidden">{refreshing ? '...' : 'Refresh'}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')} className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />

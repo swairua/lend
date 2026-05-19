@@ -455,6 +455,21 @@ function bootstrap() {
         foreach ($defaults as $k => $v) {
             q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
         }
+
+        // Create performance indexes
+        $indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_loans_status ON loans(status)",
+            "CREATE INDEX IF NOT EXISTS idx_loans_created_at ON loans(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_loans_borrower_id ON loans(borrower_id)",
+            "CREATE INDEX IF NOT EXISTS idx_repayments_loan_id ON repayments(loan_id)",
+        ];
+        foreach ($indexes as $indexSql) {
+            try {
+                $p->exec($indexSql);
+            } catch (Exception $e) {
+                // Index might already exist, continue
+            }
+        }
     } catch (Exception $e) {
         log_error("Bootstrap failed", [
             'error' => $e->getMessage(),
@@ -996,19 +1011,18 @@ try {
                               LEFT JOIN loan_categories lc ON lp.category_id = lc.id
                               WHERE l.borrower_id = ? ORDER BY l.created_at DESC LIMIT $limit OFFSET $off", [$bid]);
                 $tot = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
-                error_log("[borrower/loans] User={$user['id']}, Borrower={$bid}, Found={$tot['c']} total, Returning={count($loans)}, Page=$page, Limit=$limit, Offset=$off");
-                error_log("[borrower/loans] Raw loan data: " . json_encode($loans));
+                $totalCount = isset($tot['c']) ? $tot['c'] : 0;
+                error_log("[borrower/loans] User={$user['id']}, Borrower={$bid}, Found={$totalCount} total, Returning={count($loans)}, Page=$page, Limit=$limit, Offset=$off");
                 foreach ($loans as &$l) {
                     $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
                     $l['total_paid'] = $p['t'];
                     $l['balance'] = floatval($l['total_amount']) - floatval($p['t']);
                 }
-                error_log("[borrower/loans] Final loan data with repayments: " . json_encode($loans));
             }
             log_access('GET', 'borrower/loans', 200);
-            error_log("[borrower/loans] Final response: " . json_encode(['success' => true, 'data' => ['loans' => $loans, 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]));
+            $finalTotalCount = isset($tot['c']) ? $tot['c'] : 0;
             echo json_encode(['success' => true, 'data' => ['loans' => $loans,
-                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $finalTotalCount]]]);
             exit;
         }
     }
@@ -1249,27 +1263,30 @@ try {
         if (strpos($uri, 'admin/loans') !== false) {
             $status = $_GET['status'] ?? null;
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
-            $sql = "SELECT l.*, u.name borrower_name, u.email borrower_email, lp.name product_name, lc.name category_name
+            $sql = "SELECT l.*, u.name borrower_name, u.email borrower_email, lp.name product_name, lc.name category_name,
+                           COALESCE(SUM(r.amount), 0) as total_paid
                     FROM loans l
                     LEFT JOIN borrowers b ON l.borrower_id=b.id
                     LEFT JOIN users u ON b.user_id=u.id
                     LEFT JOIN loan_products lp ON l.product_id=lp.id
-                    LEFT JOIN loan_categories lc ON lp.category_id=lc.id WHERE 1=1";
+                    LEFT JOIN loan_categories lc ON lp.category_id=lc.id
+                    LEFT JOIN repayments r ON l.id=r.loan_id
+                    WHERE 1=1";
             $params = [];
             if ($status && $status !== 'all') { $sql .= " AND l.status = ?"; $params[] = $status; }
-            $sql .= " ORDER BY l.created_at DESC LIMIT $limit OFFSET $off";
+            $sql .= " GROUP BY l.id ORDER BY l.created_at DESC LIMIT $limit OFFSET $off";
             $loans = all($sql, $params);
             foreach ($loans as &$l) {
-                $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
-                $l['total_paid'] = $p['t'];
-                $l['balance'] = floatval($l['total_amount']) - floatval($p['t']);
+                $l['balance'] = floatval($l['total_amount']) - floatval($l['total_paid']);
             }
-            $tot = $status && $status !== 'all'
-                ? one("SELECT COUNT(*) c FROM loans WHERE status = ?", [$status])
-                : one("SELECT COUNT(*) c FROM loans");
+            $countSql = "SELECT COUNT(*) c FROM loans WHERE 1=1";
+            $countParams = [];
+            if ($status && $status !== 'all') { $countSql .= " AND status = ?"; $countParams[] = $status; }
+            $tot = one($countSql, $countParams);
+            $totalCount = isset($tot['c']) ? $tot['c'] : 0;
             log_access('GET', 'admin/loans', 200);
             echo json_encode(['success' => true, 'data' => ['loans' => $loans,
-                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $totalCount]]]);
             exit;
         }
 
