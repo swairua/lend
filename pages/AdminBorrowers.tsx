@@ -50,6 +50,7 @@ export default function AdminBorrowers() {
   const [kycDialogOpen, setKycDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [kycForm, setKycForm] = useState({ kra_pin: "", tcc_number: "", national_id: "", client_type: "individual", is_verified: false });
+  const [lastRefreshTime, setLastRefreshTime] = useState(0);
 
   useEffect(() => {
     loadBorrowers();
@@ -65,6 +66,70 @@ export default function AdminBorrowers() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let pollFallback: NodeJS.Timeout | null = null;
+
+    const setupSSE = () => {
+      try {
+        const since = Math.floor(Date.now() / 1000) - 60;
+        const url = `/api/admin/borrowers/stream?since=${since}`;
+
+        eventSource = new EventSource(url);
+
+        eventSource.addEventListener('borrower-updated', (event) => {
+          const borrower = JSON.parse(event.data);
+          setBorrowers(prev => {
+            const existing = prev.findIndex(b => b.user_id === borrower.user_id);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...updated[existing], ...borrower };
+              return updated;
+            }
+            return [borrower, ...prev];
+          });
+        });
+
+        eventSource.addEventListener('connected', () => {
+          if (pollFallback) {
+            clearInterval(pollFallback);
+            pollFallback = null;
+          }
+        });
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (!pollFallback) {
+            pollFallback = setInterval(() => {
+              loadBorrowers();
+            }, 4000);
+          }
+        };
+      } catch (error) {
+        console.error('SSE connection failed, falling back to polling:', error);
+        if (!pollFallback) {
+          pollFallback = setInterval(() => {
+            loadBorrowers();
+          }, 4000);
+        }
+      }
+    };
+
+    setupSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (pollFallback) {
+        clearInterval(pollFallback);
+      }
+    };
+  }, []);
 
   const handleOpenKYC = (borrower: any) => {
     setSelectedBorrower(borrower);

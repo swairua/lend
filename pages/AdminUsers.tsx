@@ -52,6 +52,71 @@ export default function AdminUsers() {
     }
   };
 
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let pollFallback: NodeJS.Timeout | null = null;
+
+    const setupSSE = () => {
+      try {
+        const since = Math.floor(Date.now() / 1000) - 60;
+        const role = roleFilter === 'all' ? '' : `&role=${roleFilter}`;
+        const url = `/api/admin/users/stream?since=${since}${role}`;
+
+        eventSource = new EventSource(url);
+
+        eventSource.addEventListener('user-updated', (event) => {
+          const user = JSON.parse(event.data);
+          setUsers(prev => {
+            const existing = prev.findIndex(u => u.id === user.id);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...updated[existing], ...user };
+              return updated;
+            }
+            return [user, ...prev];
+          });
+        });
+
+        eventSource.addEventListener('connected', () => {
+          if (pollFallback) {
+            clearInterval(pollFallback);
+            pollFallback = null;
+          }
+        });
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (!pollFallback) {
+            pollFallback = setInterval(() => {
+              loadUsers();
+            }, 4000);
+          }
+        };
+      } catch (error) {
+        console.error('SSE connection failed, falling back to polling:', error);
+        if (!pollFallback) {
+          pollFallback = setInterval(() => {
+            loadUsers();
+          }, 4000);
+        }
+      }
+    };
+
+    setupSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (pollFallback) {
+        clearInterval(pollFallback);
+      }
+    };
+  }, [roleFilter]);
+
   const handleOpenNew = () => {
     setForm({ name: '', email: '', phone: '', role: 'borrower', password: '' });
     setIsEditing(false);

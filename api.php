@@ -1290,6 +1290,294 @@ try {
             exit;
         }
 
+        // SSE Stream for loan updates
+        if (strpos($uri, 'admin/loans/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $status = $_GET['status'] ?? null;
+            $pollInterval = 2; // Check for updates every 2 seconds
+            $maxDuration = 300; // 5 minutes max connection time
+            $startTime = time();
+
+            function sendSSEData($id, $data, $eventName = 'loan-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedLoans($since, $status) {
+                $sql = "SELECT l.*, u.name borrower_name, u.email borrower_email, lp.name product_name,
+                               lc.name category_name, COALESCE(SUM(r.amount), 0) as total_paid,
+                               UNIX_TIMESTAMP(l.updated_at) as updated_timestamp
+                        FROM loans l
+                        LEFT JOIN borrowers b ON l.borrower_id=b.id
+                        LEFT JOIN users u ON b.user_id=u.id
+                        LEFT JOIN loan_products lp ON l.product_id=lp.id
+                        LEFT JOIN loan_categories lc ON lp.category_id=lc.id
+                        LEFT JOIN repayments r ON l.id=r.loan_id
+                        WHERE UNIX_TIMESTAMP(l.updated_at) > ?";
+                $params = [$since];
+                if ($status && $status !== 'all') {
+                    $sql .= " AND l.status = ?";
+                    $params[] = $status;
+                }
+                $sql .= " GROUP BY l.id ORDER BY l.updated_at DESC";
+                return all($sql, $params);
+            }
+
+            $currentTimestamp = time();
+            sendSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to loan stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedLoans = getUpdatedLoans($lastUpdateId, $status);
+
+                if (!empty($updatedLoans)) {
+                    foreach ($updatedLoans as $loan) {
+                        $loan['balance'] = floatval($loan['total_amount']) - floatval($loan['total_paid']);
+                        $newTimestamp = $loan['updated_timestamp'];
+                        sendSSEData($newTimestamp, $loan);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for borrower updates
+        if (strpos($uri, 'admin/borrowers/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 2;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendSSEData($id, $data, $eventName = 'borrower-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedBorrowers($since) {
+                $sql = "SELECT u.id, u.name, u.email, u.phone, u.is_active,
+                               UNIX_TIMESTAMP(u.updated_at) as updated_timestamp,
+                               b.id borrower_id, b.national_id, b.address, b.business_name, b.business_type,
+                               b.monthly_income, b.credit_score
+                        FROM users u
+                        LEFT JOIN borrowers b ON u.id = b.user_id
+                        WHERE u.role = 'borrower' AND UNIX_TIMESTAMP(u.updated_at) > ?
+                        ORDER BY u.updated_at DESC";
+                return all($sql, [$since]);
+            }
+
+            $currentTimestamp = time();
+            sendSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to borrower stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedBorrowers = getUpdatedBorrowers($lastUpdateId);
+
+                if (!empty($updatedBorrowers)) {
+                    foreach ($updatedBorrowers as $borrower) {
+                        $newTimestamp = $borrower['updated_timestamp'];
+                        sendSSEData($newTimestamp, $borrower);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for repayment updates
+        if (strpos($uri, 'admin/repayments/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 2;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendRepaymentSSEData($id, $data, $eventName = 'repayment-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedRepayments($since) {
+                $sql = "SELECT r.*, u.name borrower_name, u.email borrower_email,
+                               l.status loan_status, l.principal_amount,
+                               UNIX_TIMESTAMP(r.created_at) as updated_timestamp
+                        FROM repayments r
+                        LEFT JOIN loans l ON r.loan_id = l.id
+                        LEFT JOIN borrowers b ON l.borrower_id = b.id
+                        LEFT JOIN users u ON b.user_id = u.id
+                        WHERE UNIX_TIMESTAMP(r.created_at) > ?
+                        ORDER BY r.created_at DESC";
+                return all($sql, [$since]);
+            }
+
+            $currentTimestamp = time();
+            sendRepaymentSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to repayment stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendRepaymentSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedRepayments = getUpdatedRepayments($lastUpdateId);
+
+                if (!empty($updatedRepayments)) {
+                    foreach ($updatedRepayments as $repayment) {
+                        $newTimestamp = $repayment['updated_timestamp'];
+                        sendRepaymentSSEData($newTimestamp, $repayment);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for dashboard stats updates
+        if (strpos($uri, 'admin/stats/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastCheckTime = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 1;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendStatsSSEData($id, $data, $eventName = 'stats-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getDashboardStats() {
+                $stats = [];
+                $result = one("SELECT
+                    (SELECT COUNT(*) FROM users WHERE role='borrower') as total_borrowers,
+                    (SELECT COUNT(*) FROM loans) as total_loans,
+                    (SELECT COUNT(*) FROM loans WHERE status='active') as active_loans,
+                    (SELECT COUNT(*) FROM loans WHERE status='pending') as pending_loans,
+                    (SELECT COALESCE(SUM(principal_amount), 0) FROM loans WHERE status IN ('active','completed','defaulted')) as total_disbursed,
+                    (SELECT COALESCE(SUM(amount), 0) FROM repayments) as total_collected");
+
+                $stats['total_borrowers'] = intval($result['total_borrowers'] ?? 0);
+                $stats['total_loans'] = intval($result['total_loans'] ?? 0);
+                $stats['active_loans'] = intval($result['active_loans'] ?? 0);
+                $stats['pending_loans'] = intval($result['pending_loans'] ?? 0);
+                $stats['total_disbursed'] = floatval($result['total_disbursed'] ?? 0);
+                $stats['total_collected'] = floatval($result['total_collected'] ?? 0);
+                $stats['timestamp'] = time();
+                return $stats;
+            }
+
+            $currentTimestamp = time();
+            sendStatsSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to stats stream'
+            ], 'connected');
+
+            $lastStats = null;
+            $lastStatsJson = null;
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendStatsSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $currentStats = getDashboardStats();
+                $currentStatsJson = json_encode($currentStats);
+
+                if ($lastStatsJson === null || $lastStatsJson !== $currentStatsJson) {
+                    sendStatsSSEData($currentStats['timestamp'], $currentStats);
+                    $lastStatsJson = $currentStatsJson;
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
         // Borrowers
         if (strpos($uri, 'admin/borrowers') !== false) {
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
@@ -1302,6 +1590,262 @@ try {
             log_access('GET', 'admin/borrowers', 200);
             echo json_encode(['success' => true, 'data' => ['borrowers' => $rows,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+            exit;
+        }
+
+        // SSE Stream for category updates
+        if (strpos($uri, 'admin/categories/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 2;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendCategorySSEData($id, $data, $eventName = 'category-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedCategories($since) {
+                $sql = "SELECT *, UNIX_TIMESTAMP(updated_at) as updated_timestamp
+                        FROM loan_categories
+                        WHERE UNIX_TIMESTAMP(updated_at) > ?
+                        ORDER BY updated_at DESC";
+                return all($sql, [$since]);
+            }
+
+            $currentTimestamp = time();
+            sendCategorySSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to category stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendCategorySSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedCategories = getUpdatedCategories($lastUpdateId);
+
+                if (!empty($updatedCategories)) {
+                    foreach ($updatedCategories as $category) {
+                        $newTimestamp = $category['updated_timestamp'];
+                        sendCategorySSEData($newTimestamp, $category);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for product updates
+        if (strpos($uri, 'admin/products/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 2;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendProductSSEData($id, $data, $eventName = 'product-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedProducts($since) {
+                $sql = "SELECT lp.*, lc.name category_name, UNIX_TIMESTAMP(lp.updated_at) as updated_timestamp
+                        FROM loan_products lp
+                        LEFT JOIN loan_categories lc ON lp.category_id = lc.id
+                        WHERE UNIX_TIMESTAMP(lp.updated_at) > ?
+                        ORDER BY lp.updated_at DESC";
+                return all($sql, [$since]);
+            }
+
+            $currentTimestamp = time();
+            sendProductSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to product stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendProductSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedProducts = getUpdatedProducts($lastUpdateId);
+
+                if (!empty($updatedProducts)) {
+                    foreach ($updatedProducts as $product) {
+                        $newTimestamp = $product['updated_timestamp'];
+                        sendProductSSEData($newTimestamp, $product);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for user updates
+        if (strpos($uri, 'admin/users/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $role = $_GET['role'] ?? null;
+            $pollInterval = 2;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendUserSSEData($id, $data, $eventName = 'user-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedUsers($since, $role) {
+                $sql = "SELECT id, name, email, phone, role, is_active, created_at,
+                               UNIX_TIMESTAMP(updated_at) as updated_timestamp
+                        FROM users
+                        WHERE UNIX_TIMESTAMP(updated_at) > ?";
+                $params = [$since];
+                if ($role) {
+                    $sql .= " AND role = ?";
+                    $params[] = $role;
+                }
+                $sql .= " ORDER BY updated_at DESC";
+                return all($sql, $params);
+            }
+
+            $currentTimestamp = time();
+            sendUserSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to user stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendUserSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedUsers = getUpdatedUsers($lastUpdateId, $role);
+
+                if (!empty($updatedUsers)) {
+                    foreach ($updatedUsers as $user) {
+                        $newTimestamp = $user['updated_timestamp'];
+                        sendUserSSEData($newTimestamp, $user);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for system logs
+        if (strpos($uri, 'admin/logs/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastLogId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 1;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendLogSSEData($id, $data, $eventName = 'log-created') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getNewLogs($since) {
+                $sql = "SELECT * FROM system_logs WHERE id > ? ORDER BY id DESC LIMIT 100";
+                return all($sql, [$since]);
+            }
+
+            $currentTimestamp = time();
+            sendLogSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to logs stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendLogSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $newLogs = getNewLogs($lastLogId);
+
+                if (!empty($newLogs)) {
+                    foreach ($newLogs as $log) {
+                        sendLogSSEData($log['id'], $log);
+                        $lastLogId = max($lastLogId, $log['id']);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
             exit;
         }
 

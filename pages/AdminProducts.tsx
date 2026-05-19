@@ -74,6 +74,76 @@ export default function AdminProducts() {
     }
   }
 
+  useEffect(() => {
+    let productSource: EventSource | null = null;
+    let categorySource: EventSource | null = null;
+    let pollFallback: NodeJS.Timeout | null = null;
+
+    const setupSSE = () => {
+      try {
+        const since = Math.floor(Date.now() / 1000) - 60;
+
+        // Products stream
+        productSource = new EventSource(`/api/admin/products/stream?since=${since}`);
+        productSource.addEventListener('product-updated', (event) => {
+          const product = JSON.parse(event.data);
+          setProducts(prev => {
+            const existing = prev.findIndex(p => p.id === product.id);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...updated[existing], ...product };
+              return updated;
+            }
+            return [product, ...prev];
+          });
+        });
+
+        // Categories stream
+        categorySource = new EventSource(`/api/admin/categories/stream?since=${since}`);
+        categorySource.addEventListener('category-updated', (event) => {
+          const category = JSON.parse(event.data);
+          setCategories(prev => {
+            const existing = prev.findIndex(c => c.id === category.id);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...updated[existing], ...category };
+              return updated;
+            }
+            return [category, ...prev];
+          });
+        });
+
+        const handleError = () => {
+          if (productSource) productSource.close();
+          if (categorySource) categorySource.close();
+          if (!pollFallback) {
+            pollFallback = setInterval(() => {
+              loadData();
+            }, 4000);
+          }
+        };
+
+        productSource.onerror = handleError;
+        categorySource.onerror = handleError;
+      } catch (error) {
+        console.error('SSE connection failed, falling back to polling:', error);
+        if (!pollFallback) {
+          pollFallback = setInterval(() => {
+            loadData();
+          }, 4000);
+        }
+      }
+    };
+
+    setupSSE();
+
+    return () => {
+      if (productSource) productSource.close();
+      if (categorySource) categorySource.close();
+      if (pollFallback) clearInterval(pollFallback);
+    };
+  }, []);
+
   const handleOpenNew = () => {
     setForm({ ...emptyForm, category_id: categories[0]?.id || 0 });
     setIsEditing(false);
