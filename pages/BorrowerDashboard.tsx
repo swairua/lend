@@ -35,8 +35,17 @@ export default function BorrowerDashboard() {
         loansApi.getDashboard() as Promise<any>,
         loansApi.getMyLoans()
       ]);
-      setDashboard(dashRes.data?.data ?? dashRes.data ?? dashRes);
+      const dashData = dashRes.data?.data ?? dashRes.data ?? dashRes;
       const loansList = normalizeList<any>(loansRes);
+
+      console.log('[Dashboard] dashRes:', dashRes);
+      console.log('[Dashboard] dashData:', dashData);
+      console.log('[Dashboard] loansRes:', loansRes);
+      console.log('[Dashboard] loansList after normalize:', loansList);
+      console.log('[Dashboard] pending_loans from dashboard:', dashData?.pending_loans);
+      console.log('[Dashboard] loans with status=pending:', loansList.filter((l: any) => l.status === 'pending'));
+
+      setDashboard(dashData);
       setLoans(loansList as any[]);
     } catch (error) {
       console.error('Failed to load dashboard:', error);

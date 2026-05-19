@@ -868,9 +868,13 @@ try {
         $bid = $borrower['id'];
 
         if (strpos($uri, 'borrower/dashboard') !== false) {
+            $allLoansData = all("SELECT id, status FROM loans WHERE borrower_id = ?", [$bid]);
+            error_log("[borrower/dashboard] User={$user['id']}, Borrower={$bid}, All loans: " . json_encode($allLoansData));
+
             $totalLoans  = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
             $activeLoans = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ? AND status='active'", [$bid]);
             $pending     = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ? AND status='pending'", [$bid]);
+            error_log("[borrower/dashboard] User={$user['id']}, Borrower={$bid}, Total={$totalLoans['c']}, Active={$activeLoans['c']}, Pending={$pending['c']}");
             $disbursed   = one("SELECT COALESCE(SUM(total_amount),0) t FROM loans WHERE borrower_id = ? AND status IN ('active','completed')", [$bid]);
             $repaid      = one("SELECT COALESCE(SUM(r.amount),0) t FROM repayments r JOIN loans l ON r.loan_id=l.id WHERE l.borrower_id = ?", [$bid]);
             log_access('GET', 'borrower/dashboard', 200);
@@ -992,13 +996,17 @@ try {
                               LEFT JOIN loan_categories lc ON lp.category_id = lc.id
                               WHERE l.borrower_id = ? ORDER BY l.created_at DESC LIMIT $limit OFFSET $off", [$bid]);
                 $tot = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
+                error_log("[borrower/loans] User={$user['id']}, Borrower={$bid}, Found={$tot['c']} total, Returning={count($loans)}, Page=$page, Limit=$limit, Offset=$off");
+                error_log("[borrower/loans] Raw loan data: " . json_encode($loans));
                 foreach ($loans as &$l) {
                     $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
                     $l['total_paid'] = $p['t'];
                     $l['balance'] = floatval($l['total_amount']) - floatval($p['t']);
                 }
+                error_log("[borrower/loans] Final loan data with repayments: " . json_encode($loans));
             }
             log_access('GET', 'borrower/loans', 200);
+            error_log("[borrower/loans] Final response: " . json_encode(['success' => true, 'data' => ['loans' => $loans, 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]));
             echo json_encode(['success' => true, 'data' => ['loans' => $loans,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
             exit;
