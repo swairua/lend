@@ -603,7 +603,7 @@ app.post('/api/borrower/loans', authenticate, (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
-    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
+    const product = db.prepare('SELECT * FROM loan_products WHERE id = ?').get(product_id);
     if (!product) {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
@@ -645,7 +645,7 @@ app.get('/api/borrower/loans', authenticate, (req, res) => {
     const loans = db.prepare(`
       SELECT l.*, p.name as product_name
       FROM loans l
-      LEFT JOIN products p ON l.product_id = p.id
+      LEFT JOIN loan_products p ON l.product_id = p.id
       WHERE l.borrower_id = ?
       ORDER BY l.created_at DESC
       LIMIT ? OFFSET ?
@@ -676,7 +676,7 @@ app.get('/api/borrower/loans/:id', authenticate, (req, res) => {
     const loan = db.prepare(`
       SELECT l.*, p.name as product_name
       FROM loans l
-      LEFT JOIN products p ON l.product_id = p.id
+      LEFT JOIN loan_products p ON l.product_id = p.id
       WHERE l.id = ? AND l.borrower_id = ?
     `).get(loanId, borrower.id);
 
@@ -726,7 +726,7 @@ app.get('/api/borrower/dashboard', authenticate, (req, res) => {
       recentLoans = db.prepare(`
         SELECT l.*, p.name as product_name
         FROM loans l
-        LEFT JOIN products p ON l.product_id = p.id
+        LEFT JOIN loan_products p ON l.product_id = p.id
         WHERE l.borrower_id = ?
         ORDER BY l.created_at DESC
         LIMIT 5
@@ -2627,7 +2627,7 @@ app.get('/api/admin/loans', authenticate, (req, res) => {
       FROM loans l
       JOIN borrowers b ON l.borrower_id = b.id
       JOIN users u ON b.user_id = u.id
-      LEFT JOIN products p ON l.product_id = p.id
+      LEFT JOIN loan_products p ON l.product_id = p.id
     `;
     const params = [];
 
@@ -2670,7 +2670,7 @@ app.get('/api/admin/loans/:id', authenticate, (req, res) => {
       FROM loans l
       JOIN borrowers b ON l.borrower_id = b.id
       JOIN users u ON b.user_id = u.id
-      LEFT JOIN products p ON l.product_id = p.id
+      LEFT JOIN loan_products p ON l.product_id = p.id
       WHERE l.id = ?
     `).get(loanId);
 
@@ -3045,7 +3045,7 @@ app.post('/api/loans', authenticate, (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
-    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
+    const product = db.prepare('SELECT * FROM loan_products WHERE id = ?').get(product_id);
     if (!product) {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
