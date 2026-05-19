@@ -182,7 +182,6 @@ export {
   authApi,
   productsApi,
   loansApi,
-  uploadsApi,
   repaymentsApi,
   adminApi,
   messagesApi,
