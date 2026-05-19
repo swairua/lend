@@ -1367,6 +1367,207 @@ try {
             exit;
         }
 
+        // SSE Stream for borrower updates
+        if (strpos($uri, 'admin/borrowers/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 2;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendSSEData($id, $data, $eventName = 'borrower-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedBorrowers($since) {
+                $sql = "SELECT u.id, u.name, u.email, u.phone, u.is_active,
+                               UNIX_TIMESTAMP(u.updated_at) as updated_timestamp,
+                               b.id borrower_id, b.national_id, b.address, b.business_name, b.business_type,
+                               b.monthly_income, b.credit_score
+                        FROM users u
+                        LEFT JOIN borrowers b ON u.id = b.user_id
+                        WHERE u.role = 'borrower' AND UNIX_TIMESTAMP(u.updated_at) > ?
+                        ORDER BY u.updated_at DESC";
+                return all($sql, [$since]);
+            }
+
+            $currentTimestamp = time();
+            sendSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to borrower stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedBorrowers = getUpdatedBorrowers($lastUpdateId);
+
+                if (!empty($updatedBorrowers)) {
+                    foreach ($updatedBorrowers as $borrower) {
+                        $newTimestamp = $borrower['updated_timestamp'];
+                        sendSSEData($newTimestamp, $borrower);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for repayment updates
+        if (strpos($uri, 'admin/repayments/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 2;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendRepaymentSSEData($id, $data, $eventName = 'repayment-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedRepayments($since) {
+                $sql = "SELECT r.*, u.name borrower_name, u.email borrower_email,
+                               l.status loan_status, l.principal_amount,
+                               UNIX_TIMESTAMP(r.created_at) as updated_timestamp
+                        FROM repayments r
+                        LEFT JOIN loans l ON r.loan_id = l.id
+                        LEFT JOIN borrowers b ON l.borrower_id = b.id
+                        LEFT JOIN users u ON b.user_id = u.id
+                        WHERE UNIX_TIMESTAMP(r.created_at) > ?
+                        ORDER BY r.created_at DESC";
+                return all($sql, [$since]);
+            }
+
+            $currentTimestamp = time();
+            sendRepaymentSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to repayment stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendRepaymentSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedRepayments = getUpdatedRepayments($lastUpdateId);
+
+                if (!empty($updatedRepayments)) {
+                    foreach ($updatedRepayments as $repayment) {
+                        $newTimestamp = $repayment['updated_timestamp'];
+                        sendRepaymentSSEData($newTimestamp, $repayment);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
+        // SSE Stream for dashboard stats updates
+        if (strpos($uri, 'admin/stats/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastCheckTime = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $pollInterval = 3;
+            $maxDuration = 300;
+            $startTime = time();
+
+            function sendStatsSSEData($id, $data, $eventName = 'stats-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getDashboardStats() {
+                $stats = [];
+                $stats['total_borrowers'] = intval(one("SELECT COUNT(*) c FROM users WHERE role='borrower'")['c'] ?? 0);
+                $stats['total_loans'] = intval(one("SELECT COUNT(*) c FROM loans")['c'] ?? 0);
+                $stats['active_loans'] = intval(one("SELECT COUNT(*) c FROM loans WHERE status='active'")['c'] ?? 0);
+                $stats['pending_loans'] = intval(one("SELECT COUNT(*) c FROM loans WHERE status='pending'")['c'] ?? 0);
+                $stats['total_disbursed'] = floatval(one("SELECT COALESCE(SUM(principal_amount), 0) c FROM loans WHERE status IN ('active','completed','defaulted')")['c'] ?? 0);
+                $stats['total_collected'] = floatval(one("SELECT COALESCE(SUM(amount), 0) c FROM repayments")['c'] ?? 0);
+                $stats['timestamp'] = time();
+                return $stats;
+            }
+
+            $currentTimestamp = time();
+            sendStatsSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to stats stream'
+            ], 'connected');
+
+            $lastStats = null;
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendStatsSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $currentStats = getDashboardStats();
+
+                if ($lastStats === null || json_encode($lastStats) !== json_encode($currentStats)) {
+                    sendStatsSSEData($currentStats['timestamp'], $currentStats);
+                    $lastStats = $currentStats;
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
         // Borrowers
         if (strpos($uri, 'admin/borrowers') !== false) {
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;

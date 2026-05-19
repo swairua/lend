@@ -15,3 +15,8 @@ ALTER TABLE repayments ADD INDEX idx_loan_id (loan_id);
 
 -- Composite index for status + created_at (common filter + sort pattern)
 ALTER TABLE loans ADD INDEX idx_status_created_at (status, created_at);
+
+-- Indexes for real-time stream updates
+ALTER TABLE users ADD INDEX idx_role_updated_at (role, updated_at);
+ALTER TABLE borrowers ADD INDEX idx_updated_at (updated_at);
+ALTER TABLE repayments ADD INDEX idx_created_at (created_at);
