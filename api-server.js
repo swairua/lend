@@ -3080,6 +3080,110 @@ app.post('/api/loans', authenticate, (req, res) => {
   }
 });
 
+// Get admin system logs with filtering and pagination
+app.get('/api/admin/logs', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const { log_type, status, dateFrom, dateTo, search, offset = 0, limit = 50 } = req.query;
+    const offsetNum = parseInt(offset) || 0;
+    const limitNum = Math.min(parseInt(limit) || 50, 500); // Cap at 500
+
+    // Build query dynamically
+    let query = `
+      SELECT
+        sl.id,
+        sl.user_id,
+        sl.log_type,
+        sl.action,
+        sl.entity_type,
+        sl.entity_id,
+        sl.status,
+        sl.details,
+        sl.created_at,
+        u.name as user_name,
+        u.email as user_email
+      FROM system_logs sl
+      LEFT JOIN users u ON sl.user_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    // Filter by log_type
+    if (log_type) {
+      query += ` AND sl.log_type = ?`;
+      params.push(log_type);
+    }
+
+    // Filter by status
+    if (status) {
+      query += ` AND sl.status = ?`;
+      params.push(status);
+    }
+
+    // Filter by date range
+    if (dateFrom) {
+      query += ` AND sl.created_at >= ?`;
+      params.push(dateFrom);
+    }
+    if (dateTo) {
+      query += ` AND sl.created_at <= ?`;
+      params.push(dateTo);
+    }
+
+    // Search in action, entity_type, details, user_name, user_email
+    if (search) {
+      query += ` AND (
+        sl.action LIKE ? OR
+        sl.entity_type LIKE ? OR
+        sl.details LIKE ? OR
+        u.name LIKE ? OR
+        u.email LIKE ?
+      )`;
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+    }
+
+    // Get total count for pagination
+    const countQuery = query.replace(
+      /SELECT.*?FROM/i,
+      'SELECT COUNT(*) as total FROM'
+    );
+    const countStmt = db.prepare(countQuery);
+    const { total } = countStmt.all(...params)[0];
+
+    // Add ordering and pagination
+    query += ` ORDER BY sl.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limitNum, offsetNum);
+
+    const stmt = db.prepare(query);
+    const logs = stmt.all(...params);
+
+    // Parse JSON details for each log
+    const parsedLogs = logs.map(log => ({
+      ...log,
+      details: log.details ? JSON.parse(log.details) : null
+    }));
+
+    res.json({
+      success: true,
+      data: parsedLogs,
+      pagination: {
+        total,
+        offset: offsetNum,
+        limit: limitNum,
+        hasMore: offsetNum + limitNum < total
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch logs' });
+  }
+});
+
 // Catch-all for unimplemented endpoints
 app.all('*', (req, res) => {
   res.status(501).json({ success: false, error: 'Endpoint not implemented in dev server' });

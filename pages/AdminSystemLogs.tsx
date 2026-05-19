@@ -14,25 +14,28 @@ interface SystemLog {
   id: number;
   log_type: string;
   action: string;
-  details: string;
+  details: any;
+  entity_type?: string;
+  entity_id?: number;
   user_id: number;
   user_name: string;
   user_email: string;
-  timestamp: string;
+  created_at: string;
   status: 'success' | 'failed';
 }
 
 interface PaginationInfo {
-  page: number;
+  offset: number;
   limit: number;
   total: number;
+  hasMore: boolean;
 }
 
 export default function AdminSystemLogs() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<SystemLog[]>([]);
-  const [pagination, setPagination] = useState<PaginationInfo>({ page: 1, limit: 20, total: 0 });
+  const [pagination, setPagination] = useState<PaginationInfo>({ offset: 0, limit: 20, total: 0, hasMore: false });
   const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -44,24 +47,25 @@ export default function AdminSystemLogs() {
     endDate: '',
   });
 
-  const logTypes = ['api_request', 'mpesa_transaction', 'auth', 'error'];
+  const logTypes = ['loan_action', 'payment', 'sms', 'admin_action', 'user_mgmt', 'document'];
   const statusOptions = ['success', 'failed'];
 
   useEffect(() => {
     loadLogs(1);
   }, []);
 
-  const loadLogs = async (page: number) => {
+  const loadLogs = async (pageNum: number = 1) => {
     setLoading(true);
     try {
+      const offset = (pageNum - 1) * 20;
       const params = new URLSearchParams();
-      params.set('page', page.toString());
+      params.set('offset', offset.toString());
       params.set('limit', '20');
       if (filters.logType) params.set('log_type', filters.logType);
       if (filters.status) params.set('status', filters.status);
       if (filters.search) params.set('search', filters.search);
-      if (filters.startDate) params.set('start_date', filters.startDate);
-      if (filters.endDate) params.set('end_date', filters.endDate);
+      if (filters.startDate) params.set('dateFrom', filters.startDate);
+      if (filters.endDate) params.set('dateTo', filters.endDate);
 
       const response = await fetch(`/api/admin/logs?${params}`, {
         headers: {
@@ -72,9 +76,8 @@ export default function AdminSystemLogs() {
       if (!response.ok) throw new Error('Failed to load logs');
 
       const result = await response.json();
-      const data = normalizeList<SystemLog>(result.data?.logs || []);
-      setLogs(data as SystemLog[]);
-      setPagination(result.data?.pagination || { page, limit: 20, total: 0 });
+      setLogs(result.data || []);
+      setPagination(result.pagination || { offset, limit: 20, total: 0, hasMore: false });
     } catch (error) {
       console.error('Error loading logs:', error);
       toast({
@@ -108,8 +111,8 @@ export default function AdminSystemLogs() {
         log.action,
         log.status,
         log.user_name || '-',
-        new Date(log.timestamp).toLocaleString(),
-        log.details || '',
+        new Date(log.created_at).toLocaleString(),
+        typeof log.details === 'string' ? log.details : JSON.stringify(log.details || ''),
       ]);
 
       const csvContent = [
@@ -143,10 +146,12 @@ export default function AdminSystemLogs() {
 
   const getLogTypeColor = (logType: string) => {
     const colors: Record<string, string> = {
-      api_request: 'bg-blue-100 text-blue-800',
-      mpesa_transaction: 'bg-green-100 text-green-800',
-      auth: 'bg-purple-100 text-purple-800',
-      error: 'bg-red-100 text-red-800',
+      loan_action: 'bg-blue-100 text-blue-800',
+      payment: 'bg-green-100 text-green-800',
+      sms: 'bg-purple-100 text-purple-800',
+      admin_action: 'bg-orange-100 text-orange-800',
+      user_mgmt: 'bg-indigo-100 text-indigo-800',
+      document: 'bg-yellow-100 text-yellow-800',
     };
     return colors[logType] || 'bg-gray-100 text-gray-800';
   };
@@ -155,13 +160,16 @@ export default function AdminSystemLogs() {
     return status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
   };
 
-  const parseDetails = (details: string | null) => {
+  const parseDetails = (details: any) => {
     if (!details) return null;
-    try {
-      return JSON.parse(details);
-    } catch {
-      return details;
+    if (typeof details === 'string') {
+      try {
+        return JSON.parse(details);
+      } catch {
+        return details;
+      }
     }
+    return details;
   };
 
   return (
@@ -291,7 +299,7 @@ export default function AdminSystemLogs() {
                         {log.user_name || '-'}
                       </ResponsiveTableCell>
                       <ResponsiveTableCell className="text-sm">
-                        {formatDate(log.timestamp)}
+                        {formatDate(log.created_at)}
                       </ResponsiveTableCell>
                       <ResponsiveTableCell className="text-right">
                         <Button
@@ -312,22 +320,22 @@ export default function AdminSystemLogs() {
 
               <div className="flex items-center justify-between mt-4">
                 <p className="text-sm text-gray-600">
-                  Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                  Showing {pagination.offset + 1} to{' '}
+                  {Math.min(pagination.offset + pagination.limit, pagination.total)} of{' '}
                   {pagination.total} logs
                 </p>
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => loadLogs(pagination.page - 1)}
-                    disabled={pagination.page === 1 || loading}
+                    onClick={() => loadLogs(Math.floor(pagination.offset / pagination.limit))}
+                    disabled={pagination.offset === 0 || loading}
                     variant="outline"
                     size="sm"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                   <Button
-                    onClick={() => loadLogs(pagination.page + 1)}
-                    disabled={pagination.page * pagination.limit >= pagination.total || loading}
+                    onClick={() => loadLogs(Math.floor(pagination.offset / pagination.limit) + 2)}
+                    disabled={!pagination.hasMore || loading}
                     variant="outline"
                     size="sm"
                   >
@@ -369,7 +377,7 @@ export default function AdminSystemLogs() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Timestamp</p>
-                <p className="text-sm">{new Date(selectedLog.timestamp).toLocaleString()}</p>
+                <p className="text-sm">{new Date(selectedLog.created_at).toLocaleString()}</p>
               </div>
               {selectedLog.details && (
                 <div>
