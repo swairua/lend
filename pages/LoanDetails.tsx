@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import LoanStatusTimeline from "../components/LoanStatusTimeline";
+import DocumentsPanel from "../components/DocumentsPanel";
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel, pdfApi } from "../types/api";
 import { secureStorage } from "@/utils/secureStorage";
 import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
@@ -419,6 +420,11 @@ export default function LoanDetails() {
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* Loan Documents */}
+      {user?.borrower_id && (
+        <DocumentsPanel borrowerId={user.borrower_id} isBorrower={true} readOnly={true} />
       )}
 
     </div>
