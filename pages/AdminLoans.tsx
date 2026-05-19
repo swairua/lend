@@ -57,6 +57,7 @@ export default function AdminLoans() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState(0);
 
   const loadLoans = useCallback(async () => {
     setLoading(true);
@@ -108,19 +109,87 @@ export default function AdminLoans() {
   }, [statusFilter, loadCountsByStatus, loadCounts]);
 
   useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadLoans();
-      if (statusFilter !== 'all') {
-        loadCountsByStatus(statusFilter);
-      } else {
-        loadCounts();
+    let eventSource: EventSource | null = null;
+    let pollFallback: NodeJS.Timeout | null = null;
+
+    const setupSSE = () => {
+      try {
+        const status = statusFilter === 'all' ? '' : `&status=${statusFilter}`;
+        const since = Math.floor(Date.now() / 1000) - 60;
+        const url = `/api/admin/loans/stream?since=${since}${status}`;
+
+        eventSource = new EventSource(url);
+
+        eventSource.addEventListener('loan-updated', (event) => {
+          const loan = JSON.parse(event.data);
+          setLoans(prev => {
+            const existing = prev.findIndex(l => l.id === loan.id);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...updated[existing], ...loan };
+              return updated;
+            }
+            return [loan, ...prev];
+          });
+        });
+
+        eventSource.addEventListener('connected', () => {
+          if (pollFallback) {
+            clearInterval(pollFallback);
+            pollFallback = null;
+          }
+        });
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          // Fallback to polling if SSE fails
+          if (!pollFallback) {
+            pollFallback = setInterval(() => {
+              loadLoans();
+              if (statusFilter !== 'all') {
+                loadCountsByStatus(statusFilter);
+              } else {
+                loadCounts();
+              }
+            }, 4000);
+          }
+        };
+      } catch (error) {
+        console.error('SSE connection failed, falling back to polling:', error);
+        if (!pollFallback) {
+          pollFallback = setInterval(() => {
+            loadLoans();
+            if (statusFilter !== 'all') {
+              loadCountsByStatus(statusFilter);
+            } else {
+              loadCounts();
+            }
+          }, 4000);
+        }
       }
-    }, 4000);
-    return () => clearInterval(pollInterval);
+    };
+
+    setupSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (pollFallback) {
+        clearInterval(pollFallback);
+      }
+    };
   }, [statusFilter, loadLoans, loadCountsByStatus, loadCounts]);
 
   const handleRefresh = async () => {
-    if (refreshing) return;
+    const now = Date.now();
+    const cooldownMs = 500;
+    if (now - lastRefreshTime < cooldownMs) return;
+
+    setLastRefreshTime(now);
     setRefreshing(true);
     try {
       await loadLoans();
@@ -129,7 +198,7 @@ export default function AdminLoans() {
         await loadCountsByStatus(statusFilter);
       }
     } finally {
-      setTimeout(() => setRefreshing(false), 500);
+      setTimeout(() => setRefreshing(false), cooldownMs);
     }
   };
   

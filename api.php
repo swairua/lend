@@ -1290,6 +1290,83 @@ try {
             exit;
         }
 
+        // SSE Stream for loan updates
+        if (strpos($uri, 'admin/loans/stream') !== false) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            header('Access-Control-Allow-Origin: *');
+
+            ignore_user_abort(true);
+            set_time_limit(0);
+
+            $lastUpdateId = isset($_GET['since']) ? intval($_GET['since']) : 0;
+            $status = $_GET['status'] ?? null;
+            $pollInterval = 2; // Check for updates every 2 seconds
+            $maxDuration = 300; // 5 minutes max connection time
+            $startTime = time();
+
+            function sendSSEData($id, $data, $eventName = 'loan-updated') {
+                echo "id: {$id}\n";
+                echo "event: {$eventName}\n";
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            }
+
+            function getUpdatedLoans($since, $status) {
+                $sql = "SELECT l.*, u.name borrower_name, u.email borrower_email, lp.name product_name,
+                               lc.name category_name, COALESCE(SUM(r.amount), 0) as total_paid,
+                               UNIX_TIMESTAMP(l.updated_at) as updated_timestamp
+                        FROM loans l
+                        LEFT JOIN borrowers b ON l.borrower_id=b.id
+                        LEFT JOIN users u ON b.user_id=u.id
+                        LEFT JOIN loan_products lp ON l.product_id=lp.id
+                        LEFT JOIN loan_categories lc ON lp.category_id=lc.id
+                        LEFT JOIN repayments r ON l.id=r.loan_id
+                        WHERE UNIX_TIMESTAMP(l.updated_at) > ?";
+                $params = [$since];
+                if ($status && $status !== 'all') {
+                    $sql .= " AND l.status = ?";
+                    $params[] = $status;
+                }
+                $sql .= " GROUP BY l.id ORDER BY l.updated_at DESC";
+                return all($sql, $params);
+            }
+
+            $currentTimestamp = time();
+            sendSSEData($currentTimestamp, [
+                'type' => 'connection-established',
+                'timestamp' => $currentTimestamp,
+                'message' => 'Connected to loan stream'
+            ], 'connected');
+
+            while (true) {
+                if (time() - $startTime > $maxDuration) {
+                    sendSSEData(time(), ['type' => 'timeout'], 'stream-closed');
+                    break;
+                }
+
+                $updatedLoans = getUpdatedLoans($lastUpdateId, $status);
+
+                if (!empty($updatedLoans)) {
+                    foreach ($updatedLoans as $loan) {
+                        $loan['balance'] = floatval($loan['total_amount']) - floatval($loan['total_paid']);
+                        $newTimestamp = $loan['updated_timestamp'];
+                        sendSSEData($newTimestamp, $loan);
+                        $lastUpdateId = max($lastUpdateId, $newTimestamp);
+                    }
+                }
+
+                if (connection_aborted()) {
+                    break;
+                }
+
+                sleep($pollInterval);
+            }
+            exit;
+        }
+
         // Borrowers
         if (strpos($uri, 'admin/borrowers') !== false) {
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
