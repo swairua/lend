@@ -367,7 +367,22 @@ export default function AdminRepayments() {
                   <ResponsiveTableCell label="Principal" className="hidden md:table-cell text-right md:p-3 p-2 text-xs md:text-sm">{formatKES(repayment.principal_paid || 0)}</ResponsiveTableCell>
                   <ResponsiveTableCell label="Interest" className="hidden lg:table-cell text-right md:p-3 p-2 text-xs md:text-sm">{formatKES(repayment.interest_paid || 0)}</ResponsiveTableCell>
                   <ResponsiveTableCell label="Method" className="hidden sm:table-cell md:p-3 p-2">
-                    <Badge variant="outline" className="capitalize text-xs">{repayment.payment_method || 'N/A'}</Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="outline" className="capitalize text-xs w-fit">{repayment.payment_method || 'N/A'}</Badge>
+                      {repayment.payment_status && (
+                        <Badge
+                          className={`capitalize text-xs w-fit ${
+                            repayment.payment_status === 'applied'
+                              ? 'bg-green-100 text-green-800'
+                              : repayment.payment_status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {repayment.payment_status}
+                        </Badge>
+                      )}
+                    </div>
                   </ResponsiveTableCell>
                   <ResponsiveTableCell label="Date" className="hidden md:table-cell text-xs md:text-sm text-muted-foreground md:p-3 p-2">{formatDate(repayment.paid_at || repayment.created_at)}</ResponsiveTableCell>
                   <ResponsiveTableCell label="Actions" className="md:p-3 p-2">
@@ -448,6 +463,24 @@ export default function AdminRepayments() {
                 <div>
                   <p className="text-xs md:text-sm text-muted-foreground">Reference</p>
                   <p className="font-medium text-sm md:text-base truncate">{selectedRepayment.reference_number || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs md:text-sm text-muted-foreground">Status</p>
+                  {selectedRepayment.payment_status ? (
+                    <Badge
+                      className={`capitalize text-xs ${
+                        selectedRepayment.payment_status === 'applied'
+                          ? 'bg-green-100 text-green-800'
+                          : selectedRepayment.payment_status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {selectedRepayment.payment_status}
+                    </Badge>
+                  ) : (
+                    <p className="font-medium text-sm md:text-base">N/A</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs md:text-sm text-muted-foreground">Loan Status</p>

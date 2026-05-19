@@ -1894,8 +1894,10 @@ app.get('/api/admin/repayments', authenticate, (req, res) => {
         r.reference_number,
         r.paid_by,
         r.paid_at,
+        r.payment_status,
         r.created_at,
         u.name as borrower_name,
+        u.email as borrower_email,
         l.principal_amount,
         l.total_amount,
         l.status as loan_status
