@@ -40,8 +40,14 @@ export default function DocumentsPanel({ borrowerId, readOnly, isBorrower }: Doc
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this document?")) return;
     setDeleting(id);
-    try { await uploadsApi.deleteDocument(id); await loadDocs(); }
-    catch (e) { console.error(e); }
+    try {
+      await uploadsApi.deleteDocument(id);
+      await loadDocs();
+    }
+    catch (e) {
+      console.error(e);
+      alert(e.message || 'Failed to delete document');
+    }
     finally { setDeleting(null); }
   };
 
@@ -49,12 +55,18 @@ export default function DocumentsPanel({ borrowerId, readOnly, isBorrower }: Doc
   const isImg = (url: string) => /\\.(jpg|jpeg|png|gif|webp)$/i.test(url || "");
   const docLabel = (type: string) => DOC_TYPES.find(d => d.value === type)?.label || type;
 
+  // Get set of already-uploaded document types
+  const uploadedDocTypes = new Set(docs.map(d => d.doc_type));
+
+  // For borrowers, determine if upload should be disabled
+  const borrowerCanUpload = !isBorrower || docs.length === 0;
+
   return (
     <Card>
       <CardHeader className="p-4 pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2"><FolderOpen className="h-4 w-4" /> Documents</CardTitle>
-          {!readOnly && (!isBorrower || docs.length === 0) && (
+          {!readOnly && borrowerCanUpload && (
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAddOpen(true)} aria-label="Upload new document">
               <Plus className="h-3 w-3 mr-1" /> Upload
             </Button>
@@ -70,49 +82,58 @@ export default function DocumentsPanel({ borrowerId, readOnly, isBorrower }: Doc
           <div className="text-center py-6">
             <FolderOpen className="h-8 w-8 text-gray-200 mx-auto mb-2" />
             <p className="text-xs text-muted-foreground">No documents uploaded yet</p>
-            {!readOnly && (!isBorrower || docs.length === 0) && <Button size="sm" variant="ghost" className="mt-2 text-xs" onClick={() => setAddOpen(true)}><Plus className="h-3 w-3 mr-1" /> Add document</Button>}
+            {!readOnly && borrowerCanUpload && <Button size="sm" variant="ghost" className="mt-2 text-xs" onClick={() => setAddOpen(true)}><Plus className="h-3 w-3 mr-1" /> Add document</Button>}
           </div>
         ) : (
-          <div className="space-y-2" role="region" aria-label="Uploaded documents list">
-            {docs.map((doc, idx) => {
-              const fullUrl = getFileUrl(doc.file_url);
-              return (
-              <div key={doc.id} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/30" role="listitem">
-                {isImg(fullUrl) ? <Image className="h-8 w-8 text-blue-400 flex-shrink-0" aria-hidden="true" /> : <FileText className="h-8 w-8 text-gray-400 flex-shrink-0" aria-hidden="true" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{doc.original_name}</p>
-                  <Badge variant="secondary" className="text-xs mt-0.5">{docLabel(doc.doc_type)}</Badge>
-                </div>
-                <div className="flex gap-1 flex-shrink-0" role="toolbar" aria-label={`Actions for document ${idx + 1} of ${docs.length}`}>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() => setViewDoc(doc)}
-                    aria-label={`View ${doc.original_name}`}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                  {!readOnly && !isBorrower && (
+          <div className="space-y-3" role="region" aria-label="Uploaded documents list">
+            {isBorrower && docs.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                <p className="text-xs text-amber-800">
+                  <strong>Documents are locked.</strong> Contact your administrator to replace or delete documents.
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+              {docs.map((doc, idx) => {
+                const fullUrl = getFileUrl(doc.file_url);
+                return (
+                <div key={doc.id} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/30" role="listitem">
+                  {isImg(fullUrl) ? <Image className="h-8 w-8 text-blue-400 flex-shrink-0" aria-hidden="true" /> : <FileText className="h-8 w-8 text-gray-400 flex-shrink-0" aria-hidden="true" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{doc.original_name}</p>
+                    <Badge variant="secondary" className="text-xs mt-0.5">{docLabel(doc.doc_type)}</Badge>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0" role="toolbar" aria-label={`Actions for document ${idx + 1} of ${docs.length}`}>
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 text-red-500 hover:text-red-600"
-                      onClick={() => handleDelete(doc.id)}
-                      disabled={deleting === doc.id}
-                      aria-label={`Delete ${doc.original_name}`}
+                      className="h-7 w-7"
+                      onClick={() => setViewDoc(doc)}
+                      aria-label={`View ${doc.original_name}`}
                     >
-                      {deleting === doc.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
+                      <Eye className="h-3.5 w-3.5" />
                     </Button>
-                  )}
+                    {!readOnly && !isBorrower && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-red-500 hover:text-red-600"
+                        onClick={() => handleDelete(doc.id)}
+                        disabled={deleting === doc.id}
+                        aria-label={`Delete ${doc.original_name}`}
+                      >
+                        {deleting === doc.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </CardContent>
