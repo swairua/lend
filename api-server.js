@@ -39,6 +39,11 @@ const upload = multer({ storage });
 app.use(cors());
 app.use(express.json());
 
+// Root endpoint for health check
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'Lending App API Server is running' });
+});
+
 // Initialize SQLite database
 const dbPath = path.join(__dirname, 'lending.db');
 const db = new Database(dbPath);
