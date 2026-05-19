@@ -590,6 +590,9 @@ export const uploadsApi = {
     return request<{ success: boolean; data: UploadedDocument[] }>("/uploads" + q);
   },
 
+  getDocument: (id: number) =>
+    request<{ success: boolean; data: UploadedDocument }>("/uploads/" + id),
+
   deleteDocument: (id: number) =>
     request<{ success: boolean }>("/uploads/" + id, { method: "DELETE" }),
 };
@@ -607,7 +610,7 @@ export const pdfApi = {
 
   generateInvoice: (loanId: number) =>
     request<{ success: boolean; message: string; data: { document_id: number; fileName: string; pdfUrl: string } }>(
-      '/admin/generate-invoice',
+      '/borrower/loans/generate-invoice',
       {
         method: 'POST',
         body: JSON.stringify({ loan_id: loanId }),

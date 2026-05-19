@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { FieldGroup } from "@/components/FieldGroup";
 import { productsApi, loansApi, formatKES } from "../types/api";
+import { uploadsApi } from "../utils/api";
+import { secureStorage } from "@/utils/secureStorage";
 import { calculateAPR } from "../utils/aprCalculator";
 import { debounce } from "@/utils/debounce";
 import { ProductSelector } from "@/components/ProductSelector";
@@ -151,21 +153,37 @@ export default function ApplyLoan() {
     if (!selectedProduct) return;
     setSubmitting(true);
     try {
+      const user = await secureStorage.getUser();
+      const borrowerId = user?.borrower_id;
+
+      let securityDocId: number | undefined;
+      let guarantorDocId: number | undefined;
+
+      // Upload files first if present
+      if (borrowerId && (form.security_file || form.guarantor_file)) {
+        try {
+          if (form.security_file) {
+            const res: any = await uploadsApi.upload(form.security_file, "security_document", borrowerId);
+            securityDocId = res.data?.id || res.data?.doc_id;
+          }
+          if (form.guarantor_file) {
+            const res: any = await uploadsApi.upload(form.guarantor_file, "guarantor_document", borrowerId);
+            guarantorDocId = res.data?.id || res.data?.doc_id;
+          }
+        } catch (uploadErr) {
+          console.error("File upload failed:", uploadErr);
+          showAlert({ type: "warning", message: "Document upload failed. Continuing with application." });
+        }
+      }
+
       const payload: any = {
         product_id: selectedProduct.id,
         amount: form.amount,
         term_months: form.term_months,
         purpose: form.purpose || undefined,
-        security_details: form.security_details || undefined,
-        guarantor_details: form.guarantor_details || undefined,
+        security_details: securityDocId ? String(securityDocId) : (form.security_details || undefined),
+        guarantor_details: guarantorDocId ? String(guarantorDocId) : (form.guarantor_details || undefined),
       };
-
-      if (form.security_file) {
-        payload.security_file = await fileToBase64(form.security_file);
-      }
-      if (form.guarantor_file) {
-        payload.guarantor_file = await fileToBase64(form.guarantor_file);
-      }
 
       await loansApi.apply(payload);
       setSubmitted(true);

@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import LoanStatusTimeline from "../components/LoanStatusTimeline";
+import DocumentsPanel from "../components/DocumentsPanel";
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel, pdfApi } from "../types/api";
+import { uploadsApi } from "../utils/api";
 import { secureStorage } from "@/utils/secureStorage";
 import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
 import { calculateAPR } from "../utils/aprCalculator";
@@ -80,6 +82,7 @@ export default function LoanDetails() {
   const { loanId } = useParams();
   const [loading, setLoading] = useState(true);
   const [loan, setLoan] = useState<any>(null);
+  const [loanDocuments, setLoanDocuments] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
@@ -100,11 +103,35 @@ export default function LoanDetails() {
     try {
       const res: any = await loansApi.getMyLoan(parseInt(loanId));
       const data = res.data?.data || res.data || res;
-      if (!data) { setError("Loan not found"); } else { setLoan(data); }
+      if (!data) { setError("Loan not found"); } else {
+        setLoan(data);
+        await loadLoanDocuments(data);
+      }
     } catch (err: any) {
       console.error("Failed to load loan:", err);
       setError(err.message || "Failed to load loan details");
     } finally { setLoading(false); }
+  };
+
+  const loadLoanDocuments = async (loanData: any) => {
+    const docs: any[] = [];
+    try {
+      // Load security document if ID is stored in security_details
+      if (loanData.security_details && /^\d+$/.test(loanData.security_details.trim())) {
+        const docId = parseInt(loanData.security_details);
+        const res: any = await uploadsApi.getDocument(docId);
+        if (res.data?.data) docs.push(res.data.data);
+      }
+      // Load guarantor document if ID is stored in guarantor_details
+      if (loanData.guarantor_details && /^\d+$/.test(loanData.guarantor_details.trim())) {
+        const docId = parseInt(loanData.guarantor_details);
+        const res: any = await uploadsApi.getDocument(docId);
+        if (res.data?.data) docs.push(res.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to load loan documents:", err);
+    }
+    setLoanDocuments(docs);
   };
 
   if (loading) return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -419,6 +446,11 @@ export default function LoanDetails() {
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* Loan Documents */}
+      {user?.borrower_id && (
+        <DocumentsPanel borrowerId={user.borrower_id} isBorrower={true} readOnly={true} />
       )}
 
     </div>
