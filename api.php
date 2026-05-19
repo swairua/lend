@@ -1541,18 +1541,25 @@ try {
             $u = auth();
             requireAdmin($u);
 
-            $rows = all("
+            $orphaned = all("
                 SELECT mt.* FROM mpesa_transactions mt
-                LEFT JOIN repayments r ON mt.safaricom_receipt = r.reference_number
+                LEFT JOIN repayments r ON mt.mpesa_reference = r.reference_number
                 WHERE mt.status = 'confirmed'
                 AND r.id IS NULL
-                AND mt.safaricom_receipt IS NOT NULL
                 ORDER BY mt.created_at DESC
             ");
 
-            logSystem('api_request', 'orphaned_payments_fetched', ['count' => count($rows)], $u['id']);
+            logSystem('api_request', 'orphaned_payments_fetched', ['count' => count($orphaned)], $u['id']);
             log_access('GET', 'admin/mpesa/orphaned-payments', 200);
-            echo json_encode(['success' => true, 'data' => $rows]);
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'orphaned' => $orphaned,
+                    'pending_timeout' => [],
+                    'total_orphaned' => count($orphaned),
+                    'total_pending' => 0
+                ]
+            ]);
             exit;
         }
 
@@ -1578,7 +1585,7 @@ try {
                         continue;
                     }
 
-                    $existing = one("SELECT id FROM repayments WHERE reference_number = ?", [$txn['safaricom_receipt']]);
+                    $existing = one("SELECT id FROM repayments WHERE reference_number = ?", [$txn['mpesa_reference']]);
                     if ($existing) {
                         $results[] = ['transaction_id' => $txnId, 'success' => false, 'error' => 'Repayment already exists for this transaction'];
                         continue;
@@ -1595,7 +1602,7 @@ try {
                     if ($loanId) {
                         q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number, paid_at, created_at)
                            VALUES (?, ?, ?, 0, 'mpesa', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                          [$loanId, $txn['amount'], $txn['amount'], $txn['safaricom_receipt']]);
+                          [$loanId, $txn['amount'], $txn['amount'], $txn['mpesa_reference']]);
 
                         $repaymentId = pdo()->lastInsertId();
                         $results[] = ['transaction_id' => $txnId, 'repayment_id' => $repaymentId, 'success' => true, 'loan_id' => $loanId];
