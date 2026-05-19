@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldGroup } from "@/components/FieldGroup";
-import { productsApi, loansApi, formatKES } from "../types/api";
+import { productsApi, loansApi, uploadsApi, formatKES } from "../types/api";
+import { secureStorage } from "@/utils/secureStorage";
 import { calculateAPR } from "../utils/aprCalculator";
 import { debounce } from "@/utils/debounce";
 import { ProductSelector } from "@/components/ProductSelector";
@@ -151,6 +152,9 @@ export default function ApplyLoan() {
     if (!selectedProduct) return;
     setSubmitting(true);
     try {
+      const user = await secureStorage.getUser();
+      const borrowerId = user?.borrower_id;
+
       const payload: any = {
         product_id: selectedProduct.id,
         amount: form.amount,
@@ -160,14 +164,22 @@ export default function ApplyLoan() {
         guarantor_details: form.guarantor_details || undefined,
       };
 
-      if (form.security_file) {
-        payload.security_file = await fileToBase64(form.security_file);
-      }
-      if (form.guarantor_file) {
-        payload.guarantor_file = await fileToBase64(form.guarantor_file);
+      await loansApi.apply(payload);
+
+      if (borrowerId && (form.security_file || form.guarantor_file)) {
+        try {
+          if (form.security_file) {
+            await uploadsApi.upload(form.security_file, "security_document", borrowerId);
+          }
+          if (form.guarantor_file) {
+            await uploadsApi.upload(form.guarantor_file, "guarantor_document", borrowerId);
+          }
+        } catch (uploadErr) {
+          console.error("File upload failed:", uploadErr);
+          showAlert({ type: "warning", message: "Application submitted but document upload failed. You can upload documents later from your Profile." });
+        }
       }
 
-      await loansApi.apply(payload);
       setSubmitted(true);
     } catch (err: any) {
       showAlert({ type: "error", message: err.message || "Failed to submit application. Please try again." });
