@@ -386,6 +386,28 @@ function initializeSchema() {
     // Demo loans seeding disabled to preserve user data
     // Loans should be created through the application UI
 
+    // Clean up expired tokens and fix invalid expires_at values
+    try {
+      // Delete tokens that have expired
+      db.prepare(`
+        DELETE FROM tokens
+        WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')
+      `).run();
+
+      // Extend expires_at for tokens that have NULL or same value as created_at (old format)
+      const now = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      db.prepare(`
+        UPDATE tokens
+        SET expires_at = ?
+        WHERE expires_at IS NULL OR expires_at = created_at
+      `).run(expiresAt);
+
+      console.log('✓ Tokens cleaned up and refreshed');
+    } catch (e) {
+      console.warn('Token cleanup warning:', e.message);
+    }
+
     console.log('✓ Database schema initialized');
   } catch (error) {
     console.error('Database initialization error:', error.message);
