@@ -3179,12 +3179,39 @@ app.get('/api/admin/logs', authenticate, (req, res) => {
     }
 
     // Get total count for pagination
-    const countQuery = query.replace(
-      /SELECT.*?FROM/i,
-      'SELECT COUNT(*) as total FROM'
-    );
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM system_logs sl
+      LEFT JOIN users u ON sl.user_id = u.id
+      WHERE 1=1
+    `;
+
+    // Apply same filters as main query
+    if (log_type) {
+      countQuery += ` AND sl.log_type = ?`;
+    }
+    if (status) {
+      countQuery += ` AND sl.status = ?`;
+    }
+    if (dateFrom) {
+      countQuery += ` AND sl.created_at >= ?`;
+    }
+    if (dateTo) {
+      countQuery += ` AND sl.created_at <= ?`;
+    }
+    if (search) {
+      countQuery += ` AND (
+        sl.action LIKE ? OR
+        sl.entity_type LIKE ? OR
+        sl.details LIKE ? OR
+        u.name LIKE ? OR
+        u.email LIKE ?
+      )`;
+    }
+
     const countStmt = db.prepare(countQuery);
-    const { total } = countStmt.all(...params)[0];
+    const countResult = countStmt.all(...params);
+    const { total } = countResult && countResult.length > 0 ? countResult[0] : { total: 0 };
 
     // Add ordering and pagination
     query += ` ORDER BY sl.created_at DESC LIMIT ? OFFSET ?`;
@@ -3196,7 +3223,14 @@ app.get('/api/admin/logs', authenticate, (req, res) => {
     // Parse JSON details for each log
     const parsedLogs = logs.map(log => ({
       ...log,
-      details: log.details ? JSON.parse(log.details) : null
+      details: log.details ? (() => {
+        try {
+          return JSON.parse(log.details);
+        } catch (e) {
+          console.warn('Failed to parse details for log', log.id, e);
+          return log.details;
+        }
+      })() : null
     }));
 
     res.json({
