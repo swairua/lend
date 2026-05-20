@@ -10,6 +10,7 @@ import {
   CreditCard,
   DollarSign,
   History,
+  Wallet,
 } from 'lucide-react';
 
 export type UserRole = 'borrower' | 'admin';
@@ -40,6 +41,7 @@ export const navigationItems: NavItem[] = [
   { label: 'Products', href: '/admin/products', icon: CreditCard, roles: ['admin'] },
   { label: 'Borrowers', href: '/admin/borrowers', icon: Users, roles: ['admin'] },
   { label: 'Repayments', href: '/admin/repayments', icon: DollarSign, roles: ['admin'] },
+  { label: 'Disbursements', href: '/admin/disbursements', icon: Wallet, roles: ['admin'] },
   { label: 'Users', href: '/admin/users', icon: User, roles: ['admin'] },
   { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin'] },
   { label: 'System Logs', href: '/admin/logs', icon: History, roles: ['admin'] },

@@ -21,11 +21,8 @@ export default function Index() {
       {/* Navigation Header */}
       <header className="border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-primary">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold">
-              L
-            </div>
-            <span className="hidden sm:inline">LendHub</span>
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/icons/icon-192.svg" alt="JECRI BUREAU" className="h-10 w-auto" />
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -65,7 +62,7 @@ export default function Index() {
                 Fast, Transparent Lending at Your Fingertips
               </h1>
               <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                LendHub is a modern lending platform that provides flexible financing solutions tailored to your needs. Apply for loans, track repayments, and manage your finances with ease.
+                JECRI BUREAU is a trusted lending institution providing flexible financing solutions tailored to your needs. Apply for loans, track repayments, and manage your finances with ease.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
@@ -308,7 +305,7 @@ export default function Index() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-                Why Choose LendHub?
+                Why Choose JECRI BUREAU?
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 We believe in transparent, accessible, and fair lending
@@ -430,7 +427,7 @@ export default function Index() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
             <p className="text-sm text-muted-foreground">
-              &copy; 2026 LendHub. All rights reserved.
+              &copy; 2026 JECRI BUREAU. All rights reserved.
             </p>
             <div className="flex items-center gap-6 text-sm">
               <Link to="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">

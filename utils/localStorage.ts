@@ -256,7 +256,7 @@ export function initializeDefaultData(): void {
         id: "admin-1",
         role: "admin",
         name: "Admin User",
-        email: "admin@lendhub.com",
+        email: "admin@jecribureau.ke",
         createdAt: new Date().toISOString(),
       },
     ];

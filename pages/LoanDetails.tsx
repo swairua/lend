@@ -185,10 +185,10 @@ export default function LoanDetails() {
         assetDescription: loan.asset_description || 'Asset(s)',
         assetValue: loan.asset_value,
         securityDetails: loan.security_details || 'As per agreement',
-        companyName: 'LendHub',
-        companyAddress: 'P.O. Box XXXX, Nairobi, Kenya',
+        companyName: 'JECRI BUREAU',
+        companyAddress: 'Nairobi, Kenya',
         companyPhone: '+254 (0) 700 000 000',
-        companyEmail: 'support@lendhub.io',
+        companyEmail: 'support@jecribureau.ke',
       });
     } catch (err) {
       console.error('Failed to download PDF:', err);

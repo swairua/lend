@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Lending</string>
-    <string name="title_activity_main">Lending</string>
+    <string name="app_name">JECRI BUREAU</string>
+    <string name="title_activity_main">JECRI BUREAU</string>
     <string name="package_name">com.swairua.lend</string>
     <string name="custom_url_scheme">com.swairua.lend</string>
 </resources>

@@ -44,9 +44,9 @@ export default function InvoiceReceipt({ open, onClose, type, loan, repayment, u
           {/* Header */}
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold text-blue-800">LendHub</h1>
-              <p className="text-sm text-gray-500">Modern Lending Platform</p>
-              <p className="text-sm text-gray-500">lending.wayrus.co.ke</p>
+              <h1 className="text-2xl font-bold text-amber-900">JECRI BUREAU</h1>
+              <p className="text-sm text-gray-500">Lending Institution</p>
+              <p className="text-sm text-gray-500">jecribureau.co.ke</p>
             </div>
             <div className="text-right">
               <p className="text-xl font-bold text-gray-700">{title}</p>
@@ -104,7 +104,7 @@ export default function InvoiceReceipt({ open, onClose, type, loan, repayment, u
 
           {/* Footer */}
           <div className="text-center text-xs text-gray-400 pt-4 border-t">
-            <p className="font-semibold text-gray-600 mb-1">Thank you for banking with LendHub</p>
+            <p className="font-semibold text-gray-600 mb-1">Thank you for banking with JECRI BUREAU</p>
             <p>This is a computer-generated document. No signature required.</p>
           </div>
         </div>

@@ -447,6 +447,24 @@ export const adminApi = {
     request<{ success: boolean; data: { orphaned: any[]; pending_timeout: any[]; total_orphaned: number; total_pending: number } }>(
       '/admin/mpesa/orphaned-payments'
     ),
+
+  getDisbursements: (params?: { page?: number; limit?: number }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return request<{ success: boolean; data: { disbursements: any[]; pagination: any } }>(
+      `/admin/disbursements${query ? `?${query}` : ''}`
+    );
+  },
+
+  createDisbursement: (data: { loan_id: number; amount: number; disbursement_method: string; reference_number?: string }) =>
+    request<{ success: boolean; message: string; data: { id: number } }>('/admin/disbursements', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteDisbursement: (id: number) =>
+    request<{ success: boolean }>(`/admin/disbursements/${id}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ==================== Helpers ====================

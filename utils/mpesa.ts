@@ -156,8 +156,8 @@ class MpesaClient {
     const token = await this.getAccessToken();
 
     const payload = {
-      OriginatorConversationID: `LendHub-${Date.now()}`,
-      InitiatorName: 'LendHub',
+      OriginatorConversationID: `JECRIBUREAU-${Date.now()}`,
+      InitiatorName: 'JECRI BUREAU',
       SecurityCredential: Buffer.from(this.config.consumerSecret).toString(
         'base64'
       ),
