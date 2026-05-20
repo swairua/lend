@@ -70,8 +70,8 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src="/icons/icon-192.svg" alt="JECRI BUREAU" className="h-16 w-auto mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-white">JECRI BUREAU</h1>
+          <img src="/icons/icon-192.svg" alt="JECRI BUREAU" className="h-32 w-auto mx-auto mb-6" />
+          <h1 className="text-4xl font-bold text-white">JECRI BUREAU</h1>
           <p className="text-slate-400 text-sm mt-1">Fast, transparent lending solutions</p>
         </div>
 
