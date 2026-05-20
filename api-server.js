@@ -409,10 +409,15 @@ function authenticate(req, res, next) {
   }
 
   const token = authHeader.substring(7);
-  const tokenRecord = db.prepare('SELECT user_id FROM tokens WHERE token = ?').get(token);
-  
+  const tokenRecord = db.prepare('SELECT user_id, expires_at FROM tokens WHERE token = ?').get(token);
+
   if (!tokenRecord) {
     return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+  }
+
+  // Check token expiration
+  if (tokenRecord.expires_at && new Date(tokenRecord.expires_at) < new Date()) {
+    return res.status(401).json({ success: false, error: 'Token has expired' });
   }
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(tokenRecord.user_id);
@@ -506,9 +511,10 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ success: false, error: 'User account is inactive' });
   }
 
-  // Create token
+  // Create token (valid for 7 days)
   const token = 't_' + crypto.randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO tokens (user_id, token) VALUES (?, ?)').run(user.id, token);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  db.prepare('INSERT INTO tokens (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
   db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
 
   // Get borrower info if applicable
@@ -553,9 +559,10 @@ app.post('/api/auth/register', (req, res) => {
   // Create borrower profile
   db.prepare('INSERT INTO borrowers (user_id, client_type) VALUES (?, ?)').run(result.lastInsertRowid, client_type);
 
-  // Create token
+  // Create token (valid for 7 days)
   const token = 't_' + crypto.randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO tokens (user_id, token) VALUES (?, ?)').run(result.lastInsertRowid, token);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  db.prepare('INSERT INTO tokens (user_id, token, expires_at) VALUES (?, ?, ?)').run(result.lastInsertRowid, token, expiresAt);
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
   const borrower = db.prepare('SELECT id FROM borrowers WHERE user_id = ?').get(user.id);
