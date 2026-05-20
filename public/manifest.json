@@ -1,11 +1,11 @@
 {
-  "name": "Lending Platform",
-  "short_name": "LendingApp",
-  "description": "Online lending platform for borrowers and administrators",
+  "name": "JECRI BUREAU",
+  "short_name": "JECRI",
+  "description": "Fast, transparent lending solutions from JECRI BUREAU - Lending Institution",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#8b2e2e",
   "orientation": "portrait-primary",
   "icons": [
     {

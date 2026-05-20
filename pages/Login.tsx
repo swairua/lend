@@ -70,8 +70,9 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Lending Co.</h1>
-          <p className="text-slate-400 text-sm mt-1">Quick loans made simple</p>
+          <img src="/icons/icon-192.svg" alt="JECRI BUREAU" className="h-16 w-auto mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-white">JECRI BUREAU</h1>
+          <p className="text-slate-400 text-sm mt-1">Fast, transparent lending solutions</p>
         </div>
 
         <Card className="border-0 shadow-2xl">
@@ -176,7 +177,7 @@ export default function Login() {
         </Card>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          © 2026 Lending Co. All rights reserved.
+          © 2026 JECRI BUREAU. All rights reserved.
         </p>
         </div>
         

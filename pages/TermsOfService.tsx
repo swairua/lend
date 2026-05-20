@@ -103,7 +103,7 @@ export default function TermsOfService() {
               For asset-backed loans, you agree to:
             </p>
             <ul className="list-disc pl-6">
-              <li>Transfer the logbook or title deeds of the asset to LendHub as security</li>
+              <li>Transfer the logbook or title deeds of the asset to JECRI BUREAU as security</li>
               <li>Maintain the asset in good condition</li>
               <li>Not sell or dispose of the asset without written permission</li>
               <li>Obtain comprehensive insurance for the asset (if required)</li>
@@ -192,10 +192,10 @@ export default function TermsOfService() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4">12. Contact Information</h2>
             <div className="bg-muted p-4 rounded-lg">
-              <p className="mb-2"><strong>LendHub Customer Support</strong></p>
-              <p>Email: support@lendhub.io</p>
+              <p className="mb-2"><strong>JECRI BUREAU Customer Support</strong></p>
+              <p>Email: support@jecribureau.ke</p>
               <p>Phone: +254 (0) 700 000 000</p>
-              <p>Mailing Address: P.O. Box XXXX, Nairobi, Kenya</p>
+              <p>Mailing Address: Nairobi, Kenya</p>
             </div>
           </section>
         </div>

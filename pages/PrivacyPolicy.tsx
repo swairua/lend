@@ -160,9 +160,9 @@ export default function PrivacyPolicy() {
             </p>
             <div className="bg-muted p-4 rounded-lg">
               <p className="mb-2"><strong>Data Protection Officer</strong></p>
-              <p>Email: privacy@lendhub.io</p>
+              <p>Email: privacy@jecribureau.ke</p>
               <p>Phone: +254 (0) 700 000 000</p>
-              <p>Mailing Address: P.O. Box XXXX, Nairobi, Kenya</p>
+              <p>Mailing Address: Nairobi, Kenya</p>
             </div>
             <p className="mt-4">
               You also have the right to lodge a complaint with the <strong>Office of the Data Protection Commissioner (ODPC)</strong> if you believe your rights have been violated.
