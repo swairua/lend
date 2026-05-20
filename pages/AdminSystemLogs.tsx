@@ -73,7 +73,10 @@ export default function AdminSystemLogs() {
         },
       });
 
-      if (!response.ok) throw new Error('Failed to load logs');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load logs`);
+      }
 
       const result = await response.json();
       setLogs(result.data || []);
@@ -82,7 +85,7 @@ export default function AdminSystemLogs() {
       console.error('Error loading logs:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load system logs',
+        description: error instanceof Error ? error.message : 'Failed to load system logs',
         variant: 'destructive',
       });
     } finally {
