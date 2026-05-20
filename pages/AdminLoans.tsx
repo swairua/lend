@@ -108,6 +108,16 @@ export default function AdminLoans() {
   }, [statusFilter, loadCountsByStatus, loadCounts]);
 
   useEffect(() => {
+    const preloadAllStatusCounts = async () => {
+      const statuses = ['pending', 'approved', 'active', 'completed', 'rejected', 'defaulted'];
+      for (const status of statuses) {
+        await loadCountsByStatus(status);
+      }
+    };
+    preloadAllStatusCounts();
+  }, [loadCountsByStatus]);
+
+  useEffect(() => {
     let eventSource: EventSource | null = null;
     let pollFallback: NodeJS.Timeout | null = null;
 
