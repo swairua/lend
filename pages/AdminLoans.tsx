@@ -220,8 +220,9 @@ export default function AdminLoans() {
     }
     if (selectedLoan) {
       try {
-        const fresh = await adminApi.getLoan(selectedLoan.id);
-        setSelectedLoan(fresh.data);
+        const res: any = await adminApi.getLoan(selectedLoan.id);
+        const freshData = res.data?.data || res.data || res;
+        setSelectedLoan(freshData);
       } catch (error) {
         console.error('Failed to refresh selected loan:', error);
       }
@@ -311,9 +312,11 @@ export default function AdminLoans() {
       setActionLoading(true);
       try {
         await adminApi.markDefaulted(loanId);
-        await loadLoans();
+        toast.success('Loan marked as defaulted');
+        await refreshAfterUpdate();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to mark loan as defaulted');
       } finally {
         setActionLoading(false);
       }
@@ -326,7 +329,7 @@ export default function AdminLoans() {
       try {
         await adminApi.reactivateLoan(loanId);
         toast.success('Loan reactivated successfully');
-        await loadLoans();
+        await refreshAfterUpdate();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
         toast.error(error.message || 'Failed to reactivate loan');
@@ -341,10 +344,7 @@ export default function AdminLoans() {
     try {
       const result = await adminApi.syncMpesaPayments(loanId);
       toast.success(result.data.message || `Applied: ${result.data.applied}, Created: ${result.data.created}`);
-      await loadLoans();
-      if (selectedLoan) {
-        setSelectedLoan({ ...selectedLoan });
-      }
+      await refreshAfterUpdate();
     } catch (error: any) {
       toast.error(error.message || 'Failed to sync payments');
     } finally {
