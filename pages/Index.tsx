@@ -22,7 +22,7 @@ export default function Index() {
       <header className="border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/icons/icon-192.svg" alt="JECRI BUREAU" className="h-16 w-auto" />
+            <img src="/icons/icon-192.png" alt="JECRI BUREAU" className="h-16 w-auto" />
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
