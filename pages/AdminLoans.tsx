@@ -210,6 +210,23 @@ export default function AdminLoans() {
       setTimeout(() => setRefreshing(false), cooldownMs);
     }
   };
+
+  const refreshAfterUpdate = async () => {
+    await loadLoans();
+    if (statusFilter !== 'all') {
+      await loadCountsByStatus(statusFilter);
+    } else {
+      await loadCounts();
+    }
+    if (selectedLoan) {
+      try {
+        const fresh = await adminApi.getLoan(selectedLoan.id);
+        setSelectedLoan(fresh.data);
+      } catch (error) {
+        console.error('Failed to refresh selected loan:', error);
+      }
+    }
+  };
   
   const { showAlert, confirm, AlertComponent } = useAlert();
   
@@ -220,7 +237,7 @@ export default function AdminLoans() {
         try {
           await adminApi.approveLoan(loanId, true);
           toast.success('Loan approved successfully');
-          await loadLoans();
+          await refreshAfterUpdate();
         } catch (error: any) {
           showAlert({ type: 'error', message: error.message });
           toast.error(error.message || 'Failed to approve loan');
@@ -241,7 +258,7 @@ export default function AdminLoans() {
     try {
       await adminApi.approveLoan(selectedLoan.id, false, rejectionReason);
       toast.success('Loan rejected successfully');
-      await loadLoans();
+      await refreshAfterUpdate();
       setRejectDialogOpen(false);
       setRejectionReason('');
     } catch (error: any) {
@@ -258,7 +275,7 @@ export default function AdminLoans() {
       try {
         await adminApi.disburseLoan(loanId);
         toast.success('Loan disbursed successfully');
-        await loadLoans();
+        await refreshAfterUpdate();
       } catch (error: any) {
         showAlert({ type: 'error', message: error.message });
         toast.error(error.message || 'Failed to disburse loan');

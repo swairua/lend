@@ -306,6 +306,18 @@ function bootstrap() {
             FOREIGN KEY (paid_by) REFERENCES users(id) ON DELETE SET NULL
         )");
 
+        $p->exec("CREATE TABLE IF NOT EXISTS disbursements (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            loan_id INTEGER NOT NULL,
+            amount DECIMAL(15,2) NOT NULL,
+            disbursement_method VARCHAR(50) NOT NULL,
+            reference_number VARCHAR(100),
+            status VARCHAR(50) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE CASCADE
+        )");
+
         $p->exec("CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             sender_id INTEGER NOT NULL,
@@ -2292,6 +2304,121 @@ try {
             echo json_encode(['success' => true, 'data' => ['repayments' => $rows,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
             exit;
+        }
+
+        // Disbursements
+        if (strpos($uri, 'admin/disbursements') !== false) {
+            $u = auth();
+            requireAdmin($u);
+
+            if ($method === 'POST') {
+                try {
+                    $d = input();
+                    $loan_id = $d['loan_id'] ?? null;
+                    $amount = $d['amount'] ?? null;
+                    $disbursement_method = $d['disbursement_method'] ?? null;
+                    $reference_number = $d['reference_number'] ?? null;
+
+                    if (!$loan_id || !$amount || !$disbursement_method) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'loan_id, amount, and disbursement_method are required']);
+                        exit;
+                    }
+
+                    if ($amount <= 0) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Amount must be greater than 0']);
+                        exit;
+                    }
+
+                    // Check if loan exists
+                    $loan = one("SELECT id, status FROM loans WHERE id = ?", [$loan_id]);
+                    if (!$loan) {
+                        http_response_code(404);
+                        echo json_encode(['success' => false, 'error' => 'Loan not found']);
+                        exit;
+                    }
+
+                    // Insert disbursement record
+                    run("INSERT INTO disbursements (loan_id, amount, disbursement_method, reference_number, status, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        [$loan_id, $amount, $disbursement_method, $reference_number]);
+
+                    // Update loan status if needed
+                    if (in_array($loan['status'], ['approved', 'pending'])) {
+                        run("UPDATE loans SET status = 'active', disbursed_at = CURRENT_TIMESTAMP WHERE id = ?", [$loan_id]);
+                    }
+
+                    $id = pdo()->lastInsertId();
+
+                    log_access('POST', 'admin/disbursements', 200);
+                    echo json_encode(['success' => true, 'message' => 'Disbursement recorded successfully',
+                        'data' => ['id' => $id, 'loan_id' => $loan_id, 'amount' => $amount, 'disbursement_method' => $disbursement_method]]);
+                    exit;
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Failed to record disbursement']);
+                    log_error('Disbursement creation failed', ['error' => $e->getMessage()]);
+                    exit;
+                }
+            }
+
+            if ($method === 'DELETE') {
+                if (preg_match('#admin/disbursements/(\d+)$#', $uri, $m)) {
+                    $id = $m[1];
+                    $disburse = one("SELECT * FROM disbursements WHERE id = ?", [$id]);
+                    if (!$disburse) {
+                        http_response_code(404);
+                        echo json_encode(['success' => false, 'error' => 'Disbursement not found']);
+                        exit;
+                    }
+
+                    run("DELETE FROM disbursements WHERE id = ?", [$id]);
+                    log_access('DELETE', 'admin/disbursements/' . $id, 200);
+                    echo json_encode(['success' => true, 'message' => 'Disbursement deleted successfully']);
+                    exit;
+                }
+            }
+
+            if ($method === 'GET') {
+                $page = intval($_GET['page'] ?? 1);
+                $limit = intval($_GET['limit'] ?? 20);
+                $off = ($page - 1) * $limit;
+                $search = $_GET['search'] ?? null;
+                $loan_id = $_GET['loan_id'] ?? null;
+
+                $where = "WHERE 1=1";
+                $params = [];
+
+                if ($loan_id) {
+                    $where .= " AND d.loan_id = ?";
+                    $params[] = $loan_id;
+                }
+
+                if ($search) {
+                    $where .= " AND (u.name LIKE ? OR u.email LIKE ? OR d.reference_number LIKE ?)";
+                    $likeSearch = "%$search%";
+                    $params[] = $likeSearch;
+                    $params[] = $likeSearch;
+                    $params[] = $likeSearch;
+                }
+
+                $rows = all("SELECT d.*, u.name borrower_name, u.email borrower_email, l.status loan_status
+                             FROM disbursements d
+                             JOIN loans l ON d.loan_id = l.id
+                             JOIN borrowers b ON l.borrower_id = b.id
+                             JOIN users u ON b.user_id = u.id
+                             $where
+                             ORDER BY d.created_at DESC LIMIT $limit OFFSET $off", $params);
+
+                $countResult = one("SELECT COUNT(*) c FROM disbursements d $where", $params);
+                $tot = $countResult['c'] ?? 0;
+
+                log_access('GET', 'admin/disbursements', 200);
+                echo json_encode(['success' => true, 'data' => ['disbursements' => $rows,
+                    'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot]]]);
+                exit;
+            }
         }
 
         // System Logs

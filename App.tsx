@@ -31,6 +31,7 @@ import AdminRepayments from "./pages/AdminRepayments";
 import AdminSystemLogs from "./pages/AdminSystemLogs";
 import RepaymentSchedule from "./pages/RepaymentSchedule";
 import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
+import AdminDisbursements from "./pages/AdminDisbursements";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
@@ -89,6 +90,7 @@ const AppRoutes = () => {
       <Route path="/admin/config" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminSettings /></AppLayout></PrivateRoute>} />
       <Route path="/admin/reports" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminReports /></AppLayout></PrivateRoute>} />
       <Route path="/admin/messages" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/disbursements" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminDisbursements /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
@@ -110,7 +112,13 @@ const App = () => {
   );
 };
 
-// Initialize Capacitor (native mobile features)
+const container = document.getElementById("root");
+if (container) {
+  const root = createRoot(container);
+  root.render(<App />);
+}
+
+// Initialize Capacitor (native mobile features) - after React is ready
 initializeCapacitor();
 
 // Register service worker for PWA support
@@ -137,10 +145,4 @@ if ('serviceWorker' in navigator) {
       console.error('Service Worker registration failed:', error);
     }
   });
-}
-
-const container = document.getElementById("root");
-if (container) {
-  const root = createRoot(container);
-  root.render(<App />);
 }

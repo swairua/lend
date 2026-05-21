@@ -304,6 +304,18 @@ function initializeSchema() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
       );
 
+      CREATE TABLE IF NOT EXISTS disbursements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loan_id INTEGER NOT NULL,
+        amount DECIMAL(12, 2) NOT NULL,
+        disbursement_method VARCHAR(50) NOT NULL,
+        reference_number VARCHAR(100) DEFAULT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (loan_id) REFERENCES loans(id)
+      );
+
       DROP TABLE IF EXISTS audit_logs;
     `);
 
@@ -2186,6 +2198,212 @@ app.delete('/api/admin/repayments/:id', authenticate, (req, res) => {
     console.error('Error deleting repayment:', error);
     res.status(500).json({ success: false, error: 'Failed to delete repayment' });
   }
+});
+
+// ===== Disbursements Endpoints =====
+
+// Admin Disbursements - Create
+app.post('/api/admin/disbursements', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { loan_id, amount, disbursement_method, reference_number } = req.body;
+
+  // Validation
+  if (!loan_id || !amount || !disbursement_method) {
+    return res.status(400).json({ success: false, error: 'loan_id, amount, and disbursement_method are required' });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ success: false, error: 'Amount must be greater than 0' });
+  }
+
+  try {
+    // Get loan details
+    const loan = db.prepare('SELECT * FROM loans WHERE id = ?').get(loan_id);
+    if (!loan) {
+      return res.status(404).json({ success: false, error: 'Loan not found' });
+    }
+
+    // Insert disbursement record
+    const stmt = db.prepare(`
+      INSERT INTO disbursements (
+        loan_id, amount, disbursement_method, reference_number, status
+      ) VALUES (?, ?, ?, ?, 'completed')
+    `);
+
+    const result = stmt.run(
+      loan_id,
+      amount,
+      disbursement_method,
+      reference_number || null
+    );
+
+    // Update loan status to active if it was pending
+    if (loan.status === 'approved' || loan.status === 'pending') {
+      db.prepare('UPDATE loans SET status = ?, disbursed_at = CURRENT_TIMESTAMP WHERE id = ?').run('active', loan_id);
+    }
+
+    const disbursementId = result.lastInsertRowid;
+
+    res.json({
+      success: true,
+      message: 'Disbursement recorded successfully',
+      data: {
+        id: disbursementId,
+        loan_id: loan_id,
+        amount: amount,
+        disbursement_method: disbursement_method,
+        reference_number: reference_number || null
+      }
+    });
+  } catch (error) {
+    console.error('Error recording disbursement:', error);
+    res.status(500).json({ success: false, error: 'Failed to record disbursement' });
+  }
+});
+
+// Admin Disbursements - Get list
+app.get('/api/admin/disbursements', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const { loan_id, search, page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let query = `
+      SELECT
+        d.id,
+        d.loan_id,
+        d.amount,
+        d.disbursement_method,
+        d.reference_number,
+        d.status,
+        d.created_at,
+        u.name as borrower_name,
+        u.email as borrower_email,
+        l.status as loan_status
+      FROM disbursements d
+      JOIN loans l ON d.loan_id = l.id
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    if (loan_id) {
+      query += ' AND d.loan_id = ?';
+      params.push(loan_id);
+    }
+
+    if (search) {
+      query += ' AND (u.name LIKE ? OR u.email LIKE ? OR d.reference_number LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    query += ' ORDER BY d.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const disbursements = db.prepare(query).all(...params);
+
+    res.json({
+      success: true,
+      data: disbursements
+    });
+  } catch (error) {
+    console.error('Error fetching disbursements:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch disbursements' });
+  }
+});
+
+// Admin Disbursements - Delete
+app.delete('/api/admin/disbursements/:id', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const disbursement = db.prepare('SELECT * FROM disbursements WHERE id = ?').get(id);
+    if (!disbursement) {
+      return res.status(404).json({ success: false, error: 'Disbursement not found' });
+    }
+
+    // Delete the disbursement
+    db.prepare('DELETE FROM disbursements WHERE id = ?').run(id);
+
+    res.json({
+      success: true,
+      message: 'Disbursement deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting disbursement:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete disbursement' });
+  }
+});
+
+// Admin Disbursements - SSE Stream
+app.get('/api/admin/disbursements/stream', authenticate, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // Send connected message
+  res.write('event: connected\n');
+  res.write('data: {"status":"connected"}\n\n');
+
+  // Set up polling for new disbursements
+  const since = Math.floor((req.query.since || Date.now()) / 1000);
+
+  const pollInterval = setInterval(() => {
+    const query = `
+      SELECT
+        d.id,
+        d.loan_id,
+        d.amount,
+        d.disbursement_method,
+        d.reference_number,
+        d.status,
+        d.created_at,
+        u.name as borrower_name,
+        u.email as borrower_email,
+        l.status as loan_status
+      FROM disbursements d
+      JOIN loans l ON d.loan_id = l.id
+      JOIN borrowers b ON l.borrower_id = b.id
+      JOIN users u ON b.user_id = u.id
+      WHERE CAST(strftime('%s', d.created_at) as INTEGER) > ?
+      ORDER BY d.created_at DESC
+    `;
+
+    const disbursements = db.prepare(query).all(since);
+
+    if (disbursements && disbursements.length > 0) {
+      disbursements.forEach(disbursement => {
+        res.write('event: disbursement-updated\n');
+        res.write(`data: ${JSON.stringify(disbursement)}\n\n`);
+      });
+    }
+  }, 3000);
+
+  req.on('close', () => {
+    clearInterval(pollInterval);
+    res.end();
+  });
 });
 
 // ===== PDF Generation Endpoints =====
