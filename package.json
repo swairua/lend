@@ -12,7 +12,8 @@
     "test": "vitest --run",
     "format:fix": "prettier --write .",
     "typecheck": "tsc",
-    "native:build": "npm run build && npx cap sync",
+    "generate:android-icons": "bash update-android-icons.sh",
+    "native:build": "npm run generate:android-icons && npm run build && npx cap sync",
     "native:android": "npm run native:build && npx cap run android",
     "native:ios": "npm run native:build && npx cap run ios"
   },
