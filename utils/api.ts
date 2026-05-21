@@ -1,9 +1,8 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats } from '../types/api';
 import { secureStorage } from './secureStorage';
 
-// For local development, use /api.php proxy to avoid CORS issues
-// For production, VITE_API_URL should be set to the actual API endpoint
-const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api.php';
+// Always use the production API endpoint
+const API_BASE = 'https://lending.wayrus.co.ke/api.php';
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
 
 // Helper to construct full file URL
