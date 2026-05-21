@@ -1964,7 +1964,7 @@ try {
 
             $d = input();
             $loan_id = $d['loan_id'] ?? 0;
-            $phone = $d['phone'] ?? '';
+            $phone = $d['phone_number'] ?? $d['phone'] ?? '';
 
             // Validate loan exists and is active
             $loan = one("SELECT * FROM loans WHERE id = ?", [$loan_id]);
@@ -2046,7 +2046,7 @@ try {
 
             $d = input();
             $loan_id = $d['loan_id'] ?? 0;
-            $phone = $d['phone'] ?? '';
+            $phone = $d['phone_number'] ?? $d['phone'] ?? '';
 
             // Validate loan exists and is approved
             $loan = one("SELECT * FROM loans WHERE id = ?", [$loan_id]);
