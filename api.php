@@ -1180,7 +1180,7 @@ try {
                 }
                 $d = input(); $approve = $d['approve'] ?? true;
                 $ns = $approve ? 'approved' : 'rejected';
-                q("UPDATE loans SET status=?, approved_by=?, approved_at=CURRENT_TIMESTAMP WHERE id=?", [$ns, $user['id'], $m[1]]);
+                q("UPDATE loans SET status=?, approved_by=?, approved_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$ns, $user['id'], $m[1]]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
                 q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type) VALUES (?,?,?,?,?,?)",
                   [$user['id'], $b['user_id'], $m[1],
@@ -1211,7 +1211,7 @@ try {
                 }
                 $d = input();
                 $amt = $d['disbursement_amount'] ?? $loan['principal_amount'];
-                q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
+                q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
                 q("INSERT INTO payments (loan_id, type, amount, method, reference, status)
                    VALUES (?,'disbursement',?,'bank',?,'completed')", [$m[1], $amt, $d['reference'] ?? null]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
@@ -1234,15 +1234,15 @@ try {
             }
         }
         if ($method === 'POST' && preg_match('#admin/loans/(\d+)/reactivate$#', $uri, $m)) {
-            q("UPDATE loans SET status='pending', approved_by=NULL, approved_at=NULL, disbursed_at=NULL WHERE id=?", [$m[1]]);
+            q("UPDATE loans SET status='pending', approved_by=NULL, approved_at=NULL, disbursed_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
             log_access('POST', 'admin/loans/' . $m[1] . '/reactivate', 200);
-            echo json_encode(['success' => true]); 
+            echo json_encode(['success' => true]);
             exit;
         }
         if ($method === 'POST' && preg_match('#admin/loans/(\d+)/default$#', $uri, $m)) {
-            q("UPDATE loans SET status='defaulted' WHERE id=?", [$m[1]]);
+            q("UPDATE loans SET status='defaulted', updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
             log_access('POST', 'admin/loans/' . $m[1] . '/default', 200);
-            echo json_encode(['success' => true]); 
+            echo json_encode(['success' => true]);
             exit;
         }
 
@@ -2184,6 +2184,8 @@ try {
                         q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number, paid_at, created_at)
                            VALUES (?, ?, ?, 0, 'mpesa', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                           [$loanId, $txn['amount'], $txn['amount'], $txn['mpesa_reference']]);
+
+                        q("UPDATE loans SET updated_at=CURRENT_TIMESTAMP WHERE id=?", [$loanId]);
 
                         $repaymentId = pdo()->lastInsertId();
                         $results[] = ['transaction_id' => $txnId, 'repayment_id' => $repaymentId, 'success' => true, 'loan_id' => $loanId];
