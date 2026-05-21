@@ -37,6 +37,7 @@ export const navigationItems: NavItem[] = [
 
   // Admin
   { label: 'Loan Applications', href: '/admin/loans', icon: FileText, roles: ['admin'] },
+  { label: 'Create Loan', href: '/admin/loans/create', icon: CreditCard, roles: ['admin'] },
   { label: 'Categories', href: '/admin/categories', icon: Package, roles: ['admin'] },
   { label: 'Products', href: '/admin/products', icon: CreditCard, roles: ['admin'] },
   { label: 'Borrowers', href: '/admin/borrowers', icon: Users, roles: ['admin'] },
