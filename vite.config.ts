@@ -7,7 +7,7 @@ export default defineConfig({
     host: "localhost",
     port: 5173,
     proxy: {
-      '/api': {
+      '/api.php': {
         target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
       },
