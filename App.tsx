@@ -112,7 +112,13 @@ const App = () => {
   );
 };
 
-// Initialize Capacitor (native mobile features)
+const container = document.getElementById("root");
+if (container) {
+  const root = createRoot(container);
+  root.render(<App />);
+}
+
+// Initialize Capacitor (native mobile features) - after React is ready
 initializeCapacitor();
 
 // Register service worker for PWA support
@@ -139,10 +145,4 @@ if ('serviceWorker' in navigator) {
       console.error('Service Worker registration failed:', error);
     }
   });
-}
-
-const container = document.getElementById("root");
-if (container) {
-  const root = createRoot(container);
-  root.render(<App />);
 }
