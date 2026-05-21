@@ -75,8 +75,11 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
           sidebarOpen ? 'w-64' : 'w-20'
         )}
       >
-        <div className="p-4 border-b flex items-center justify-between">
-          {sidebarOpen && <h1 className="font-bold text-lg">{portalTitle}</h1>}
+        <div className="p-4 border-b flex items-center justify-between gap-2">
+          <Link to="/" className="flex items-center gap-2 flex-1">
+            <img src="/icons/icon-192.png" alt="JECRI BUREAU" className="h-8 w-auto" />
+            {sidebarOpen && <h1 className="font-bold text-lg">{portalTitle}</h1>}
+          </Link>
           <Button
             variant="ghost"
             size="sm"
@@ -123,7 +126,8 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72">
-                <div className="p-4 border-b">
+                <div className="p-4 border-b flex items-center gap-2">
+                  <img src="/icons/icon-192.png" alt="JECRI BUREAU" className="h-8 w-auto" />
                   <h1 className="font-bold text-lg">{portalTitle}</h1>
                 </div>
                 <nav className="p-2 space-y-1">
