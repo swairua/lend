@@ -220,8 +220,9 @@ export default function AdminLoans() {
     }
     if (selectedLoan) {
       try {
-        const fresh = await adminApi.getLoan(selectedLoan.id);
-        setSelectedLoan(fresh.data);
+        const res: any = await adminApi.getLoan(selectedLoan.id);
+        const freshData = res.data?.data || res.data || res;
+        setSelectedLoan(freshData);
       } catch (error) {
         console.error('Failed to refresh selected loan:', error);
       }
