@@ -261,8 +261,8 @@ export default function RepaymentSchedule() {
                           size="sm"
                           variant="outline"
                           onClick={() => initiateSTKPush(payment)}
-                          disabled={paymentLoading === payment.dueDate || !borrowerPhone?.trim()}
-                          title={!borrowerPhone?.trim() ? 'Add your phone number in profile to pay' : ''}
+                          disabled={paymentLoading === payment.dueDate || !borrowerPhone?.trim() || loan.status !== 'active'}
+                          title={!borrowerPhone?.trim() ? 'Add your phone number in profile to pay' : loan.status !== 'active' ? `Loan is ${loan.status} - payments not allowed` : ''}
                           className="text-xs"
                         >
                           {paymentLoading === payment.dueDate ? (
@@ -274,6 +274,11 @@ export default function RepaymentSchedule() {
                             <>
                               <AlertCircle className="h-3 w-3 mr-1" />
                               Add Phone
+                            </>
+                          ) : loan.status !== 'active' ? (
+                            <>
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              {loan.status === 'completed' ? 'Paid' : 'Not Active'}
                             </>
                           ) : (
                             <>
