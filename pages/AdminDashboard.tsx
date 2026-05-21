@@ -181,7 +181,7 @@ export default function AdminDashboard() {
 
       <div className="p-4 space-y-6">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           {statCards.map((stat, index) => (
             <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/loans')}>
               <CardContent className="p-3">
@@ -193,8 +193,8 @@ export default function AdminDashboard() {
                     <Badge variant="outline" className="text-xs text-green-600">{stat.change}</Badge>
                   )}
                 </div>
-                <p className="text-xl font-bold mt-2">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.title}</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold mt-2">{stat.value}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">{stat.title}</p>
               </CardContent>
             </Card>
           ))}
