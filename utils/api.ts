@@ -229,6 +229,20 @@ export const adminApi = {
       method: 'POST',
     }),
 
+  createLoan: (data: {
+    borrower_id: number;
+    product_id: number;
+    amount: number;
+    term_months: number;
+    purpose?: string;
+    security_details?: string;
+    guarantor_details?: string;
+  }) =>
+    request<{ success: boolean; message: string; data: { id: number } }>('/admin/loans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   getConfig: () =>
     request<{ success: boolean; data: any[] }>('/admin/settings'),
 
