@@ -110,11 +110,11 @@ export default function RepaymentSchedule() {
 
     setPaymentLoading(payment.dueDate);
     try {
-      const response = await adminApi.post('/mpesa/payment', {
-        loan_id: parseInt(loanId!),
-        phone_number: borrowerPhone.trim(),
-        amount: payment.amount,
-      });
+      const response = await adminApi.mpesaInitiatePayment(
+        parseInt(loanId!),
+        borrowerPhone.trim(),
+        payment.amount
+      );
 
       if (response.success) {
         showAlert({
@@ -261,13 +261,19 @@ export default function RepaymentSchedule() {
                           size="sm"
                           variant="outline"
                           onClick={() => initiateSTKPush(payment)}
-                          disabled={paymentLoading === payment.dueDate}
+                          disabled={paymentLoading === payment.dueDate || !borrowerPhone?.trim()}
+                          title={!borrowerPhone?.trim() ? 'Add your phone number in profile to pay' : ''}
                           className="text-xs"
                         >
                           {paymentLoading === payment.dueDate ? (
                             <>
                               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                               Sending...
+                            </>
+                          ) : !borrowerPhone?.trim() ? (
+                            <>
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Add Phone
                             </>
                           ) : (
                             <>
