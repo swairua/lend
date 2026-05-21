@@ -917,8 +917,8 @@ try {
         }
 
         if (preg_match('#borrower/loans/(\d+)#', $uri, $m)) {
-            $loan = one("SELECT l.*, lp.name as product_name, lp.description as product_description
-                         FROM loans l LEFT JOIN loan_products lp ON l.product_id = lp.id
+            $loan = one("SELECT l.*, u.phone as borrower_phone, lp.name as product_name, lp.description as product_description
+                         FROM loans l LEFT JOIN users u ON l.borrower_id = u.id LEFT JOIN loan_products lp ON l.product_id = lp.id
                          WHERE l.id = ? AND l.borrower_id = ?", [$m[1], $bid]);
             if (!$loan) { 
                 log_error("Loan not found", ['loan_id' => $m[1], 'borrower_id' => $bid]);
