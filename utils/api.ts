@@ -641,7 +641,7 @@ export const pdfApi = {
 
   generateInvoice: (loanId: number) =>
     request<{ success: boolean; message: string; data: { document_id: number; fileName: string; pdfUrl: string } }>(
-      '/borrower/loans/generate-invoice',
+      '/api/admin/generate-invoice',
       {
         method: 'POST',
         body: JSON.stringify({ loan_id: loanId }),
