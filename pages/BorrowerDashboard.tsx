@@ -71,15 +71,15 @@ export default function BorrowerDashboard() {
         <PageTitle title="Dashboard" subtitle={`Welcome back, ${user?.name}`} />
 
         {/* Quick Apply Card */}
-        <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0">
+        <Card className="bg-gradient-to-r from-primary to-primary/90 text-white border-0">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm">Need funds?</p>
+                <p className="text-white/80 text-sm">Need funds?</p>
                 <p className="text-xl font-bold mt-1">Apply for a loan</p>
-                <p className="text-blue-100 text-xs mt-1">Apply and track your loan status</p>
+                <p className="text-white/80 text-xs mt-1">Apply and track your loan status</p>
               </div>
-              <Button asChild size="sm" className="bg-white text-green-700 hover:bg-green-50">
+              <Button asChild size="sm" className="bg-white text-primary hover:bg-primary/10">
                 <Link to="/apply">
                   <Plus className="h-4 w-4 mr-1" /> Apply
                 </Link>
@@ -120,10 +120,10 @@ export default function BorrowerDashboard() {
         {pendingLoans.length > 0 && (
           <div className="space-y-2">
             <h2 className="font-semibold text-sm">Pending Applications</h2>
-            <Card className="border-yellow-500/30 bg-yellow-500/5">
+            <Card className="border-primary/30 bg-primary/5">
               <CardContent className="p-3">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                  <AlertCircle className="h-4 w-4 text-primary flex-shrink-0" />
                   <div>
                     <p className="text-sm">{pendingLoans.length} application(s) awaiting review</p>
                     <p className="text-xs text-muted-foreground">We'll notify you once processed</p>
@@ -160,9 +160,9 @@ export default function BorrowerDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Your Credit Score</p>
-                  <p className="text-2xl font-bold text-green-600">{dashboard.credit_score}</p>
+                  <p className="text-2xl font-bold text-primary">{dashboard.credit_score}</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
+                <TrendingUp className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>

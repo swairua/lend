@@ -1023,8 +1023,8 @@ try {
                               LEFT JOIN loan_categories lc ON lp.category_id = lc.id
                               WHERE l.borrower_id = ? ORDER BY l.created_at DESC LIMIT $limit OFFSET $off", [$bid]);
                 $tot = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
-                $totalCount = isset($tot['c']) ? $tot['c'] : 0;
-                error_log("[borrower/loans] User={$user['id']}, Borrower={$bid}, Found={$totalCount} total, Returning={count($loans)}, Page=$page, Limit=$limit, Offset=$off");
+                $totalCount = isset($tot['c']) ? intval($tot['c']) : 0;
+                error_log("[borrower/loans] User={$user['id']}, Borrower={$bid}, Found=" . $totalCount . " total, Returning=" . count($loans) . ", Page=$page, Limit=$limit, Offset=$off");
                 foreach ($loans as &$l) {
                     $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
                     $l['total_paid'] = $p['t'];
