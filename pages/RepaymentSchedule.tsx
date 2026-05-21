@@ -112,8 +112,8 @@ export default function RepaymentSchedule() {
     try {
       const response = await adminApi.post('/admin/mpesa/payment', {
         loan_id: parseInt(loanId!),
-        phone: borrowerPhone.trim(),
-        paid_amount: totalPaid,
+        phone_number: borrowerPhone.trim(),
+        amount: payment.amount,
       });
 
       if (response.success) {

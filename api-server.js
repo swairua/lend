@@ -2971,6 +2971,58 @@ app.get('/api/admin/loans/:id', authenticate, (req, res) => {
   }
 });
 
+// Create loan by admin
+app.post('/api/admin/loans', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Admin access required' });
+  }
+
+  try {
+    const { borrower_id, product_id, amount, term_months, security_details, guarantor_details, purpose } = req.body;
+
+    if (!borrower_id || !product_id || !amount || !term_months) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    // Verify borrower exists
+    const borrower = db.prepare('SELECT id FROM borrowers WHERE id = ?').get(borrower_id);
+    if (!borrower) {
+      return res.status(404).json({ success: false, error: 'Borrower not found' });
+    }
+
+    // Verify product exists
+    const product = db.prepare('SELECT * FROM loan_products WHERE id = ?').get(product_id);
+    if (!product) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    const interest_rate = product.interest_rate || 10;
+    const total_amount = amount + (amount * interest_rate * term_months / 100 / 12);
+    const due_date = new Date();
+    due_date.setMonth(due_date.getMonth() + term_months);
+
+    const result = db.prepare(`
+      INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, term_months, interest_rate, status, due_date, security_details, guarantor_details)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+    `).run(borrower_id, product_id, amount, total_amount, term_months, interest_rate, due_date.toISOString(), security_details || null, guarantor_details || null);
+
+    logLoanAudit(req.user.id, 'loan_created_admin', result.lastInsertRowid, 'success', {
+      principal: amount,
+      term: term_months,
+      borrower_id
+    });
+
+    res.json({
+      success: true,
+      message: 'Loan created successfully',
+      data: { id: result.lastInsertRowid }
+    });
+  } catch (error) {
+    console.error('Error creating loan:', error);
+    res.status(500).json({ success: false, error: 'Failed to create loan' });
+  }
+});
+
 // Approve or reject loan application
 app.post('/api/admin/loans/:id/approve', authenticate, (req, res) => {
   if (req.user.role !== 'admin') {

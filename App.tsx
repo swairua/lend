@@ -32,6 +32,7 @@ import AdminSystemLogs from "./pages/AdminSystemLogs";
 import RepaymentSchedule from "./pages/RepaymentSchedule";
 import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
 import AdminDisbursements from "./pages/AdminDisbursements";
+import AdminCreateLoan from "./pages/AdminCreateLoan";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
@@ -79,6 +80,7 @@ const AppRoutes = () => {
       {/* Admin Pages */}
       <Route path="/admin" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminDashboard /></AppLayout></PrivateRoute>} />
       <Route path="/admin/loans" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans/create" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminCreateLoan /></AppLayout></PrivateRoute>} />
       <Route path="/admin/loans/:loanId" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
       <Route path="/admin/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminRepaymentSchedule /></AppLayout></PrivateRoute>} />
       <Route path="/admin/categories" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminCategories /></AppLayout></PrivateRoute>} />

@@ -1,9 +1,8 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats } from '../types/api';
 import { secureStorage } from './secureStorage';
 
-// For local development, use /api.php proxy to avoid CORS issues
-// For production, VITE_API_URL should be set to the actual API endpoint
-const API_BASE = import.meta.env.VITE_API_URL || '/api.php';
+// Always use the production API endpoint
+const API_BASE = 'https://lending.wayrus.co.ke/api.php';
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
 
 // Helper to construct full file URL
@@ -228,6 +227,20 @@ export const adminApi = {
   reactivateLoan: (id: number) =>
     request<{ success: boolean; message: string }>(`/admin/loans/${id}/reactivate`, {
       method: 'POST',
+    }),
+
+  createLoan: (data: {
+    borrower_id: number;
+    product_id: number;
+    amount: number;
+    term_months: number;
+    purpose?: string;
+    security_details?: string;
+    guarantor_details?: string;
+  }) =>
+    request<{ success: boolean; message: string; data: { id: number } }>('/admin/loans', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 
   getConfig: () =>
