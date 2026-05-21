@@ -59,9 +59,12 @@ export function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
       doc.on('error', reject);
 
       // Header
-      doc.fontSize(24).font('Helvetica-Bold').text('LENDING PLATFORM', { align: 'center' });
+      doc.fontSize(20).font('Helvetica-Bold').text('JECRI BUREAU', { align: 'center' });
       doc.fontSize(18).text('Payment Receipt', { align: 'center' });
-      doc.fontSize(10).fillColor('#666666').text(`Receipt #${data.repaymentId}`, { align: 'center' });
+      doc.fontSize(10).fillColor('#666666');
+      doc.text(`Receipt #${data.repaymentId}`, { align: 'center' });
+      doc.text(`Loan Reference: LOAN-${data.loanId}`, { align: 'center' });
+      doc.text(`Generated: ${new Date().toLocaleDateString('en-KE')}`, { align: 'center' });
       doc.fillColor('black');
 
       doc.moveTo(50, 100).lineTo(550, 100).stroke();
@@ -160,9 +163,12 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.on('error', reject);
 
       // Header
-      doc.fontSize(24).font('Helvetica-Bold').text('LENDING PLATFORM', { align: 'center' });
+      doc.fontSize(20).font('Helvetica-Bold').text('JECRI BUREAU', { align: 'center' });
       doc.fontSize(18).text('Loan Invoice', { align: 'center' });
-      doc.fontSize(10).fillColor('#666666').text(`Invoice #INV-${data.loanId}`, { align: 'center' });
+      doc.fontSize(10).fillColor('#666666');
+      doc.text(`Invoice #INV-${data.loanId}`, { align: 'center' });
+      doc.text(`Loan Reference: LOAN-${data.loanId}`, { align: 'center' });
+      doc.text(`Generated: ${new Date().toLocaleDateString('en-KE')}`, { align: 'center' });
       doc.fillColor('black');
 
       doc.moveTo(50, 100).lineTo(550, 100).stroke();

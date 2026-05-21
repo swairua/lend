@@ -30,11 +30,11 @@ export function MpesaPaymentUI({ loanId, borrowerPhone, totalAmount, paidAmount,
 
     setLoading(true);
     try {
-      const response = await adminApi.post('/admin/mpesa/payment', {
-        loan_id: loanId,
-        phone: phone.trim(),
-        paid_amount: paidAmount,
-      });
+      const response = await adminApi.mpesaInitiatePayment(
+        loanId,
+        phone.trim(),
+        remainingAmount
+      );
 
       if (response.success) {
         setCheckoutId(response.checkout_request_id);
