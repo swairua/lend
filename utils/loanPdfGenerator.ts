@@ -82,14 +82,34 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
             padding-bottom: 15px;
             margin-bottom: 20px;
         }
+        .header-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        .header-logo {
+            width: 60px;
+            height: 60px;
+        }
         h1 {
             font-size: 24px;
             color: #1e40af;
-            margin-bottom: 5px;
+            margin: 0;
+            font-weight: bold;
         }
         .header-subtitle {
             font-size: 12px;
             color: #666;
+            margin-bottom: 8px;
+        }
+        .header-meta {
+            font-size: 11px;
+            color: #666;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
             margin-bottom: 10px;
         }
         .loan-number {
@@ -199,9 +219,18 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
 <body>
     <div class="container">
         <header>
-            <h1>${data.companyName}</h1>
-            <div class="header-subtitle">Loan Agreement</div>
-            <div class="loan-number">Loan #${data.loanId}</div>
+            <div class="header-content">
+                <img src="/icons/icon-192.png" alt="JECRI BUREAU Logo" class="header-logo">
+                <div>
+                    <h1>JECRI BUREAU</h1>
+                    <div class="header-subtitle">Loan Agreement</div>
+                </div>
+            </div>
+            <div class="header-meta">
+                <span><strong>Loan #${data.loanId}</strong></span>
+                <span>Borrower: ${data.borrowerName}</span>
+                <span>Date: ${new Date().toLocaleDateString('en-KE')}</span>
+            </div>
         </header>
 
         <!-- Loan Details -->
