@@ -6,7 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
 import { generateRepaymentSchedule, daysOverdue } from '../utils/calculations';
-import { Loader2, ChevronLeft, AlertCircle } from 'lucide-react';
+import { adminApi } from '../utils/api';
+import { useAlert } from '@/hooks/use-alert';
+import { Loader2, ChevronLeft, AlertCircle, Smartphone } from 'lucide-react';
 
 interface LoanDetail {
   id: number;
@@ -22,6 +24,7 @@ interface LoanDetail {
   created_at: string;
   disbursed_at: string | null;
   balance?: number;
+  borrower_phone?: string;
   repayments?: Array<{
     id: number;
     amount: number;
@@ -35,9 +38,12 @@ interface LoanDetail {
 export default function RepaymentSchedule() {
   const navigate = useNavigate();
   const { loanId } = useParams<{ loanId: string }>();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [loan, setLoan] = useState<LoanDetail | null>(null);
   const [schedule, setSchedule] = useState<any[]>([]);
+  const [paymentLoading, setPaymentLoading] = useState<number | null>(null);
+  const [borrowerPhone, setBorrowerPhone] = useState<string>('');
 
   useEffect(() => {
     if (loanId) loadLoan();
@@ -47,7 +53,8 @@ export default function RepaymentSchedule() {
     try {
       const res = await loansApi.getMyLoan(parseInt(loanId!));
       setLoan(res.data);
-      
+      setBorrowerPhone(res.data.borrower_phone || '');
+
       if (res.data && res.data.disbursed_at) {
         const loanCalc = {
           principal: res.data.principal_amount,
@@ -91,9 +98,38 @@ export default function RepaymentSchedule() {
     );
   }
 
-  const totalPaid = loan.repayments?.reduce((sum, r) => sum + r.amount, 0) || 0;
+  const totalPaid = loan?.repayments?.reduce((sum, r) => sum + r.amount, 0) || 0;
   const upcomingPayments = schedule.filter(p => !p.isPaid && new Date() <= new Date(p.dueDate));
   const overduePayments = schedule.filter(p => !p.isPaid && new Date() > new Date(p.dueDate));
+
+  const initiateSTKPush = async (payment: any) => {
+    if (!borrowerPhone || borrowerPhone.trim().length === 0) {
+      showAlert({ type: 'error', message: 'Phone number not found. Please update your profile.' });
+      return;
+    }
+
+    setPaymentLoading(payment.dueDate);
+    try {
+      const response = await adminApi.post('/admin/mpesa/payment', {
+        loan_id: parseInt(loanId!),
+        phone: borrowerPhone.trim(),
+        paid_amount: totalPaid,
+      });
+
+      if (response.success) {
+        showAlert({
+          type: 'success',
+          message: `STK prompt sent to ${borrowerPhone}. Check your phone for the M-Pesa popup.`,
+        });
+      } else {
+        showAlert({ type: 'error', message: response.error || 'Failed to send payment prompt' });
+      }
+    } catch (error: any) {
+      showAlert({ type: 'error', message: error.message || 'Payment initiation failed' });
+    } finally {
+      setPaymentLoading(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -187,6 +223,7 @@ export default function RepaymentSchedule() {
                   <ResponsiveTableHead className="text-right">Payment</ResponsiveTableHead>
                   <ResponsiveTableHead className="text-right">Balance</ResponsiveTableHead>
                   <ResponsiveTableHead className="text-center">Status</ResponsiveTableHead>
+                  <ResponsiveTableHead className="text-center">Action</ResponsiveTableHead>
                 </tr>
               </ResponsiveTableHeader>
               <ResponsiveTableBody>
@@ -216,6 +253,29 @@ export default function RepaymentSchedule() {
                       <Badge variant={payment.isPaid ? 'default' : 'outline'} className="text-xs">
                         {payment.isPaid ? '✓ Paid' : 'Pending'}
                       </Badge>
+                    </ResponsiveTableCell>
+                    <ResponsiveTableCell label="Action" className="text-center">
+                      {!payment.isPaid && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => initiateSTKPush(payment)}
+                          disabled={paymentLoading === payment.dueDate}
+                          className="text-xs"
+                        >
+                          {paymentLoading === payment.dueDate ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Smartphone className="h-3 w-3 mr-1" />
+                              Pay
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </ResponsiveTableCell>
                   </ResponsiveTableRow>
                 ))}
