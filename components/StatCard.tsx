@@ -11,16 +11,16 @@ interface StatCardProps {
 export function StatCard({ label, value, icon: Icon, variant = 'default' }: StatCardProps) {
   const bgClasses = {
     default: 'bg-muted',
-    success: 'bg-green-50',
-    warning: 'bg-yellow-50',
-    danger: 'bg-red-50',
+    success: 'bg-primary/10',
+    warning: 'bg-primary/20',
+    danger: 'bg-primary/30',
   };
 
   const iconClasses = {
     default: 'text-muted-foreground',
-    success: 'text-green-600',
-    warning: 'text-yellow-600',
-    danger: 'text-red-600',
+    success: 'text-primary',
+    warning: 'text-primary',
+    danger: 'text-primary',
   };
 
   return (

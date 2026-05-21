@@ -488,14 +488,14 @@ export const formatDate = (date: string | null): string => {
 
 export const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    pending: 'bg-yellow-500/10 text-yellow-600',
-    approved: 'bg-blue-500/10 text-blue-600',
-    rejected: 'bg-red-500/10 text-red-600',
-    active: 'bg-green-500/10 text-green-600',
-    disbursed: 'bg-green-500/10 text-green-600',
-    completed: 'bg-gray-500/10 text-gray-600',
-    defaulted: 'bg-red-500/10 text-red-600',
-    written_off: 'bg-purple-500/10 text-purple-600',
+    pending: 'bg-primary/10 text-primary',
+    approved: 'bg-primary/10 text-primary',
+    rejected: 'bg-primary/10 text-primary',
+    active: 'bg-primary/10 text-primary',
+    disbursed: 'bg-primary/10 text-primary',
+    completed: 'bg-primary/10 text-primary',
+    defaulted: 'bg-primary/10 text-primary',
+    written_off: 'bg-primary/10 text-primary',
   };
   return colors[status] || 'bg-muted text-muted-foreground';
 };
