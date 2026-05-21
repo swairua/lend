@@ -1873,10 +1873,10 @@ try {
             }
             if ($method === 'PUT' && preg_match('#categories/(\d+)#', $uri, $m)) {
                 $d = input();
-                q("UPDATE loan_categories SET name=?, code=?, description=?, is_active=? WHERE id=?",
+                q("UPDATE loan_categories SET name=?, code=?, description=?, is_active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                   [$d['name'], $d['code'], $d['description'], $d['is_active'], $m[1]]);
                 log_access('PUT', 'admin/categories/' . $m[1], 200);
-                echo json_encode(['success' => true]); 
+                echo json_encode(['success' => true]);
                 exit;
             }
             if ($method === 'DELETE' && preg_match('#categories/(\d+)#', $uri, $m)) {
@@ -1917,11 +1917,12 @@ try {
                     if (in_array($k, $allowed)) { $fields[] = "$k = ?"; $values[] = $v; }
                 }
                 if ($fields) {
+                    $fields[] = "updated_at = CURRENT_TIMESTAMP";
                     $values[] = $m[1];
                     q("UPDATE loan_products SET " . implode(', ', $fields) . " WHERE id = ?", $values);
                 }
                 log_access('PUT', 'admin/products/' . $m[1], 200);
-                echo json_encode(['success' => true]); 
+                echo json_encode(['success' => true]);
                 exit;
             }
             if ($method === 'DELETE' && preg_match('#products/(\d+)#', $uri, $m)) {
@@ -1943,10 +1944,10 @@ try {
                 $d = input();
                 foreach ($d as $k => $v) {
                     q("INSERT INTO settings (key_name, key_value) VALUES (?, ?)
-                       ON DUPLICATE KEY UPDATE key_value = ?", [$k, $v, $v]);
+                       ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$k, $v, $v]);
                 }
                 log_access('PUT', 'admin/settings', 200);
-                echo json_encode(['success' => true]); 
+                echo json_encode(['success' => true]);
                 exit;
             }
             $rows = all("SELECT * FROM settings");
@@ -2260,6 +2261,7 @@ try {
                 }
 
                 q("UPDATE repayments SET loan_id = ? WHERE id = ?", [$loanId, $repaymentId]);
+                q("UPDATE loans SET updated_at=CURRENT_TIMESTAMP WHERE id=?", [$loanId]);
 
                 logSystem('mpesa_transaction', 'repayment_matched_to_loan',
                     ['repayment_id' => $repaymentId, 'loan_id' => $loanId, 'amount' => $repayment['amount']], $u['id']);
@@ -2887,6 +2889,7 @@ try {
                         q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number)
                            VALUES (?, ?, ?, 0, 'mpesa', ?)",
                           [$txn['loan_id'], $amount, $amount, $receipt]);
+                        q("UPDATE loans SET updated_at=CURRENT_TIMESTAMP WHERE id=?", [$txn['loan_id']]);
                         $loan = one("SELECT borrower_id FROM loans WHERE id = ?", [$txn['loan_id']]);
                         $borrower = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
                         logAudit($borrower['user_id'], 'payment_received', 'repayment', $txn['loan_id'], [
@@ -2949,7 +2952,7 @@ try {
                           [$status, $result_code, $parsed['result_desc'], substr($raw, 0, 1000), $txn['id']]);
 
                         if ($result_code === 0 && $txn['loan_id']) {
-                            q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$txn['loan_id']]);
+                            q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$txn['loan_id']]);
                         }
                     } else {
                         q("INSERT INTO mpesa_transactions (transaction_type, command_id, status, response_code, response_message, request_payload)
