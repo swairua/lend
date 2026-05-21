@@ -395,10 +395,10 @@ export const adminApi = {
     }),
 
   // M-Pesa Payment Endpoints
-  mpesaInitiatePayment: (loan_id: number, phone: string, paid_amount?: number) =>
-    request<{ success: boolean; checkout_request_id?: string; error?: string }>('/admin/mpesa/payment', {
+  mpesaInitiatePayment: (loan_id: number, phone_number: string, amount?: number) =>
+    request<{ success: boolean; checkout_request_id?: string; error?: string }>('/mpesa/payment', {
       method: 'POST',
-      body: JSON.stringify({ loan_id, phone, paid_amount }),
+      body: JSON.stringify({ loan_id, phone_number, amount }),
     }),
 
   mpesaInitiateDisbursement: (loan_id: number, phone: string) =>

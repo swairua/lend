@@ -5,11 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ChevronLeft, AlertCircle, CreditCard, Info, ArrowRight, ArrowLeft, Plus, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, ChevronLeft, AlertCircle, CreditCard, Info, ArrowRight, ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import { adminApi, productsApi, formatKES } from '../utils/api';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
@@ -33,13 +32,6 @@ export default function AdminCreateLoan() {
   const [loadingBorrowers, setLoadingBorrowers] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
-  const [createBorrowerDialogOpen, setCreateBorrowerDialogOpen] = useState(false);
-  const [newBorrower, setNewBorrower] = useState({
-    name: '',
-    email: '',
-    phone: '',
-  });
-  const [creatingBorrower, setCreatingBorrower] = useState(false);
 
   const [form, setForm] = useState({
     amount: 0,
@@ -145,25 +137,6 @@ export default function AdminCreateLoan() {
       amount: Math.max(p.min_amount, Math.min(f.amount || p.min_amount, p.max_amount)),
       term_months: Math.max(p.min_term_months || 1, Math.min(f.term_months, p.max_term_months || 60)),
     }));
-  };
-
-  const handleCreateBorrower = async () => {
-    if (!newBorrower.name || !newBorrower.email) {
-      showAlert({ type: 'error', message: 'Please enter borrower name and email' });
-      return;
-    }
-
-    setCreatingBorrower(true);
-    try {
-      // For now, just create a simple borrower record
-      // In a full implementation, this would call an API endpoint
-      showAlert({ type: 'error', message: 'Borrower creation requires backend implementation' });
-      setCreateBorrowerDialogOpen(false);
-    } catch (error: any) {
-      showAlert({ type: 'error', message: error.message || 'Failed to create borrower' });
-    } finally {
-      setCreatingBorrower(false);
-    }
   };
 
   const handleGoStep2 = () => {
@@ -277,16 +250,8 @@ export default function AdminCreateLoan() {
                     {!loadingBorrowers && borrowers.length === 0 && (
                       <CommandEmpty>
                         <div className="space-y-2 p-2">
-                          <p>No borrowers found</p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setCreateBorrowerDialogOpen(true)}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create New Borrower
-                          </Button>
+                          <p className="text-sm">No borrowers found</p>
+                          <p className="text-xs text-muted-foreground">Borrowers must register first to be available for loan creation.</p>
                         </div>
                       </CommandEmpty>
                     )}
@@ -315,19 +280,6 @@ export default function AdminCreateLoan() {
                         ))}
                       </CommandGroup>
                     </CommandList>
-                    {!loadingBorrowers && borrowers.length > 0 && (
-                      <div className="border-t p-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => setCreateBorrowerDialogOpen(true)}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create New Borrower
-                        </Button>
-                      </div>
-                    )}
                   </Command>
                 </PopoverContent>
               </Popover>
@@ -537,53 +489,6 @@ export default function AdminCreateLoan() {
           </div>
         </div>
       )}
-
-      {/* Create Borrower Dialog */}
-      <Dialog open={createBorrowerDialogOpen} onOpenChange={setCreateBorrowerDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Borrower</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="borrower-name">Full Name*</Label>
-              <Input
-                id="borrower-name"
-                placeholder="John Doe"
-                value={newBorrower.name}
-                onChange={(e) => setNewBorrower(b => ({ ...b, name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="borrower-email">Email*</Label>
-              <Input
-                id="borrower-email"
-                type="email"
-                placeholder="john@example.com"
-                value={newBorrower.email}
-                onChange={(e) => setNewBorrower(b => ({ ...b, email: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="borrower-phone">Phone</Label>
-              <Input
-                id="borrower-phone"
-                type="tel"
-                placeholder="+254..."
-                value={newBorrower.phone}
-                onChange={(e) => setNewBorrower(b => ({ ...b, phone: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateBorrowerDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateBorrower} disabled={creatingBorrower}>
-              {creatingBorrower ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {AlertComponent}
     </div>

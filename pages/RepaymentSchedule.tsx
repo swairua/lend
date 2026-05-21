@@ -110,7 +110,7 @@ export default function RepaymentSchedule() {
 
     setPaymentLoading(payment.dueDate);
     try {
-      const response = await adminApi.post('/admin/mpesa/payment', {
+      const response = await adminApi.post('/mpesa/payment', {
         loan_id: parseInt(loanId!),
         phone_number: borrowerPhone.trim(),
         amount: payment.amount,
@@ -125,6 +125,7 @@ export default function RepaymentSchedule() {
         showAlert({ type: 'error', message: response.error || 'Failed to send payment prompt' });
       }
     } catch (error: any) {
+      console.error('Payment error:', error);
       showAlert({ type: 'error', message: error.message || 'Payment initiation failed' });
     } finally {
       setPaymentLoading(null);
