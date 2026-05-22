@@ -358,6 +358,7 @@ function bootstrap() {
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             borrower_id INTEGER,
             user_id INTEGER,
+            loan_id INTEGER,
             file_name TEXT NOT NULL,
             file_path TEXT NOT NULL,
             doc_type TEXT NOT NULL,
@@ -365,7 +366,8 @@ function bootstrap() {
             mime_type TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (borrower_id) REFERENCES borrowers(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE SET NULL
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS mpesa_transactions (
@@ -1167,6 +1169,82 @@ try {
                 'recent_loans' => $recentLoans, 'recent_repayments' => $recentRep,
             ]]);
             exit;
+        }
+
+        // Create new loan (admin registration of pre-existing loans)
+        if ($method === 'POST' && $uri === 'admin/loans') {
+            $u = auth();
+            try {
+                $d = input();
+
+                $borrower_id = $d['borrower_id'] ?? null;
+                $product_id = $d['product_id'] ?? null;
+                $amount = $d['amount'] ?? null;
+                $term_months = $d['term_months'] ?? null;
+
+                if (!$borrower_id || !$product_id || !$amount || !$term_months) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Missing required fields: borrower_id, product_id, amount, term_months']);
+                    exit;
+                }
+
+                $borrower = one("SELECT id FROM borrowers WHERE id = ?", [$borrower_id]);
+                if (!$borrower) {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Borrower not found']);
+                    exit;
+                }
+
+                $product = one("SELECT * FROM loan_products WHERE id = ?", [$product_id]);
+                if (!$product) {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Product not found']);
+                    exit;
+                }
+
+                $interest_rate = floatval($product['interest_rate'] ?? 10);
+                $total_amount = floatval($amount) + (floatval($amount) * $interest_rate * intval($term_months) / 100 / 12);
+
+                $due_date = new DateTime();
+                $due_date->add(new DateInterval('P' . intval($term_months) . 'M'));
+
+                $security_details = $d['security_details'] ?? null;
+                $guarantor_details = $d['guarantor_details'] ?? null;
+                $purpose = $d['purpose'] ?? null;
+                $document_ids = $d['document_ids'] ?? [];
+
+                q("INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, term_months, interest_rate, status, due_date, security_details, guarantor_details, purpose)
+                   VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)",
+                  [$borrower_id, $product_id, floatval($amount), $total_amount, intval($term_months), $interest_rate, $due_date->format('Y-m-d'), $security_details, $guarantor_details, $purpose]);
+
+                $loanId = pdo()->lastInsertId();
+
+                if (is_array($document_ids) && count($document_ids) > 0) {
+                    foreach ($document_ids as $docId) {
+                        q("UPDATE documents SET loan_id = ? WHERE id = ? AND borrower_id = ?", [$loanId, $docId, $borrower_id]);
+                    }
+                }
+
+                logAudit($u['id'], 'loan_created_admin', 'loan', $loanId, [
+                    'borrower_id' => $borrower_id,
+                    'product_id' => $product_id,
+                    'principal_amount' => floatval($amount),
+                    'term_months' => intval($term_months),
+                    'security_details' => $security_details,
+                    'guarantor_details' => $guarantor_details,
+                    'document_ids' => $document_ids,
+                    'created_by_user_id' => $u['id']
+                ]);
+
+                log_access('POST', 'admin/loans', 201);
+                echo json_encode(['success' => true, 'data' => ['id' => intval($loanId)]]);
+                exit;
+            } catch (Exception $e) {
+                log_error("Loan creation exception", ['error' => $e->getMessage()]);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to create loan']);
+                exit;
+            }
         }
 
         // Loan actions
