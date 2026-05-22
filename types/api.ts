@@ -74,6 +74,7 @@ export interface Loan {
   updated_at: string;
   borrower_name?: string;
   borrower_email?: string;
+  borrower_phone?: string;
   product_name?: string;
   category_name?: string;
   total_paid?: number;
