@@ -442,6 +442,7 @@ export default function AdminCreateLoan() {
                 <div>
                   <p className="text-sm text-muted-foreground">Borrower</p>
                   <p className="font-semibold">{selectedBorrower?.name || selectedBorrower?.email}</p>
+                  {selectedBorrower?.phone && <p className="text-xs text-muted-foreground">{selectedBorrower.phone}</p>}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Product</p>
@@ -489,7 +490,7 @@ export default function AdminCreateLoan() {
                 />
               </div>
 
-              {selectedProduct?.requires_security && (
+              {!!selectedProduct?.requires_security && (
                 <div className="space-y-2">
                   <Label htmlFor="security">Security Details</Label>
                   <Textarea
@@ -502,7 +503,7 @@ export default function AdminCreateLoan() {
                 </div>
               )}
 
-              {selectedProduct?.requires_guarantor && (
+              {!!selectedProduct?.requires_guarantor && (
                 <div className="space-y-2">
                   <Label htmlFor="guarantor">Guarantor Details</Label>
                   <Textarea
