@@ -71,7 +71,7 @@ function logSystem($logType, $action, $details = [], $userId = null, $status = '
     try {
         $detailsJson = !empty($details) ? json_encode($details) : null;
         $stmt = pdo()->prepare("
-            INSERT INTO system_logs (log_type, action, details, user_id, status, timestamp)
+            INSERT INTO system_logs (log_type, action, details, user_id, status, created_at)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ");
         $stmt->execute([$logType, $action, $detailsJson, $userId, $status]);
@@ -2457,11 +2457,11 @@ try {
                 $params[] = $likeSearch;
             }
             if ($startDate) {
-                $where .= " AND DATE(timestamp) >= ?";
+                $where .= " AND DATE(created_at) >= ?";
                 $params[] = $startDate;
             }
             if ($endDate) {
-                $where .= " AND DATE(timestamp) <= ?";
+                $where .= " AND DATE(created_at) <= ?";
                 $params[] = $endDate;
             }
 
@@ -2469,7 +2469,7 @@ try {
                          FROM system_logs sl
                          LEFT JOIN users u ON sl.user_id = u.id
                          $where
-                         ORDER BY sl.timestamp DESC LIMIT $limit OFFSET $off", $params);
+                         ORDER BY sl.created_at DESC LIMIT $limit OFFSET $off", $params);
 
             $countResult = one("SELECT COUNT(*) c FROM system_logs sl $where", $params);
             $tot = $countResult['c'] ?? 0;
