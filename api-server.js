@@ -194,13 +194,15 @@ function initializeSchema() {
       CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         borrower_id INTEGER NOT NULL,
+        loan_id INTEGER DEFAULT NULL,
         filename VARCHAR(255) NOT NULL,
         original_name VARCHAR(255) NOT NULL,
         file_type VARCHAR(100) NOT NULL,
         doc_type VARCHAR(100) NOT NULL,
         file_url TEXT NOT NULL,
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (borrower_id) REFERENCES borrowers(id)
+        FOREIGN KEY (borrower_id) REFERENCES borrowers(id),
+        FOREIGN KEY (loan_id) REFERENCES loans(id)
       );
 
       CREATE TABLE IF NOT EXISTS mpesa_transactions (
@@ -2978,7 +2980,7 @@ app.post('/api/admin/loans', authenticate, (req, res) => {
   }
 
   try {
-    const { borrower_id, product_id, amount, term_months, security_details, guarantor_details, purpose } = req.body;
+    const { borrower_id, product_id, amount, term_months, security_details, guarantor_details, purpose, document_ids } = req.body;
 
     if (!borrower_id || !product_id || !amount || !term_months) {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -3006,16 +3008,38 @@ app.post('/api/admin/loans', authenticate, (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
     `).run(borrower_id, product_id, amount, total_amount, term_months, interest_rate, due_date.toISOString(), security_details || null, guarantor_details || null);
 
-    logLoanAudit(req.user.id, 'loan_created_admin', result.lastInsertRowid, 'success', {
+    const loanId = result.lastInsertRowid;
+
+    // Link documents to the loan if provided
+    if (document_ids && Array.isArray(document_ids) && document_ids.length > 0) {
+      const updateDocStmt = db.prepare('UPDATE documents SET loan_id = ? WHERE id = ? AND borrower_id = ?');
+      for (const docId of document_ids) {
+        updateDocStmt.run(loanId, docId, borrower_id);
+      }
+    }
+
+    // Create transaction log entry
+    db.prepare(`
+      INSERT INTO transaction_logs (loan_id, transaction_type, amount, status, details)
+      VALUES (?, 'loan_created', ?, 'completed', ?)
+    `).run(loanId, amount, JSON.stringify({
+      created_by: 'admin',
+      document_ids: document_ids || [],
+      security_details,
+      guarantor_details
+    }));
+
+    logLoanAudit(req.user.id, 'loan_created_admin', loanId, 'success', {
       principal: amount,
       term: term_months,
-      borrower_id
+      borrower_id,
+      document_ids: document_ids || []
     });
 
     res.json({
       success: true,
       message: 'Loan created successfully',
-      data: { id: result.lastInsertRowid }
+      data: { id: loanId }
     });
   } catch (error) {
     console.error('Error creating loan:', error);
