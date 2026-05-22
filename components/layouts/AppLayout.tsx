@@ -39,7 +39,14 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
     if (href === '/admin' || href === '/dashboard') {
       return location.pathname === href;
     }
-    return location.pathname === href || location.pathname.startsWith(href);
+    if (location.pathname === href) {
+      return true;
+    }
+    // Only match startsWith for paths that end with a slash or are root-level
+    if (href.endsWith('/')) {
+      return location.pathname.startsWith(href);
+    }
+    return false;
   };
 
   const navLink = (item: any) => (
