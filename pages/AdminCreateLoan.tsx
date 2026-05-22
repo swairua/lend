@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ChevronLeft, AlertCircle, CreditCard, Info, ArrowRight, ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
-import { adminApi, productsApi, formatKES } from '../utils/api';
+import { Loader2, ChevronLeft, AlertCircle, CreditCard, Info, ArrowRight, ArrowLeft, Check, ChevronsUpDown, Upload, X, FileText } from 'lucide-react';
+import { adminApi, productsApi, formatKES, uploadsApi } from '../utils/api';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,20 @@ export default function AdminCreateLoan() {
     security_details: '',
     guarantor_details: '',
   });
+
+  const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState('');
+
+  const docTypes = [
+    { value: 'national_id', label: 'National ID', accept: '.pdf,.jpg,.jpeg,.png' },
+    { value: 'kra_certificate', label: 'KRA Certificate', accept: '.pdf,.jpg,.jpeg,.png' },
+    { value: 'tcc_document', label: 'TCC Document', accept: '.pdf,.jpg,.jpeg,.png' },
+    { value: 'bank_statement', label: 'Bank Statement', accept: '.pdf,.jpg,.jpeg,.png' },
+    { value: 'logbook', label: 'Logbook', accept: '.pdf,.jpg,.jpeg,.png' },
+    { value: 'payslip', label: 'Payslip', accept: '.pdf,.jpg,.jpeg,.png' },
+    { value: 'other', label: 'Other Document', accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png' },
+  ];
 
   useEffect(() => {
     loadCategories();
@@ -155,9 +169,41 @@ export default function AdminCreateLoan() {
     setStep(2);
   };
 
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    if (!selectedDocType) {
+      showAlert({ type: 'error', message: 'Please select a document type' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const response = await uploadsApi.upload(file, selectedDocType, selectedBorrower?.id);
+      if (response.success) {
+        setUploadedDocuments([...uploadedDocuments, response.data]);
+        setSelectedDocType('');
+        toast.success('Document uploaded successfully');
+      } else {
+        showAlert({ type: 'error', message: 'Failed to upload document' });
+      }
+    } catch (err: any) {
+      showAlert({ type: 'error', message: err.message || 'Failed to upload document' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveDocument = (docId: number) => {
+    setUploadedDocuments(uploadedDocuments.filter(d => d.id !== docId));
+  };
+
+  const handleGoStep3 = () => {
+    setStep(3);
+  };
+
   const handleSubmit = async () => {
     if (!selectedProduct || !selectedBorrower) return;
-    
+
     setSubmitting(true);
     try {
       const payload: any = {
@@ -171,7 +217,7 @@ export default function AdminCreateLoan() {
       };
 
       const response = await adminApi.createLoan(payload);
-      
+
       if (response.success) {
         toast.success('Loan created successfully!');
         // Redirect to the new loan's repayment schedule or admin loans page
@@ -437,7 +483,7 @@ export default function AdminCreateLoan() {
                 <Textarea
                   id="purpose"
                   placeholder="What is the loan purpose?"
-                  value={form.purpose}
+                  value={form.purpose || ''}
                   onChange={(e) => setForm(f => ({ ...f, purpose: e.target.value }))}
                   className="min-h-[80px]"
                 />
@@ -449,7 +495,7 @@ export default function AdminCreateLoan() {
                   <Textarea
                     id="security"
                     placeholder="Describe the collateral/security"
-                    value={form.security_details}
+                    value={form.security_details || ''}
                     onChange={(e) => setForm(f => ({ ...f, security_details: e.target.value }))}
                     className="min-h-[80px]"
                   />
@@ -462,7 +508,7 @@ export default function AdminCreateLoan() {
                   <Textarea
                     id="guarantor"
                     placeholder="Guarantor name, phone, relationship"
-                    value={form.guarantor_details}
+                    value={form.guarantor_details || ''}
                     onChange={(e) => setForm(f => ({ ...f, guarantor_details: e.target.value }))}
                     className="min-h-[80px]"
                   />
@@ -473,6 +519,106 @@ export default function AdminCreateLoan() {
 
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => setStep(1)} disabled={submitting}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <Button className="flex-1" onClick={handleGoStep3} disabled={submitting}>
+              Continue <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: Document Upload */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" /> Upload Documents (Optional)
+              </CardTitle>
+              <CardDescription>Add supporting documents for the loan application</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Document Type Selector & File Upload */}
+              <div className="space-y-4 border-b pb-4">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="doctype">Document Type</Label>
+                    <Select value={selectedDocType} onValueChange={setSelectedDocType}>
+                      <SelectTrigger id="doctype">
+                        <SelectValue placeholder="Select document type..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {docTypes.map((doc) => (
+                          <SelectItem key={doc.value} value={doc.value}>
+                            {doc.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="file">Choose File</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="file"
+                        type="file"
+                        accept={docTypes.find(d => d.value === selectedDocType)?.accept || '.pdf,.doc,.docx,.jpg,.jpeg,.png'}
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            handleFileUpload(e.target.files[0]);
+                            e.target.value = '';
+                          }
+                        }}
+                        disabled={!selectedDocType || uploading}
+                        className="flex-1"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">PDF, DOC, DOCX, JPG, JPEG, PNG up to 5MB</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Uploaded Documents List */}
+              {uploadedDocuments.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Uploaded Documents ({uploadedDocuments.length})</Label>
+                  <div className="space-y-2">
+                    {uploadedDocuments.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between bg-muted/50 p-3 rounded-md border">
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{doc.original_name}</p>
+                            <p className="text-xs text-muted-foreground">{docTypes.find(d => d.value === doc.doc_type)?.label}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveDocument(doc.id)}
+                          disabled={uploading}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-sm text-blue-900">
+                  Document uploads are optional. You can add documents now or after the loan is created.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setStep(2)} disabled={submitting}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
             <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
