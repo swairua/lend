@@ -8,11 +8,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api.php': {
-        target: 'https://lending.wayrus.co.ke',
+        target: 'https://lending.wayru.co.ke',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'https://lending.wayrus.co.ke',
+        target: 'https://lending.wayru.co.ke',
         changeOrigin: true,
       },
     },
