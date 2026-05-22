@@ -237,6 +237,7 @@ export const adminApi = {
     purpose?: string;
     security_details?: string;
     guarantor_details?: string;
+    document_ids?: number[];
   }) =>
     request<{ success: boolean; message: string; data: { id: number } }>('/admin/loans', {
       method: 'POST',

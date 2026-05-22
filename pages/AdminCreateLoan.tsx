@@ -214,6 +214,7 @@ export default function AdminCreateLoan() {
         purpose: form.purpose || undefined,
         security_details: form.security_details || undefined,
         guarantor_details: form.guarantor_details || undefined,
+        document_ids: uploadedDocuments.map(doc => doc.id),
       };
 
       const response = await adminApi.createLoan(payload);
