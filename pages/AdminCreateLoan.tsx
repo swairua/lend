@@ -490,7 +490,7 @@ export default function AdminCreateLoan() {
                 />
               </div>
 
-              {selectedProduct?.requires_security && (
+              {!!selectedProduct?.requires_security && (
                 <div className="space-y-2">
                   <Label htmlFor="security">Security Details</Label>
                   <Textarea
@@ -503,7 +503,7 @@ export default function AdminCreateLoan() {
                 </div>
               )}
 
-              {selectedProduct?.requires_guarantor && (
+              {!!selectedProduct?.requires_guarantor && (
                 <div className="space-y-2">
                   <Label htmlFor="guarantor">Guarantor Details</Label>
                   <Textarea
