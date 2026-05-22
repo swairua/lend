@@ -442,6 +442,7 @@ export default function AdminCreateLoan() {
                 <div>
                   <p className="text-sm text-muted-foreground">Borrower</p>
                   <p className="font-semibold">{selectedBorrower?.name || selectedBorrower?.email}</p>
+                  {selectedBorrower?.phone && <p className="text-xs text-muted-foreground">{selectedBorrower.phone}</p>}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Product</p>
