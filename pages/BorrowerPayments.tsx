@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { PageTitle } from '@/components/PageTitle';
 import { Loader2, Download } from 'lucide-react';
-import { loansApi, formatKES, formatDate, pdfApi } from '../types/api';
+import { loansApi, formatKES, formatDate } from '../types/api';
+import { generateReceiptHTML } from '../utils/pdfTemplates';
 import { toast } from 'sonner';
 
 interface RepaymentWithLoan {
@@ -71,18 +72,17 @@ export default function BorrowerPayments() {
   const handleDownloadReceipt = async (repayment: RepaymentWithLoan) => {
     try {
       setDownloadingReceiptId(repayment.id);
-      const res = await pdfApi.generateReceipt(repayment.loan_id, repayment.id);
-      if (res.success && res.data?.pdfUrl) {
-        const link = document.createElement('a');
-        link.href = res.data.pdfUrl;
-        link.download = res.data.fileName || `Receipt_${repayment.loan_id}_${repayment.id}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success('Receipt downloaded successfully');
-      } else {
-        toast.error('Failed to generate receipt');
-      }
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.createElement('div');
+      element.innerHTML = generateReceiptHTML({
+        repayment: { ...repayment, loan_id: repayment.loan_id },
+        loan: { id: repayment.loan_id } as any,
+        borrowerName: '',
+        borrowerEmail: '',
+      });
+      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      await html2pdf().set(opt).from(element).save();
+      toast.success('Receipt downloaded successfully');
     } catch (err: any) {
       console.error('Failed to download receipt:', err);
       toast.error('Failed to download receipt');

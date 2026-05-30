@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus, Check, ChevronsUpDown, Download } from 'lucide-react';
-import { adminApi, repaymentsApi, formatKES, formatDate, pdfApi } from '../types/api';
+import { adminApi, repaymentsApi, formatKES, formatDate } from '../types/api';
+import { generateReceiptHTML } from '../utils/pdfTemplates';
 import { toast } from 'sonner';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
@@ -233,19 +234,19 @@ export default function AdminRepayments() {
     }
   };
 
-  const handleDownloadReceipt = async (loanId: number, repaymentId: number) => {
-    setDownloadingReceiptId(repaymentId);
+  const handleDownloadReceipt = async (repayment: any) => {
+    setDownloadingReceiptId(repayment.id);
     try {
-      const result = await pdfApi.generateReceipt(loanId, repaymentId);
-      const blob = await pdfApi.downloadDocument(result.data.document_id);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = result.data.fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.createElement('div');
+      element.innerHTML = generateReceiptHTML({
+        repayment: { ...repayment, loan_id: repayment.loan_id },
+        loan: { id: repayment.loan_id } as any,
+        borrowerName: repayment.borrower_name || 'N/A',
+        borrowerEmail: repayment.borrower_email || 'N/A',
+      });
+      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      await html2pdf().set(opt).from(element).save();
       toast.success('Receipt downloaded successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to download receipt');
@@ -541,7 +542,7 @@ export default function AdminRepayments() {
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2 text-blue-600 hover:text-blue-700"
-                        onClick={() => handleDownloadReceipt(repayment.loan_id, repayment.id)}
+                        onClick={() => handleDownloadReceipt(repayment)}
                         disabled={downloadingReceiptId === repayment.id}
                       >
                         {downloadingReceiptId === repayment.id ? (

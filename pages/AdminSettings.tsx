@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { adminApi, pdfApi } from '../utils/api';
+import { adminApi, emailApi } from '../utils/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
@@ -209,7 +209,7 @@ export default function AdminSettings() {
 
   const loadEmailSettings = async () => {
     try {
-      const response: any = await pdfApi.getEmailSettings();
+      const response: any = await emailApi.getEmailSettings();
       if (response.success && response.data) {
         setEmailSettings({
           smtp_host: response.data.smtp_host || '',
@@ -329,7 +329,7 @@ export default function AdminSettings() {
 
     setEmailSaving(true);
     try {
-      await pdfApi.updateEmailSettings(
+      await emailApi.updateEmailSettings(
         emailSettings.smtp_host,
         parseInt(emailSettings.smtp_port),
         emailSettings.smtp_user,
@@ -347,7 +347,7 @@ export default function AdminSettings() {
   const handleTestEmailSettings = async () => {
     setEmailTesting(true);
     try {
-      const result = await pdfApi.testEmailSettings();
+      const result = await emailApi.testEmailSettings();
       if (result.success) {
         toast.success(result.message || 'Email connection successful!');
       } else {

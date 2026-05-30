@@ -3,12 +3,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import LoanStatusTimeline from "../components/LoanStatusTimeline";
 import DocumentsPanel from "../components/DocumentsPanel";
-import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel, pdfApi } from "../types/api";
+import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from "../types/api";
 import { uploadsApi } from "../utils/api";
 import { secureStorage } from "@/utils/secureStorage";
 import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
+import { generateInvoiceHTML, generateReceiptHTML } from "../utils/pdfTemplates";
 import { calculateAPR } from "../utils/aprCalculator";
 import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
 
@@ -88,6 +90,7 @@ export default function LoanDetails() {
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [user, setUser] = useState<any>({});
+  const [errorDialog, setErrorDialog] = useState<{ open: boolean; title: string; message: string }>({ open: false, title: '', message: '' });
 
   useEffect(() => {
     const loadUser = async () => {
@@ -190,9 +193,9 @@ export default function LoanDetails() {
         companyPhone: '+254 (0) 700 000 000',
         companyEmail: 'support@jecribureau.ke',
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to download PDF:', err);
-      alert('Failed to download PDF. Please try again.');
+      setErrorDialog({ open: true, title: 'PDF Failed', message: err?.message || 'Failed to download PDF. Please try again.' });
     } finally {
       setDownloadingPDF(false);
     }
@@ -201,20 +204,20 @@ export default function LoanDetails() {
   const handleDownloadInvoice = async () => {
     try {
       setDownloadingInvoice(true);
-      const res = await pdfApi.generateInvoice(loan.id);
-      if (res.success && res.data?.pdfUrl) {
-        const link = document.createElement('a');
-        link.href = res.data.pdfUrl;
-        link.download = res.data.fileName || `Invoice_Loan${loan.id}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        alert('Failed to generate invoice. Please try again.');
-      }
-    } catch (err) {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.createElement('div');
+      element.innerHTML = generateInvoiceHTML({
+        loan,
+        borrowerName: user.name || loan.borrower_name || 'N/A',
+        borrowerEmail: user.email || loan.borrower_email || 'N/A',
+        totalPaid: loan.total_paid || 0,
+        balance: loan.balance || 0,
+      });
+      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      await html2pdf().set(opt).from(element).save();
+    } catch (err: any) {
       console.error('Failed to download invoice:', err);
-      alert('Failed to download invoice. Please try again.');
+      setErrorDialog({ open: true, title: 'Invoice Failed', message: err?.message || 'Failed to generate invoice. Please try again.' });
     } finally {
       setDownloadingInvoice(false);
     }
@@ -224,24 +227,23 @@ export default function LoanDetails() {
     try {
       setDownloadingReceipt(true);
       if (!loan.repayments?.length) {
-        alert('No repayment records available.');
+        setErrorDialog({ open: true, title: 'No Records', message: 'No repayment records available.' });
         return;
       }
       const latestRepayment = loan.repayments[loan.repayments.length - 1];
-      const res = await pdfApi.generateReceipt(loan.id, latestRepayment.id);
-      if (res.success && res.data?.pdfUrl) {
-        const link = document.createElement('a');
-        link.href = res.data.pdfUrl;
-        link.download = res.data.fileName || `Receipt_Loan${loan.id}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        alert('Failed to generate receipt. Please try again.');
-      }
-    } catch (err) {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.createElement('div');
+      element.innerHTML = generateReceiptHTML({
+        repayment: { ...latestRepayment, loan_id: loan.id },
+        loan,
+        borrowerName: user.name || loan.borrower_name || 'N/A',
+        borrowerEmail: user.email || loan.borrower_email || 'N/A',
+      });
+      const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      await html2pdf().set(opt).from(element).save();
+    } catch (err: any) {
       console.error('Failed to download receipt:', err);
-      alert('Failed to download receipt. Please try again.');
+      setErrorDialog({ open: true, title: 'Receipt Failed', message: err?.message || 'Failed to download receipt. Please try again.' });
     } finally {
       setDownloadingReceipt(false);
     }
@@ -452,6 +454,18 @@ export default function LoanDetails() {
       {user?.borrower_id && (
         <DocumentsPanel borrowerId={user.borrower_id} isBorrower={true} readOnly={true} />
       )}
+
+      <Dialog open={errorDialog.open} onOpenChange={(open) => setErrorDialog({ ...errorDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{errorDialog.title}</DialogTitle>
+            <DialogDescription>{errorDialog.message}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setErrorDialog({ open: false, title: '', message: '' })}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

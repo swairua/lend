@@ -629,38 +629,8 @@ export const uploadsApi = {
     request<{ success: boolean }>("/uploads/" + id, { method: "DELETE" }),
 };
 
-// ==================== PDF Documents ====================
-export const pdfApi = {
-  generateReceipt: (loanId: number, repaymentId: number) =>
-    request<{ success: boolean; message: string; data: { document_id: number; fileName: string; pdfUrl: string } }>(
-      '/admin/generate-receipt',
-      {
-        method: 'POST',
-        body: JSON.stringify({ loan_id: loanId, repayment_id: repaymentId }),
-      }
-    ),
-
-  generateInvoice: (loanId: number) =>
-    request<{ success: boolean; message: string; data: { document_id: number; fileName: string; pdfUrl: string } }>(
-      '/api/admin/generate-invoice',
-      {
-        method: 'POST',
-        body: JSON.stringify({ loan_id: loanId }),
-      }
-    ),
-
-  downloadDocument: async (documentId: number) => {
-    const token = await secureStorage.getToken();
-    return fetch(`${API_BASE}/documents/${documentId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    }).then(res => {
-      if (!res.ok) throw new Error('Failed to download document');
-      return res.blob();
-    });
-  },
-
+// ==================== Email / Communication ====================
+export const emailApi = {
   getEmailSettings: () =>
     request<{ success: boolean; data: any }>('/admin/email-settings'),
 

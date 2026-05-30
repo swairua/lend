@@ -186,7 +186,7 @@ export {
   repaymentsApi,
   adminApi,
   messagesApi,
-  pdfApi,
+  emailApi,
   formatKES,
   formatDate,
   getStatusColor,
