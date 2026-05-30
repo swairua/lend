@@ -12,6 +12,7 @@ import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, Responsive
 import DocumentsPanel from "../components/DocumentsPanel";
 import ProfilePhoto from "../components/ProfilePhoto";
 import { adminApi, formatKES, formatDate } from '../types/api';
+import { uploadsApi } from '../utils/api';
 import { Loader2, Plus, Edit, Trash2, Search, ChevronLeft, Filter, User, Users, FileText, CreditCard, Eye, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -52,6 +53,9 @@ export default function AdminBorrowers() {
   const [saving, setSaving] = useState(false);
   const [kycForm, setKycForm] = useState({ kra_pin: "", tcc_number: "", national_id: "", client_type: "individual", is_verified: false });
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', email: '', phone: '', password: '', national_id: '', address: '', business_name: '', business_type: '', monthly_income: '' });
 
   useEffect(() => {
     loadBorrowers();
@@ -165,6 +169,38 @@ export default function AdminBorrowers() {
     setViewDialogOpen(true);
   };
 
+  const handleCreateBorrower = async () => {
+    if (!createForm.name || !createForm.email) {
+      toast.error('Name and email are required');
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await adminApi.createBorrower({
+        name: createForm.name,
+        email: createForm.email,
+        phone: createForm.phone || undefined,
+        password: createForm.password || undefined,
+        national_id: createForm.national_id || undefined,
+        address: createForm.address || undefined,
+        business_name: createForm.business_name || undefined,
+        business_type: createForm.business_type || undefined,
+        monthly_income: createForm.monthly_income ? Number(createForm.monthly_income) : undefined,
+      });
+      toast.success(`Borrower ${createForm.name} created successfully`);
+      if (res.generated_password) {
+        toast.info(`Generated password: ${res.generated_password}`, { duration: 10000 });
+      }
+      setCreateDialogOpen(false);
+      setCreateForm({ name: '', email: '', phone: '', password: '', national_id: '', address: '', business_name: '', business_type: '', monthly_income: '' });
+      await loadBorrowers();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to create borrower');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const filteredBorrowers = borrowers.filter(b => {
     const search = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm || 
@@ -227,6 +263,9 @@ export default function AdminBorrowers() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> New Borrower
+        </Button>
       </div>
 
       {/* Borrowers Table */}
@@ -297,6 +336,60 @@ export default function AdminBorrowers() {
         </CardContent>
       </Card>
 
+
+      {/* Create Borrower Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-lg w-[95vw]">
+          <DialogHeader>
+            <DialogTitle>New Borrower</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-1">
+              <Label>Name *</Label>
+              <Input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Full name" />
+            </div>
+            <div className="space-y-1">
+              <Label>Email *</Label>
+              <Input value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="Email address" type="email" />
+            </div>
+            <div className="space-y-1">
+              <Label>Phone</Label>
+              <Input value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="Phone number" />
+            </div>
+            <div className="space-y-1">
+              <Label>Password (leave blank to auto-generate)</Label>
+              <Input value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Auto-generated if empty" type="text" />
+            </div>
+            <div className="space-y-1">
+              <Label>National ID</Label>
+              <Input value={createForm.national_id} onChange={(e) => setCreateForm({ ...createForm, national_id: e.target.value })} placeholder="ID number" />
+            </div>
+            <div className="space-y-1">
+              <Label>Address</Label>
+              <Input value={createForm.address} onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })} placeholder="Physical address" />
+            </div>
+            <div className="space-y-1">
+              <Label>Business Name</Label>
+              <Input value={createForm.business_name} onChange={(e) => setCreateForm({ ...createForm, business_name: e.target.value })} placeholder="Business name" />
+            </div>
+            <div className="space-y-1">
+              <Label>Business Type</Label>
+              <Input value={createForm.business_type} onChange={(e) => setCreateForm({ ...createForm, business_type: e.target.value })} placeholder="e.g. retail, services" />
+            </div>
+            <div className="space-y-1">
+              <Label>Monthly Income (KES)</Label>
+              <Input value={createForm.monthly_income} onChange={(e) => setCreateForm({ ...createForm, monthly_income: e.target.value })} placeholder="0" type="number" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateBorrower} disabled={creating}>
+              {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Borrower
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* KYC Edit Dialog */}
       <Dialog open={kycDialogOpen} onOpenChange={setKycDialogOpen}>

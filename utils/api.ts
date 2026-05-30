@@ -262,6 +262,9 @@ export const adminApi = {
     );
   },
 
+  createBorrower: (data: { name: string; email: string; phone?: string; password?: string; national_id?: string; address?: string; business_name?: string; business_type?: string; monthly_income?: number }) =>
+    request<{ success: boolean; data: any; generated_password?: string }>("/admin/borrowers", { method: "POST", body: JSON.stringify(data) }),
+
   updateBorrowerKYC: (id: number, data: any) =>
     request("/admin/borrowers/"+id, { method: "PUT", body: JSON.stringify(data) }),
 

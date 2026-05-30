@@ -206,10 +206,19 @@ function bootstrap() {
             business_type TEXT,
             monthly_income REAL,
             credit_score INTEGER DEFAULT 0,
+            kra_pin TEXT,
+            tcc_number TEXT,
+            client_type TEXT DEFAULT 'individual',
+            is_verified INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )");
+        // Migrate existing tables: add columns if missing (safe for re-runs)
+        try { $p->exec("ALTER TABLE borrowers ADD COLUMN kra_pin TEXT"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE borrowers ADD COLUMN tcc_number TEXT"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE borrowers ADD COLUMN client_type TEXT DEFAULT 'individual'"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE borrowers ADD COLUMN is_verified INTEGER DEFAULT 0"); } catch (Exception $e) {}
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_categories (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
@@ -1670,10 +1679,89 @@ try {
 
         // Borrowers
         if (strpos($uri, 'admin/borrowers') !== false) {
+
+            // POST /admin/borrowers – create a new borrower (user + borrower record)
+            if ($method === 'POST') {
+                $u = auth();
+                $d = input();
+                $name = trim($d['name'] ?? '');
+                $email = trim($d['email'] ?? '');
+                $phone = trim($d['phone'] ?? '');
+                $password = $d['password'] ?? bin2hex(random_bytes(6));
+                if (!$name || !$email) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Name and email are required']);
+                    exit;
+                }
+                $existing = one("SELECT id FROM users WHERE email = ?", [$email]);
+                if ($existing) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'A user with this email already exists']);
+                    exit;
+                }
+                try {
+                    pdo()->beginTransaction();
+                    $hashed = password_hash($password, PASSWORD_BCRYPT);
+                    q("INSERT INTO users (email, password, name, phone, role, is_active) VALUES (?, ?, ?, ?, 'borrower', 1)",
+                      [$email, $hashed, $name, $phone]);
+                    $userId = pdo()->lastInsertId();
+                    $nationalId = $d['national_id'] ?? null;
+                    $address = $d['address'] ?? null;
+                    $businessName = $d['business_name'] ?? null;
+                    $businessType = $d['business_type'] ?? null;
+                    $monthlyIncome = $d['monthly_income'] ?? null;
+                    $creditScore = $d['credit_score'] ?? 750;
+                    q("INSERT INTO borrowers (user_id, national_id, address, business_name, business_type, monthly_income, credit_score)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)",
+                      [$userId, $nationalId, $address, $businessName, $businessType, $monthlyIncome, $creditScore]);
+                    $borrowerId = pdo()->lastInsertId();
+                    pdo()->commit();
+                    $borrower = one("SELECT u.id, u.name, u.email, u.phone, u.is_active, u.created_at,
+                                            b.id borrower_id, b.national_id, b.address, b.business_name, b.business_type,
+                                            b.monthly_income, b.credit_score, b.kra_pin, b.tcc_number, b.client_type, b.is_verified
+                                     FROM users u LEFT JOIN borrowers b ON u.id = b.user_id
+                                     WHERE u.id = ?", [$userId]);
+                    logAudit($u['id'], 'borrower_created_admin', 'borrower', $borrowerId, ['email' => $email]);
+                    log_access('POST', 'admin/borrowers', 201);
+                    echo json_encode(['success' => true, 'data' => $borrower, 'generated_password' => $password]);
+                    exit;
+                } catch (Exception $e) {
+                    pdo()->rollBack();
+                    log_error("Borrower creation failed", ['error' => $e->getMessage()]);
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Failed to create borrower']);
+                    exit;
+                }
+            }
+
+            // PUT /admin/borrowers/{id} – update borrower KYC/details
+            if ($method === 'PUT' && preg_match('#admin/borrowers/(\d+)$#', $uri, $m)) {
+                $d = input();
+                $fields = [];
+                $params = [];
+                foreach (['national_id','address','business_name','business_type','monthly_income','credit_score','kra_pin','tcc_number','client_type','is_verified'] as $f) {
+                    if (array_key_exists($f, $d)) {
+                        $fields[] = "$f = ?";
+                        $params[] = $d[$f];
+                    }
+                }
+                if (empty($fields)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'No fields to update']);
+                    exit;
+                }
+                $params[] = $m[1];
+                q("UPDATE borrowers SET " . implode(', ', $fields) . ", updated_at = CURRENT_TIMESTAMP WHERE id = ?", $params);
+                log_access('PUT', 'admin/borrowers/' . $m[1], 200);
+                echo json_encode(['success' => true, 'message' => 'Borrower updated']);
+                exit;
+            }
+
+            // GET /admin/borrowers – list borrowers
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
             $rows = all("SELECT u.id, u.name, u.email, u.phone, u.is_active, u.created_at,
                                 b.id borrower_id, b.national_id, b.address, b.business_name, b.business_type,
-                                b.monthly_income, b.credit_score
+                                b.monthly_income, b.credit_score, b.kra_pin, b.tcc_number, b.client_type, b.is_verified
                          FROM users u LEFT JOIN borrowers b ON u.id = b.user_id
                          WHERE u.role = 'borrower' ORDER BY u.created_at DESC LIMIT $limit OFFSET $off");
             $tot = one("SELECT COUNT(*) c FROM users WHERE role='borrower'");
