@@ -58,6 +58,8 @@ export default function AdminLoans() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const [companyName, setCompanyName] = useState('LENDING PLATFORM');
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
 
   const loadLoans = useCallback(async () => {
     setLoading(true);
@@ -117,6 +119,26 @@ export default function AdminLoans() {
     };
     preloadAllStatusCounts();
   }, [loadCountsByStatus]);
+
+  const loadCompanySettings = useCallback(async () => {
+    try {
+      const res = await adminApi.getConfig();
+      if (res.success && res.data) {
+        const configArray = Array.isArray(res.data) ? res.data :
+          res.data.data ? res.data.data :
+          Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
+        const settings = Object.fromEntries(configArray.map((item: any) => [item.key_name, item.key_value]));
+        setCompanyName(settings.company_name || 'LENDING PLATFORM');
+        setCompanyLogoUrl(settings.company_logo || null);
+      }
+    } catch (err) {
+      console.warn('Could not load company settings:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCompanySettings();
+  }, [loadCompanySettings]);
 
   useEffect(() => {
     let eventSource: EventSource | null = null;
@@ -298,6 +320,8 @@ export default function AdminLoans() {
         borrowerEmail: loan.borrower_email || 'N/A',
         totalPaid: loan.total_paid || 0,
         balance: loan.balance || 0,
+        companyName,
+        companyLogoUrl: companyLogoUrl || undefined,
       });
       const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();

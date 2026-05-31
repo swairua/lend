@@ -3,6 +3,9 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 export default defineConfig({
+  optimizeDeps: {
+    include: ['html2pdf.js'],
+  },
   server: {
     host: "localhost",
     port: 5173,

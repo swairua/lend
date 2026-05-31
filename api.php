@@ -208,7 +208,7 @@ function bootstrap() {
             credit_score INTEGER DEFAULT 0,
             kra_pin TEXT,
             tcc_number TEXT,
-            client_type TEXT DEFAULT 'individual',
+            client_type VARCHAR(50) DEFAULT 'individual',
             is_verified INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -217,7 +217,7 @@ function bootstrap() {
         // Migrate existing tables: add columns if missing (safe for re-runs)
         try { $p->exec("ALTER TABLE borrowers ADD COLUMN kra_pin TEXT"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE borrowers ADD COLUMN tcc_number TEXT"); } catch (Exception $e) {}
-        try { $p->exec("ALTER TABLE borrowers ADD COLUMN client_type TEXT DEFAULT 'individual'"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE borrowers ADD COLUMN client_type VARCHAR(50) DEFAULT 'individual'"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE borrowers ADD COLUMN is_verified INTEGER DEFAULT 0"); } catch (Exception $e) {}
 
         $p->exec("CREATE TABLE IF NOT EXISTS loan_categories (
@@ -2104,15 +2104,68 @@ try {
             exit;
         }
 
+        // Upload Company Logo
+        if ($method === 'POST' && strpos($uri, 'admin/upload-logo') !== false) {
+            if (!isset($_FILES['file'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'File is required']);
+                exit;
+            }
+
+            $file = $_FILES['file'];
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Upload error: ' . $file['error']]);
+                exit;
+            }
+
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+            if (!in_array($file['type'], $allowed_types)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid file type. Allowed: JPG, PNG, GIF, WebP, SVG']);
+                exit;
+            }
+
+            $file_ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $unique_name = 'logo_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $file_ext;
+            $file_path = 'uploads/' . $unique_name;
+            $full_path = __DIR__ . '/' . $file_path;
+
+            if (!move_uploaded_file($file['tmp_name'], $full_path)) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to save file']);
+                exit;
+            }
+
+            $file_url = '/' . $file_path;
+
+            q("INSERT INTO settings (key_name, key_value) VALUES ('company_logo', ?)
+               ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$file_url, $file_url]);
+
+            log_access('POST', 'admin/upload-logo', 200);
+            echo json_encode(['success' => true, 'data' => ['file_url' => $file_url]]);
+            exit;
+        }
+
         // Settings
         if (strpos($uri, 'admin/settings') !== false) {
-            if ($method === 'PUT') {
+            if ($method === 'PUT' || $method === 'POST') {
                 $d = input();
-                foreach ($d as $k => $v) {
-                    q("INSERT INTO settings (key_name, key_value) VALUES (?, ?)
-                       ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$k, $v, $v]);
+                $settings = [];
+                if (isset($d['settings']) && is_array($d['settings'])) {
+                    $settings = $d['settings'];
+                } elseif (is_array($d)) {
+                    $settings = $d;
                 }
-                log_access('PUT', 'admin/settings', 200);
+                foreach ($settings as $s) {
+                    $key_name = $s['key_name'] ?? $s['key'] ?? '';
+                    $key_value = $s['key_value'] ?? $s['value'] ?? '';
+                    if ($key_name !== '') {
+                        q("INSERT INTO settings (key_name, key_value) VALUES (?, ?)
+                           ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$key_name, $key_value, $key_value]);
+                    }
+                }
+                log_access($method, 'admin/settings', 200);
                 echo json_encode(['success' => true]);
                 exit;
             }

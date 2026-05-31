@@ -53,6 +53,8 @@ export default function AdminRepayments() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [downloadingReceiptId, setDownloadingReceiptId] = useState<number | null>(null);
+  const [companyName, setCompanyName] = useState('LENDING PLATFORM');
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [loanSearchTerm, setLoanSearchTerm] = useState('');
   const [loans, setLoans] = useState<LoanOption[]>([]);
   const [loanPopoverOpen, setLoanPopoverOpen] = useState(false);
@@ -77,6 +79,25 @@ export default function AdminRepayments() {
   useEffect(() => {
     loadRepayments();
     loadOrphanedPaymentsCount();
+  }, []);
+
+  useEffect(() => {
+    const loadCompanySettings = async () => {
+      try {
+        const res = await adminApi.getConfig();
+        if (res.success && res.data) {
+          const configArray = Array.isArray(res.data) ? res.data :
+            res.data.data ? res.data.data :
+            Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
+          const settings = Object.fromEntries(configArray.map((item: any) => [item.key_name, item.key_value]));
+          setCompanyName(settings.company_name || 'LENDING PLATFORM');
+          setCompanyLogoUrl(settings.company_logo || null);
+        }
+      } catch (err) {
+        console.warn('Could not load company settings:', err);
+      }
+    };
+    loadCompanySettings();
   }, []);
 
   const loadOrphanedPaymentsCount = async () => {
@@ -244,6 +265,8 @@ export default function AdminRepayments() {
         loan: { id: repayment.loan_id } as any,
         borrowerName: repayment.borrower_name || 'N/A',
         borrowerEmail: repayment.borrower_email || 'N/A',
+        companyName,
+        companyLogoUrl: companyLogoUrl || undefined,
       });
       const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();

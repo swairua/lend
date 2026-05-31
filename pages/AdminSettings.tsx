@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { adminApi, emailApi } from '../utils/api';
+import { adminApi, emailApi, uploadCompanyLogo, getFileUrl } from '../utils/api';
 import { secureStorage } from '@/utils/secureStorage';
-import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail } from 'lucide-react';
+import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail, Upload, Image } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
 
@@ -18,6 +18,7 @@ interface SystemConfig {
   company_email: string;
   company_phone: string;
   company_address: string;
+  company_logo: string;
   default_interest_rate: string;
   late_fee_percentage: string;
   processing_fee_percentage: string;
@@ -86,6 +87,7 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -125,6 +127,7 @@ export default function AdminSettings() {
     company_email: '',
     company_phone: '',
     company_address: '',
+    company_logo: '',
     default_interest_rate: '10',
     late_fee_percentage: '5',
     processing_fee_percentage: '2',
@@ -171,6 +174,8 @@ export default function AdminSettings() {
       const settingsList = Array.isArray(response.data) ? response.data
         : Array.isArray(response.data?.data) ? response.data.data
         : Array.isArray(response.data?.settings) ? response.data.settings
+        : (response.data && typeof response.data === 'object' && !Array.isArray(response.data))
+          ? Object.entries(response.data).map(([key_name, key_value]) => ({ key_name, key_value: String(key_value ?? '') }))
         : [];
       if (settingsList.length > 0) {
         const configObj: any = {};
@@ -239,6 +244,30 @@ export default function AdminSettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const res = await uploadCompanyLogo(file);
+      if (res.success && res.data?.file_url) {
+        const url = getFileUrl(res.data.file_url);
+        setConfig({ ...config, company_logo: url });
+        toast.success('Logo uploaded successfully');
+      } else {
+        toast.error('Failed to upload logo');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload logo');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setConfig({ ...config, company_logo: '' });
   };
 
   const handleChange = (key: keyof SystemConfig, value: string) => {
@@ -578,6 +607,48 @@ export default function AdminSettings() {
                   <Input value={config.default_currency} onChange={(e) => handleChange('default_currency', e.target.value)} />
                 </div>
               </div>
+
+              <div className="border-t pt-4">
+                <Label className="mb-2 block">Company Logo</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center overflow-hidden bg-muted/20">
+                    {config.company_logo ? (
+                      <img src={config.company_logo} alt="Company logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <Image className="h-8 w-8 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={logoUploading}
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                    >
+                      {logoUploading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4 mr-2" />
+                      )}
+                      {logoUploading ? 'Uploading...' : 'Upload Logo'}
+                    </Button>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                    />
+                    {config.company_logo && (
+                      <Button variant="ghost" size="sm" onClick={handleRemoveLogo} className="text-destructive">
+                        Remove
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground">Recommended: PNG or JPG, max 500KB</p>
+                  </div>
+                </div>
+              </div>
+
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Changes

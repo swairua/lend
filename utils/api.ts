@@ -632,6 +632,34 @@ export const uploadsApi = {
     request<{ success: boolean }>("/uploads/" + id, { method: "DELETE" }),
 };
 
+export const uploadCompanyLogo = async (file: File): Promise<{ success: boolean; data: { file_url: string } }> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  const token = await secureStorage.getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const response = await fetch(API_BASE + "/admin/upload-logo", {
+      method: "POST",
+      headers,
+      body: fd,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const text = await response.text();
+    let data;
+    try { data = text ? JSON.parse(text) : { success: false, error: "Empty response" }; } catch (e) { throw new ApiError(response.status, "Invalid JSON: " + text); }
+    if (!response.ok) throw new ApiError(response.status, data.error || data.message || "Upload failed");
+    return data;
+  } catch (e: any) {
+    clearTimeout(timeout);
+    if (e.name === "AbortError") throw new Error("Upload timeout");
+    throw e;
+  }
+};
+
 // ==================== Email / Communication ====================
 export const emailApi = {
   getEmailSettings: () =>

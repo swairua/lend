@@ -6,6 +6,8 @@ interface ReceiptData {
   loan: Loan;
   borrowerName: string;
   borrowerEmail: string;
+  companyName?: string;
+  companyLogoUrl?: string;
 }
 
 interface InvoiceData {
@@ -14,6 +16,8 @@ interface InvoiceData {
   borrowerEmail: string;
   totalPaid: number;
   balance: number;
+  companyName?: string;
+  companyLogoUrl?: string;
 }
 
 function formatCurrency(amount: number): string {
@@ -32,38 +36,40 @@ function formatDate(dateString: string): string {
 }
 
 export function generateReceiptHTML(data: ReceiptData): string {
-  const { repayment, loan, borrowerName, borrowerEmail } = data;
+  const { repayment, loan, borrowerName, borrowerEmail, companyName = 'LENDING PLATFORM', companyLogoUrl } = data;
   const receiptDate = formatDate(repayment.paid_at);
-  
+   
   return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
-        .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
-        .receipt-no { color: #666; font-size: 12px; }
-        .section { margin-bottom: 25px; }
-        .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .label { color: #666; }
-        .amount { font-weight: bold; text-align: right; }
-        .total-row { border-top: 1px solid #ddd; padding-top: 10px; font-weight: bold; font-size: 16px; }
-        .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
-        .summary { background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">LENDING PLATFORM</div>
-          <div class="title">Payment Receipt</div>
-          <div class="receipt-no">Receipt #${repayment.id}</div>
-        </div>
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+      .container { max-width: 600px; margin: 0 auto; }
+      .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+      .logo-img { max-height: 40px; margin-bottom: 10px; }
+      .logo-text { font-size: 24px; font-weight: bold; color: #2563eb; }
+      .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
+      .receipt-no { color: #666; font-size: 12px; }
+      .section { margin-bottom: 25px; }
+      .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
+      .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+      .label { color: #666; }
+      .amount { font-weight: bold; text-align: right; }
+      .total-row { border-top: 1px solid #ddd; padding-top: 10px; font-weight: bold; font-size: 16px; }
+      .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+      .summary { background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName}" class="logo-img" />` : ''}
+        <div class="logo-text">${companyName}</div>
+        <div class="title">Payment Receipt</div>
+        <div class="receipt-no">Receipt #${repayment.id}</div>
+      </div>
 
         <div class="section">
           <div class="section-title">Borrower Information</div>
@@ -132,40 +138,42 @@ export function generateReceiptHTML(data: ReceiptData): string {
 }
 
 export function generateInvoiceHTML(data: InvoiceData): string {
-  const { loan, borrowerName, borrowerEmail, totalPaid, balance } = data;
+  const { loan, borrowerName, borrowerEmail, totalPaid, balance, companyName = 'LENDING PLATFORM', companyLogoUrl } = data;
   const dueDate = loan.due_date ? formatDate(loan.due_date) : 'N/A';
-  
+   
   return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
-        .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
-        .invoice-no { color: #666; font-size: 12px; }
-        .section { margin-bottom: 25px; }
-        .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .label { color: #666; }
-        .amount { font-weight: bold; text-align: right; }
-        .total-row { border-top: 2px solid #2563eb; padding-top: 10px; font-weight: bold; font-size: 16px; color: #2563eb; }
-        .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
-        .summary { background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
-        .alert { background-color: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 5px; margin-bottom: 20px; }
-        .alert-text { color: #991b1b; font-size: 14px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">LENDING PLATFORM</div>
-          <div class="title">Loan Invoice</div>
-          <div class="invoice-no">Invoice #INV-${loan.id}</div>
-        </div>
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+      .container { max-width: 600px; margin: 0 auto; }
+      .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+      .logo-img { max-height: 40px; margin-bottom: 10px; }
+      .logo-text { font-size: 24px; font-weight: bold; color: #2563eb; }
+      .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
+      .invoice-no { color: #666; font-size: 12px; }
+      .section { margin-bottom: 25px; }
+      .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
+      .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+      .label { color: #666; }
+      .amount { font-weight: bold; text-align: right; }
+      .total-row { border-top: 2px solid #2563eb; padding-top: 10px; font-weight: bold; font-size: 16px; color: #2563eb; }
+      .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+      .summary { background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
+      .alert { background-color: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 5px; margin-bottom: 20px; }
+      .alert-text { color: #991b1b; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName}" class="logo-img" />` : ''}
+        <div class="logo-text">${companyName}</div>
+        <div class="title">Loan Invoice</div>
+        <div class="invoice-no">Invoice #INV-${loan.id}</div>
+      </div>
 
         ${balance > 0 ? `
         <div class="alert">

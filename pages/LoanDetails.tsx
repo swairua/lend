@@ -11,6 +11,7 @@ import { uploadsApi } from "../utils/api";
 import { secureStorage } from "@/utils/secureStorage";
 import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
 import { generateInvoiceHTML, generateReceiptHTML } from "../utils/pdfTemplates";
+import { adminApi } from "../types/api";
 import { calculateAPR } from "../utils/aprCalculator";
 import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
 
@@ -91,14 +92,36 @@ export default function LoanDetails() {
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [user, setUser] = useState<any>({});
   const [errorDialog, setErrorDialog] = useState<{ open: boolean; title: string; message: string }>({ open: false, title: '', message: '' });
+  const [companyName, setCompanyName] = useState<string>('LENDING PLATFORM');
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
       const storedUser = await secureStorage.getUser();
       setUser(storedUser || {});
     };
+    const loadCompanySettings = async () => {
+      try {
+        const res = await adminApi.getConfig();
+        if (res.success && res.data) {
+          // Handle both array format and object format
+          const configArray = Array.isArray(res.data) ? res.data : 
+                            res.data.data ? res.data.data : 
+                            Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
+          
+          const settings = Object.fromEntries(configArray.map(item => [item.key_name, item.key_value]));
+          setCompanyName(settings.company_name || 'LENDING PLATFORM');
+          // Try to get logo URL from settings or use default
+          setCompanyLogoUrl(settings.company_logo || null);
+        }
+      } catch (err) {
+        console.warn('Could not load company settings:', err);
+        // Keep defaults
+      }
+    };
     loadUser();
     loadLoan();
+    loadCompanySettings();
   }, [loanId]);
 
   const loadLoan = async () => {
@@ -212,6 +235,8 @@ export default function LoanDetails() {
         borrowerEmail: user.email || loan.borrower_email || 'N/A',
         totalPaid: loan.total_paid || 0,
         balance: loan.balance || 0,
+        companyName,
+        companyLogoUrl: companyLogoUrl || undefined,
       });
       const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
@@ -238,6 +263,8 @@ export default function LoanDetails() {
         loan,
         borrowerName: user.name || loan.borrower_name || 'N/A',
         borrowerEmail: user.email || loan.borrower_email || 'N/A',
+        companyName,
+        companyLogoUrl: companyLogoUrl || undefined,
       });
       const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();

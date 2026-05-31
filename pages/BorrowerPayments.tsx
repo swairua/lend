@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { PageTitle } from '@/components/PageTitle';
 import { Loader2, Download } from 'lucide-react';
-import { loansApi, formatKES, formatDate } from '../types/api';
+import { loansApi, adminApi, formatKES, formatDate } from '../types/api';
 import { generateReceiptHTML } from '../utils/pdfTemplates';
 import { toast } from 'sonner';
 
@@ -29,9 +29,30 @@ export default function BorrowerPayments() {
   const [repayments, setRepayments] = useState<RepaymentWithLoan[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [downloadingReceiptId, setDownloadingReceiptId] = useState<number | null>(null);
+  const [companyName, setCompanyName] = useState('LENDING PLATFORM');
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadPayments();
+  }, []);
+
+  useEffect(() => {
+    const loadCompanySettings = async () => {
+      try {
+        const res = await adminApi.getConfig();
+        if (res.success && res.data) {
+          const configArray = Array.isArray(res.data) ? res.data :
+            res.data.data ? res.data.data :
+            Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
+          const settings = Object.fromEntries(configArray.map((item: any) => [item.key_name, item.key_value]));
+          setCompanyName(settings.company_name || 'LENDING PLATFORM');
+          setCompanyLogoUrl(settings.company_logo || null);
+        }
+      } catch (err) {
+        console.warn('Could not load company settings:', err);
+      }
+    };
+    loadCompanySettings();
   }, []);
 
   const loadPayments = async () => {
@@ -79,6 +100,8 @@ export default function BorrowerPayments() {
         loan: { id: repayment.loan_id } as any,
         borrowerName: '',
         borrowerEmail: '',
+        companyName,
+        companyLogoUrl: companyLogoUrl || undefined,
       });
       const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();

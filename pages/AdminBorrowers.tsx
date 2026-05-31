@@ -46,6 +46,7 @@ export default function AdminBorrowers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedBorrower, setSelectedBorrower] = useState<Borrower | null>(null);
+  const [photoUrl, setPhotoUrl] = useState('');
   const [borrowerLoans, setBorrowerLoans] = useState<Loan[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -166,6 +167,7 @@ export default function AdminBorrowers() {
 
   const handleViewBorrower = async (borrower: any) => {
     setSelectedBorrower(borrower);
+    setPhotoUrl((borrower as any)?.photo_url || '');
     setViewDialogOpen(true);
   };
 
@@ -443,7 +445,7 @@ export default function AdminBorrowers() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
             <div className="flex items-center gap-4">
-              <ProfilePhoto name={(selectedBorrower as any)?.name} currentUrl={(selectedBorrower as any)?.photo_url} size="sm" />
+              <ProfilePhoto name={(selectedBorrower as any)?.name} currentUrl={photoUrl} size="sm" borrowerId={(selectedBorrower as any)?.id} onUploaded={(url) => setPhotoUrl(url)} />
               <div><DialogTitle className="text-lg">{(selectedBorrower as any)?.name}</DialogTitle><p className="text-xs text-muted-foreground">{(selectedBorrower as any)?.email}</p></div>
             </div>
           </DialogHeader>
