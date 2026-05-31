@@ -468,7 +468,7 @@ function bootstrap() {
         // Seed default settings
         $defaults = [
             'company_name' => 'Wayrus Lending',
-            'currency' => 'KES',
+            'default_currency' => 'KES',
             'default_interest_rate' => '10',
             'default_processing_fee' => '4.00',
             'late_penalty_rate' => '2.5',
@@ -2175,6 +2175,52 @@ try {
             log_access('GET', 'admin/settings', 200);
             echo json_encode(['success' => true, 'data' => $out]); 
             exit;
+        }
+
+        // Email Settings
+        if (strpos($uri, 'admin/email-settings') !== false) {
+            if ($method === 'GET') {
+                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_from')");
+                $config = [];
+                foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
+                log_access('GET', 'admin/email-settings', 200);
+                echo json_encode(['success' => true, 'data' => $config]);
+                exit;
+            }
+
+            if ($method === 'POST' && !strpos($uri, 'admin/email-settings/test')) {
+                $d = input();
+                $fields = ['smtp_host' => $d['smtp_host'] ?? '', 'smtp_port' => $d['smtp_port'] ?? '587', 'smtp_user' => $d['smtp_user'] ?? '', 'smtp_pass' => $d['smtp_pass'] ?? '', 'smtp_from' => $d['smtp_from'] ?? ''];
+                foreach ($fields as $k => $v) {
+                    q("INSERT INTO settings (key_name, key_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$k, $v, $v]);
+                }
+                log_access('POST', 'admin/email-settings', 200);
+                echo json_encode(['success' => true, 'message' => 'Email settings saved successfully']);
+                exit;
+            }
+
+            if ($method === 'POST' && strpos($uri, 'admin/email-settings/test') !== false) {
+                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
+                $config = [];
+                foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
+                if (empty($config['smtp_host'])) {
+                    echo json_encode(['success' => false, 'message' => 'Email settings not configured']);
+                    exit;
+                }
+                try {
+                    $headers = 'From: ' . ($config['smtp_from'] ?? '') . "\r\n" . 'Reply-To: ' . ($config['smtp_from'] ?? '') . "\r\n" . 'X-Mailer: PHP/' . phpversion();
+                    $sent = @mail($config['smtp_from'] ?? 'test@example.com', 'Test Email from Lending System', 'This is a test email to verify your SMTP configuration.', $headers);
+                    if ($sent) {
+                        echo json_encode(['success' => true, 'message' => 'Email sent successfully! Check your inbox.']);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to send test email. Check your SMTP settings.']);
+                    }
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => 'Email test failed: ' . $e->getMessage()]);
+                }
+                log_access('POST', 'admin/email-settings/test', $sent ? 200 : 400);
+                exit;
+            }
         }
 
         // M-Pesa STK Push - Initiate borrower payment (authenticated)
