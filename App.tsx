@@ -98,10 +98,10 @@ const AppRoutes = () => {
       <Route path="/admin/reports" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminReports /></AppLayout></PrivateRoute>} />
       <Route path="/admin/messages" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
       <Route path="/admin/disbursements" element={<PrivateRoute requiredRole={['admin','releaser']}><AppLayout user={user}><AdminDisbursements /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/customers" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminCustomers /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/invoice-products" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminInvoiceProducts /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/quotations" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/invoices" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/customers" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminCustomers /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/invoice-products" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminInvoiceProducts /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/quotations" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/invoices" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
