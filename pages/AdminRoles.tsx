@@ -46,6 +46,8 @@ const allPermissions = [
   'Messages',
 ];
 
+const staticPermissions = allPermissions.map(area => ({ area }));
+
 export default function AdminRoles() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,22 +83,31 @@ export default function AdminRoles() {
   const openEditDialog = (role: Role) => {
     setEditingRole(role);
     setEditFormData({ name: role.name, description: role.description });
-    setEditPermissions({});
+    setEditPermissions(role.permissions || {});
     setEditDialogOpen(true);
   };
 
-  const handleSaveRole = () => {
+  const handleSaveRole = async () => {
     if (!editingRole) return;
 
-    setSaving(true);
-    setRoles(prev => prev.map(r =>
-      r.key === editingRole.key
-        ? { ...r, name: editFormData.name, description: editFormData.description }
-        : r
-    ));
-    toast.success('Role updated successfully');
-    setEditDialogOpen(false);
-    setSaving(false);
+    try {
+      setSaving(true);
+      await Promise.all([
+        adminApi.updateRole(editingRole.key, {
+          name: editFormData.name,
+          description: editFormData.description,
+        }),
+        adminApi.updateRolePermissions(editingRole.key, editPermissions),
+      ]);
+      await loadRoles();
+      toast.success('Role updated successfully');
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save role:', error);
+      toast.error('Failed to save role');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const togglePermission = (area: string) => {
@@ -171,11 +182,19 @@ export default function AdminRoles() {
               {staticPermissions.map((perm) => (
                 <ResponsiveTableRow key={perm.area}>
                   <ResponsiveTableCell label="Feature" className="font-medium text-sm">{perm.area}</ResponsiveTableCell>
-                  {roleKeys.map((k) => (
-                    <ResponsiveTableCell key={k} label={roles.find(r => r.key === k)?.name} className="text-center">
-                      <Check className="h-4 w-4 text-green-600 mx-auto" />
-                    </ResponsiveTableCell>
-                  ))}
+                  {roleKeys.map((k) => {
+                    const role = roles.find(r => r.key === k);
+                    const hasPermission = role?.permissions?.[perm.area] || false;
+                    return (
+                      <ResponsiveTableCell key={k} label={role?.name} className="text-center">
+                        {hasPermission ? (
+                          <Check className="h-4 w-4 text-green-600 mx-auto" />
+                        ) : (
+                          <X className="h-4 w-4 text-gray-300 mx-auto" />
+                        )}
+                      </ResponsiveTableCell>
+                    );
+                  })}
                 </ResponsiveTableRow>
               ))}
             </ResponsiveTableBody>
