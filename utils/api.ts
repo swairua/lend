@@ -1,8 +1,8 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, Customer, InvoiceProduct, Quotation, Invoice } from '../types/api';
 import { secureStorage } from './secureStorage';
 
-// API base — relative path uses Vite proxy in dev, same-origin in production
-const API_BASE = '/api.php';
+// Always use the production API endpoint
+const API_BASE = 'https://lending.wayrus.co.ke/api.php';
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
 
 // Helper to construct full file URL
