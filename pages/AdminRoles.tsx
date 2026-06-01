@@ -96,19 +96,32 @@ export default function AdminRoles() {
 
     try {
       setSaving(true);
-      await Promise.all([
-        adminApi.updateRole(editingRole.key, {
-          name: editFormData.name,
-          description: editFormData.description,
-        }),
-        adminApi.updateRolePermissions(editingRole.key, editPermissions),
-      ]);
+
+      // Update role details (name, description)
+      const roleResponse = await adminApi.updateRole(editingRole.key, {
+        name: editFormData.name,
+        description: editFormData.description,
+      });
+
+      if (!roleResponse.success) {
+        throw new Error(roleResponse.message || 'Failed to update role');
+      }
+
+      // Update permissions
+      const permResponse = await adminApi.updateRolePermissions(editingRole.key, editPermissions);
+
+      if (!permResponse.success) {
+        throw new Error(permResponse.message || 'Failed to update permissions');
+      }
+
+      // Reload roles and wait for state to update
       await loadRoles();
+
       toast.success('Role updated successfully');
       setEditDialogOpen(false);
     } catch (error) {
       console.error('Failed to save role:', error);
-      toast.error('Failed to save role');
+      toast.error(error instanceof Error ? error.message : 'Failed to save role');
     } finally {
       setSaving(false);
     }
