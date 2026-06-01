@@ -94,8 +94,8 @@ export default function AdminCreateLoan() {
 
   const loadProducts = async (catId: string) => {
     try {
-      const res = await productsApi.getProducts(parseInt(catId));
-      const prods = (res.data || []).filter((p: any) => p.is_active !== false);
+      const res = await adminApi.getProducts();
+      const prods = (res.data || []).filter((p: any) => p.is_active !== false && String(p.category_id) === catId);
       setProducts(prods);
       if (prods.length > 0) {
         setSelectedProduct(prods[0]);
