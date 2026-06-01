@@ -124,6 +124,9 @@ export default function AdminUsers() {
   const counts = {
     all: users.length,
     admin: users.filter(u => u.role === 'admin').length,
+    releaser: users.filter(u => u.role === 'releaser').length,
+    manager: users.filter(u => u.role === 'manager').length,
+    agent: users.filter(u => u.role === 'agent').length,
     borrower: users.filter(u => u.role === 'borrower').length,
     active: users.filter(u => u.is_active).length,
   };
@@ -152,17 +155,35 @@ export default function AdminUsers() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 md:gap-3 mb-4">
         <Card>
           <CardContent className="p-2 md:p-3">
             <p className="text-lg md:text-2xl font-bold">{counts.all}</p>
-            <p className="text-xs text-muted-foreground">Total Users</p>
+            <p className="text-xs text-muted-foreground">Total</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-2 md:p-3">
             <p className="text-lg md:text-2xl font-bold">{counts.admin}</p>
             <p className="text-xs text-muted-foreground">Admins</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-2 md:p-3">
+            <p className="text-lg md:text-2xl font-bold">{counts.releaser}</p>
+            <p className="text-xs text-muted-foreground">Releasers</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-2 md:p-3">
+            <p className="text-lg md:text-2xl font-bold">{counts.manager}</p>
+            <p className="text-xs text-muted-foreground">Managers</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-2 md:p-3">
+            <p className="text-lg md:text-2xl font-bold">{counts.agent}</p>
+            <p className="text-xs text-muted-foreground">Agents</p>
           </CardContent>
         </Card>
         <Card>
@@ -197,6 +218,9 @@ export default function AdminUsers() {
           <SelectContent>
             <SelectItem value="all">All ({counts.all})</SelectItem>
             <SelectItem value="admin">Admin ({counts.admin})</SelectItem>
+            <SelectItem value="releaser">Releaser ({counts.releaser})</SelectItem>
+            <SelectItem value="manager">Manager ({counts.manager})</SelectItem>
+            <SelectItem value="agent">Agent ({counts.agent})</SelectItem>
             <SelectItem value="borrower">Borrower ({counts.borrower})</SelectItem>
           </SelectContent>
         </Select>
@@ -232,7 +256,7 @@ export default function AdminUsers() {
                     </div>
                   </ResponsiveTableCell>
                   <ResponsiveTableCell label="Role" className="hidden sm:table-cell md:p-3 p-2">
-                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize text-xs">
+                    <Badge className={(user.role === 'admin' ? 'bg-red-100 text-red-800' : user.role === 'releaser' ? 'bg-teal-100 text-teal-800' : user.role === 'manager' ? 'bg-blue-100 text-blue-800' : user.role === 'agent' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800') + ' capitalize text-xs'}>
                       {user.role}
                     </Badge>
                   </ResponsiveTableCell>
@@ -308,6 +332,7 @@ export default function AdminUsers() {
                 <SelectContent>
                   <SelectItem value="borrower">Borrower</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="releaser">Releaser</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="agent">Agent</SelectItem>
                 </SelectContent>

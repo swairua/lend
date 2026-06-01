@@ -12,6 +12,7 @@ import {
   History,
   Wallet,
   Receipt,
+  Shield,
 } from 'lucide-react';
 
 export type UserRole = 'borrower' | 'admin' | 'releaser' | 'manager' | 'agent';
@@ -50,6 +51,7 @@ export const navigationItems: NavItem[] = [
 
   // Admin - Management
   { label: 'Users', href: '/admin/users', icon: User, roles: ['admin'] },
+  { label: 'Roles', href: '/admin/roles', icon: Shield, roles: ['admin'] },
   { label: 'System Logs', href: '/admin/logs', icon: History, roles: ['admin', 'manager'] },
   { label: 'Admin Messages', href: '/admin/messages', icon: MessageSquare, roles: ['admin', 'manager'], badge: 'messages' },
 

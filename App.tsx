@@ -36,6 +36,7 @@ import AdminInvoiceProducts from "./pages/AdminInvoiceProducts";
 import AdminQuotations from "./pages/AdminQuotations";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminCustomers from "./pages/AdminCustomers";
+import AdminRoles from "./pages/AdminRoles";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
@@ -90,6 +91,7 @@ const AppRoutes = () => {
       <Route path="/admin/products" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminProducts /></AppLayout></PrivateRoute>} />
       <Route path="/admin/borrowers" element={<PrivateRoute requiredRole={['admin','manager','agent']}><AppLayout user={user}><AdminBorrowers /></AppLayout></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminUsers /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/roles" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminRoles /></AppLayout></PrivateRoute>} />
       <Route path="/admin/repayments" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminRepayments /></AppLayout></PrivateRoute>} />
       <Route path="/admin/logs" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminSystemLogs /></AppLayout></PrivateRoute>} />
       <Route path="/admin/config" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminSettings /></AppLayout></PrivateRoute>} />
