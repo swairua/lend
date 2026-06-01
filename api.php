@@ -3055,11 +3055,40 @@ try {
 
         // ==================== ROLES MODULE ====================
 
-        // GET /admin/roles - list all roles with their permissions
-        if ($method === 'GET' && $uri === '/admin/roles') {
-            $roles = all("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles ORDER BY name");
-            $result = [];
-            foreach ($roles as $role) {
+        // Roles
+        if (strpos($uri, 'admin/roles') !== false) {
+            requireRole($user, 'admin');
+
+            // GET /admin/roles - list all roles with their permissions
+            if ($method === 'GET' && $uri === '/admin/roles') {
+                $roles = all("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles ORDER BY name");
+                $result = [];
+                foreach ($roles as $role) {
+                    $perms = all("SELECT permission_key, granted FROM role_permissions WHERE role_id = ?", [$role['id']]);
+                    $permMap = [];
+                    foreach ($perms as $p) {
+                        $permMap[$p['permission_key']] = (bool)$p['granted'];
+                    }
+                    $role['permissions'] = $permMap;
+                    $role['key'] = $role['key_name'];
+                    unset($role['key_name']);
+                    $result[] = $role;
+                }
+                log_access('GET', '/admin/roles', 200);
+                echo json_encode(['success' => true, 'data' => $result]);
+                exit;
+            }
+
+            // GET /admin/roles/:key - get single role with permissions
+            if ($method === 'GET' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+                $roleKey = $m[1];
+                $role = one("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles WHERE key_name = ?", [$roleKey]);
+                if (!$role) {
+                    http_response_code(404);
+                    log_access('GET', "/admin/roles/$roleKey", 404);
+                    echo json_encode(['success' => false, 'error' => 'Role not found']);
+                    exit;
+                }
                 $perms = all("SELECT permission_key, granted FROM role_permissions WHERE role_id = ?", [$role['id']]);
                 $permMap = [];
                 foreach ($perms as $p) {
@@ -3068,92 +3097,68 @@ try {
                 $role['permissions'] = $permMap;
                 $role['key'] = $role['key_name'];
                 unset($role['key_name']);
-                $result[] = $role;
+                log_access('GET', "/admin/roles/$roleKey", 200);
+                echo json_encode(['success' => true, 'data' => $role]);
+                exit;
             }
-            log_access('GET', '/admin/roles', 200);
-            echo json_encode(['success' => true, 'data' => $result]);
-            exit;
-        }
 
-        // GET /admin/roles/:key - get single role with permissions
-        if ($method === 'GET' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
-            $roleKey = $m[1];
-            $role = one("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles WHERE key_name = ?", [$roleKey]);
-            if (!$role) {
-                http_response_code(404);
-                log_access('GET', "/admin/roles/$roleKey", 404);
-                echo json_encode(['success' => false, 'error' => 'Role not found']);
-                exit;
-            }
-            $perms = all("SELECT permission_key, granted FROM role_permissions WHERE role_id = ?", [$role['id']]);
-            $permMap = [];
-            foreach ($perms as $p) {
-                $permMap[$p['permission_key']] = (bool)$p['granted'];
-            }
-            $role['permissions'] = $permMap;
-            $role['key'] = $role['key_name'];
-            unset($role['key_name']);
-            log_access('GET', "/admin/roles/$roleKey", 200);
-            echo json_encode(['success' => true, 'data' => $role]);
-            exit;
-        }
-
-        // PUT /admin/roles/:key - update role name/description
-        if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
-            $roleKey = $m[1];
-            $role = one("SELECT id, system_role FROM roles WHERE key_name = ?", [$roleKey]);
-            if (!$role) {
-                http_response_code(404);
-                log_access('PUT', "/admin/roles/$roleKey", 404);
-                echo json_encode(['success' => false, 'error' => 'Role not found']);
-                exit;
-            }
-            $d = input();
-            $updates = [];
-            $params = [];
-            if (isset($d['name'])) { $updates[] = "name = ?"; $params[] = $d['name']; }
-            if (isset($d['description'])) { $updates[] = "description = ?"; $params[] = $d['description']; }
-            if ($updates) {
-                $updates[] = "updated_at = CURRENT_TIMESTAMP";
-                $params[] = $role['id'];
-                $sql = "UPDATE roles SET " . implode(", ", $updates) . " WHERE id = ?";
-                q($sql, $params);
-            }
-            log_access('PUT', "/admin/roles/$roleKey", 200);
-            echo json_encode(['success' => true, 'message' => 'Role updated']);
-            exit;
-        }
-
-        // PUT /admin/roles/:key/permissions - update role permissions
-        if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)/permissions$#', $uri, $m)) {
-            $roleKey = $m[1];
-            $role = one("SELECT id FROM roles WHERE key_name = ?", [$roleKey]);
-            if (!$role) {
-                http_response_code(404);
-                log_access('PUT', "/admin/roles/$roleKey/permissions", 404);
-                echo json_encode(['success' => false, 'error' => 'Role not found']);
-                exit;
-            }
-            $d = input();
-            if (!isset($d['permissions']) || !is_array($d['permissions'])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'permissions array required']);
-                exit;
-            }
-            // Update/insert each permission
-            foreach ($d['permissions'] as $permKey => $granted) {
-                $existing = one("SELECT id FROM role_permissions WHERE role_id = ? AND permission_key = ?", [$role['id'], $permKey]);
-                if ($existing) {
-                    q("UPDATE role_permissions SET granted = ?, updated_at = CURRENT_TIMESTAMP WHERE role_id = ? AND permission_key = ?",
-                      [$granted ? 1 : 0, $role['id'], $permKey]);
-                } else {
-                    q("INSERT INTO role_permissions (role_id, permission_key, granted) VALUES (?, ?, ?)",
-                      [$role['id'], $permKey, $granted ? 1 : 0]);
+            // PUT /admin/roles/:key - update role name/description
+            if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+                $roleKey = $m[1];
+                $role = one("SELECT id, system_role FROM roles WHERE key_name = ?", [$roleKey]);
+                if (!$role) {
+                    http_response_code(404);
+                    log_access('PUT', "/admin/roles/$roleKey", 404);
+                    echo json_encode(['success' => false, 'error' => 'Role not found']);
+                    exit;
                 }
+                $d = input();
+                $updates = [];
+                $params = [];
+                if (isset($d['name'])) { $updates[] = "name = ?"; $params[] = $d['name']; }
+                if (isset($d['description'])) { $updates[] = "description = ?"; $params[] = $d['description']; }
+                if ($updates) {
+                    $updates[] = "updated_at = CURRENT_TIMESTAMP";
+                    $params[] = $role['id'];
+                    $sql = "UPDATE roles SET " . implode(", ", $updates) . " WHERE id = ?";
+                    q($sql, $params);
+                }
+                log_access('PUT', "/admin/roles/$roleKey", 200);
+                echo json_encode(['success' => true, 'message' => 'Role updated']);
+                exit;
             }
-            log_access('PUT', "/admin/roles/$roleKey/permissions", 200);
-            echo json_encode(['success' => true, 'message' => 'Permissions updated']);
-            exit;
+
+            // PUT /admin/roles/:key/permissions - update role permissions
+            if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)/permissions$#', $uri, $m)) {
+                $roleKey = $m[1];
+                $role = one("SELECT id FROM roles WHERE key_name = ?", [$roleKey]);
+                if (!$role) {
+                    http_response_code(404);
+                    log_access('PUT', "/admin/roles/$roleKey/permissions", 404);
+                    echo json_encode(['success' => false, 'error' => 'Role not found']);
+                    exit;
+                }
+                $d = input();
+                if (!isset($d['permissions']) || !is_array($d['permissions'])) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'permissions array required']);
+                    exit;
+                }
+                // Update/insert each permission
+                foreach ($d['permissions'] as $permKey => $granted) {
+                    $existing = one("SELECT id FROM role_permissions WHERE role_id = ? AND permission_key = ?", [$role['id'], $permKey]);
+                    if ($existing) {
+                        q("UPDATE role_permissions SET granted = ?, updated_at = CURRENT_TIMESTAMP WHERE role_id = ? AND permission_key = ?",
+                          [$granted ? 1 : 0, $role['id'], $permKey]);
+                    } else {
+                        q("INSERT INTO role_permissions (role_id, permission_key, granted) VALUES (?, ?, ?)",
+                          [$role['id'], $permKey, $granted ? 1 : 0]);
+                    }
+                }
+                log_access('PUT', "/admin/roles/$roleKey/permissions", 200);
+                echo json_encode(['success' => true, 'message' => 'Permissions updated']);
+                exit;
+            }
         }
 
         // ==================== INVOICE / QUOTATION MODULE ====================
