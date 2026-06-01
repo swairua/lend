@@ -43,6 +43,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       ...options,
       headers,
       signal: controller.signal,
+      cache: 'no-cache',
     });
     // Handle empty responses (clearTimeout after body read covers slow transfers)
     const text = await response.text();
