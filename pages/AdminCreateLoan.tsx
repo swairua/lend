@@ -81,7 +81,7 @@ export default function AdminCreateLoan() {
   const loadCategories = async () => {
     setLoading(true);
     try {
-      const res = await productsApi.getCategories();
+      const res = await adminApi.getCategories();
       const cats = (res.data || []).filter((c: any) => c.is_active !== false);
       setCategories(cats);
       if (cats.length > 0) setSelectedCategory(String(cats[0].id));
@@ -94,8 +94,8 @@ export default function AdminCreateLoan() {
 
   const loadProducts = async (catId: string) => {
     try {
-      const res = await productsApi.getProducts(parseInt(catId));
-      const prods = (res.data || []).filter((p: any) => p.is_active !== false);
+      const res = await adminApi.getProducts();
+      const prods = (res.data || []).filter((p: any) => p.is_active !== false && String(p.category_id) === catId);
       setProducts(prods);
       if (prods.length > 0) {
         setSelectedProduct(prods[0]);

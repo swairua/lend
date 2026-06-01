@@ -260,12 +260,14 @@ export default function AdminSystemLogs() {
             <>
               <ResponsiveTable>
                 <ResponsiveTableHeader>
-                  <ResponsiveTableHead>Type</ResponsiveTableHead>
-                  <ResponsiveTableHead>Action</ResponsiveTableHead>
-                  <ResponsiveTableHead>Status</ResponsiveTableHead>
-                  <ResponsiveTableHead>User</ResponsiveTableHead>
-                  <ResponsiveTableHead>Timestamp</ResponsiveTableHead>
-                  <ResponsiveTableHead className="text-right">Actions</ResponsiveTableHead>
+                  <ResponsiveTableRow>
+                    <ResponsiveTableHead>Type</ResponsiveTableHead>
+                    <ResponsiveTableHead>Action</ResponsiveTableHead>
+                    <ResponsiveTableHead>Status</ResponsiveTableHead>
+                    <ResponsiveTableHead>User</ResponsiveTableHead>
+                    <ResponsiveTableHead>Timestamp</ResponsiveTableHead>
+                    <ResponsiveTableHead className="text-right">Actions</ResponsiveTableHead>
+                  </ResponsiveTableRow>
                 </ResponsiveTableHeader>
                 <ResponsiveTableBody>
                   {logs.map(log => (

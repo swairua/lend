@@ -615,6 +615,25 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ status }),
     }),
+
+  // ---- Roles ----
+  getRoles: () =>
+    request<{ success: boolean; data: any[] }>('/admin/roles'),
+
+  getRoleWithPermissions: (roleKey: string) =>
+    request<{ success: boolean; data: any }>(`/admin/roles/${roleKey}`),
+
+  updateRole: (roleKey: string, data: { name?: string; description?: string }) =>
+    request<{ success: boolean; message: string }>(`/admin/roles/${roleKey}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  updateRolePermissions: (roleKey: string, permissions: Record<string, boolean>) =>
+    request<{ success: boolean; message: string }>(`/admin/roles/${roleKey}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify({ permissions }),
+    }),
 };
 
 // ==================== Helpers ====================
