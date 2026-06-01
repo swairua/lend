@@ -42,7 +42,7 @@ export default function AdminDashboard() {
       const token = await secureStorage.getToken();
       const storedUser = await secureStorage.getUser();
 
-      if (!token || !storedUser || storedUser.role !== 'admin') {
+      if (!token || !storedUser || !['admin', 'releaser', 'manager', 'agent'].includes(storedUser.role)) {
         navigate('/login');
         return;
       }

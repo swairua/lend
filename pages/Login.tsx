@@ -36,7 +36,8 @@ export default function Login() {
       const token = await secureStorage.getToken();
       const user = await secureStorage.getUser();
       if (token) {
-        navigate(user?.role === 'admin' ? '/admin' : '/dashboard');
+        const isStaff = ['admin', 'releaser', 'manager', 'agent'].includes(user?.role);
+        navigate(isStaff ? '/admin' : '/dashboard');
       }
     };
     checkAuth();
@@ -57,7 +58,8 @@ export default function Login() {
       await secureStorage.setToken(response.token);
       await secureStorage.setUser(response.user);
 
-      navigate(response.user.role === 'admin' ? '/admin' : '/dashboard');
+      const isStaff = ['admin', 'releaser', 'manager', 'agent'].includes(response?.user?.role);
+      navigate(isStaff ? '/admin' : '/dashboard');
     } catch (error: any) {
       showAlert({ type: 'error', message: error.message || 'Authentication failed' });
     } finally {

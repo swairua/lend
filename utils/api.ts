@@ -1,8 +1,8 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, Customer, InvoiceProduct, Quotation, Invoice } from '../types/api';
 import { secureStorage } from './secureStorage';
 
-// Always use the production API endpoint
-const API_BASE = 'https://lending.wayrus.co.ke';
+// API base URL — set VITE_API_BASE env var at build time (Render) or defaults to production
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://lending.wayrus.co.ke';
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
 
 // Helper to construct full file URL
