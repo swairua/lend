@@ -74,23 +74,19 @@ export default function AdminRoles() {
   }, []);
 
   const loadRoles = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      try {
-        const result = await adminApi.getRoles();
-        if (result.success && Array.isArray(result.data)) {
-          setRoles(result.data as Role[]);
-        } else {
-          setRoles(staticRoles);
-        }
-      } catch (error) {
-        console.log('API endpoint not available, using static roles');
+      const result = await adminApi.getRoles();
+      if (result.success && Array.isArray(result.data)) {
+        setRoles(result.data as Role[]);
+      } else {
         setRoles(staticRoles);
       }
-      setPermissions(staticPermissions);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      setRoles(staticRoles);
     }
+    setPermissions(staticPermissions);
+    setLoading(false);
   };
 
   const openEditDialog = (role: Role) => {
