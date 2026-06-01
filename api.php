@@ -1533,13 +1533,43 @@ try {
             }
         }
         if ($method === 'POST' && preg_match('#admin/loans/(\d+)/reactivate$#', $uri, $m)) {
+            requireRole($user, 'admin');
+            $loan = one("SELECT status FROM loans WHERE id = ?", [$m[1]]);
+            if (!$loan) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Loan not found']);
+                exit;
+            }
+            $oldStatus = $loan['status'];
             q("UPDATE loans SET status='pending', approved_by=NULL, approved_at=NULL, released_by=NULL, released_at=NULL, disbursed_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
+            logAudit($user['id'], 'loan_reactivated', 'loan', $m[1], [
+                'previous_status' => $oldStatus,
+                'new_status' => 'pending',
+                'reactivated_by_user_id' => $user['id']
+            ]);
             log_access('POST', 'admin/loans/' . $m[1] . '/reactivate', 200);
             echo json_encode(['success' => true]);
             exit;
         }
         if ($method === 'POST' && preg_match('#admin/loans/(\d+)/default$#', $uri, $m)) {
+            requireRole($user, 'admin');
+            $loan = one("SELECT status FROM loans WHERE id = ?", [$m[1]]);
+            if (!$loan) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Loan not found']);
+                exit;
+            }
+            if ($loan['status'] === 'defaulted') {
+                echo json_encode(['success' => false, 'error' => 'Loan is already defaulted']);
+                exit;
+            }
+            $oldStatus = $loan['status'];
             q("UPDATE loans SET status='defaulted', updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
+            logAudit($user['id'], 'loan_defaulted', 'loan', $m[1], [
+                'previous_status' => $oldStatus,
+                'new_status' => 'defaulted',
+                'defaulted_by_user_id' => $user['id']
+            ]);
             log_access('POST', 'admin/loans/' . $m[1] . '/default', 200);
             echo json_encode(['success' => true]);
             exit;
@@ -3060,7 +3090,7 @@ try {
             requireRole($user, 'admin');
 
             // GET /admin/roles - list all roles with their permissions
-            if ($method === 'GET' && $uri === '/admin/roles') {
+            if ($method === 'GET' && $uri === 'admin/roles') {
                 $roles = all("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles ORDER BY name");
                 $result = [];
                 foreach ($roles as $role) {
@@ -3080,7 +3110,7 @@ try {
             }
 
             // GET /admin/roles/:key - get single role with permissions
-            if ($method === 'GET' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+            if ($method === 'GET' && preg_match('#admin/roles/([a-z_]+)$#', $uri, $m)) {
                 $roleKey = $m[1];
                 $role = one("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles WHERE key_name = ?", [$roleKey]);
                 if (!$role) {
@@ -3103,7 +3133,7 @@ try {
             }
 
             // PUT /admin/roles/:key - update role name/description
-            if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+            if ($method === 'PUT' && preg_match('#admin/roles/([a-z_]+)$#', $uri, $m)) {
                 $roleKey = $m[1];
                 $role = one("SELECT id, system_role FROM roles WHERE key_name = ?", [$roleKey]);
                 if (!$role) {
@@ -3122,6 +3152,13 @@ try {
                     $params[] = $role['id'];
                     $sql = "UPDATE roles SET " . implode(", ", $updates) . " WHERE id = ?";
                     q($sql, $params);
+                    logAudit($u['id'], 'role_updated', 'role', $role['id'], [
+                        'role_key' => $roleKey,
+                        'name_changed' => isset($d['name']),
+                        'description_changed' => isset($d['description']),
+                        'new_name' => $d['name'] ?? null,
+                        'new_description' => $d['description'] ?? null
+                    ]);
                 }
                 log_access('PUT', "/admin/roles/$roleKey", 200);
                 echo json_encode(['success' => true, 'message' => 'Role updated']);
@@ -3129,7 +3166,7 @@ try {
             }
 
             // PUT /admin/roles/:key/permissions - update role permissions
-            if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)/permissions$#', $uri, $m)) {
+            if ($method === 'PUT' && preg_match('#admin/roles/([a-z_]+)/permissions$#', $uri, $m)) {
                 $roleKey = $m[1];
                 $role = one("SELECT id FROM roles WHERE key_name = ?", [$roleKey]);
                 if (!$role) {
@@ -3155,6 +3192,11 @@ try {
                           [$role['id'], $permKey, $granted ? 1 : 0]);
                     }
                 }
+                logAudit($u['id'], 'role_permissions_updated', 'role', $role['id'], [
+                    'role_key' => $roleKey,
+                    'permissions_count' => count($d['permissions']),
+                    'permission_keys_modified' => array_keys($d['permissions'])
+                ]);
                 log_access('PUT', "/admin/roles/$roleKey/permissions", 200);
                 echo json_encode(['success' => true, 'message' => 'Permissions updated']);
                 exit;
