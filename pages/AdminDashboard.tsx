@@ -80,62 +80,6 @@ export default function AdminDashboard() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  useEffect(() => {
-    let eventSource: EventSource | null = null;
-    let pollFallback: NodeJS.Timeout | null = null;
-
-    const setupSSE = () => {
-      try {
-        const since = Math.floor(Date.now() / 1000) - 60;
-        const url = `/api/admin/stats/stream?since=${since}`;
-
-        eventSource = new EventSource(url);
-
-        eventSource.addEventListener('stats-updated', (event) => {
-          const statsData = JSON.parse(event.data);
-          setStats(prev => prev ? { ...prev, ...statsData } : statsData as DashboardStats);
-        });
-
-        eventSource.addEventListener('connected', () => {
-          if (pollFallback) {
-            clearInterval(pollFallback);
-            pollFallback = null;
-          }
-        });
-
-        eventSource.onerror = () => {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          if (!pollFallback) {
-            pollFallback = setInterval(() => {
-              loadDashboard();
-            }, 4000);
-          }
-        };
-      } catch (error) {
-        console.error('SSE connection failed, falling back to polling:', error);
-        if (!pollFallback) {
-          pollFallback = setInterval(() => {
-            loadDashboard();
-          }, 4000);
-        }
-      }
-    };
-
-    setupSSE();
-
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (pollFallback) {
-        clearInterval(pollFallback);
-      }
-    };
-  }, []);
-
   const handleLogout = async () => {
     await secureStorage.clear();
     navigate('/login');
