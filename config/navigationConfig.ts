@@ -11,6 +11,7 @@ import {
   DollarSign,
   History,
   Wallet,
+  Receipt,
 } from 'lucide-react';
 
 export type UserRole = 'borrower' | 'admin';
@@ -47,6 +48,9 @@ export const navigationItems: NavItem[] = [
   { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin'] },
   { label: 'System Logs', href: '/admin/logs', icon: History, roles: ['admin'] },
   { label: 'Admin Messages', href: '/admin/messages', icon: MessageSquare, roles: ['admin'], badge: 'messages' },
+  { label: 'Invoice Products', href: '/admin/invoice-products', icon: Package, roles: ['admin'] },
+  { label: 'Quotations', href: '/admin/quotations', icon: FileText, roles: ['admin'] },
+  { label: 'Invoices', href: '/admin/invoices', icon: Receipt, roles: ['admin'] },
   { label: 'Settings', href: '/admin/config', icon: Settings, roles: ['admin'] },
 ];
 

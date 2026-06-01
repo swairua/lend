@@ -1,4 +1,4 @@
-import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats } from '../types/api';
+import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, InvoiceProduct, Quotation, Invoice } from '../types/api';
 import { secureStorage } from './secureStorage';
 
 // Always use the production API endpoint
@@ -491,6 +491,102 @@ export const adminApi = {
       `/admin/logs${query ? `?${query}` : ''}`
     );
   },
+
+  // ---- Invoice Products ----
+  getInvoiceProducts: () =>
+    request<{ success: boolean; data: InvoiceProduct[] }>('/admin/invoice-products'),
+
+  createInvoiceProduct: (data: Partial<InvoiceProduct>) =>
+    request<{ success: boolean; data: { id: number } }>('/admin/invoice-products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateInvoiceProduct: (id: number, data: Partial<InvoiceProduct>) =>
+    request<{ success: boolean }>(`/admin/invoice-products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteInvoiceProduct: (id: number) =>
+    request<{ success: boolean }>(`/admin/invoice-products/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // ---- Quotations ----
+  getQuotations: (params?: { page?: number; limit?: number }) => {
+    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    const query = new URLSearchParams(filtered as any).toString();
+    return request<{ success: boolean; data: { quotations: Quotation[]; pagination: any } }>(
+      `/admin/quotations${query ? `?${query}` : ''}`
+    );
+  },
+
+  getQuotation: (id: number) =>
+    request<{ success: boolean; data: Quotation }>(`/admin/quotations/${id}`),
+
+  createQuotation: (data: any) =>
+    request<{ success: boolean; data: { id: number; quote_number: string } }>('/admin/quotations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateQuotation: (id: number, data: any) =>
+    request<{ success: boolean }>(`/admin/quotations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteQuotation: (id: number) =>
+    request<{ success: boolean }>(`/admin/quotations/${id}`, {
+      method: 'DELETE',
+    }),
+
+  updateQuotationStatus: (id: number, status: string) =>
+    request<{ success: boolean }>(`/admin/quotations/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
+
+  convertQuotation: (id: number) =>
+    request<{ success: boolean; data: { invoice_id: number; invoice_number: string } }>(`/admin/quotations/${id}/convert`, {
+      method: 'POST',
+    }),
+
+  // ---- Invoices ----
+  getInvoices: (params?: { page?: number; limit?: number }) => {
+    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    const query = new URLSearchParams(filtered as any).toString();
+    return request<{ success: boolean; data: { invoices: Invoice[]; pagination: any } }>(
+      `/admin/invoices${query ? `?${query}` : ''}`
+    );
+  },
+
+  getInvoice: (id: number) =>
+    request<{ success: boolean; data: Invoice }>(`/admin/invoices/${id}`),
+
+  createInvoice: (data: any) =>
+    request<{ success: boolean; data: { id: number; invoice_number: string } }>('/admin/invoices', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateInvoice: (id: number, data: any) =>
+    request<{ success: boolean }>(`/admin/invoices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteInvoice: (id: number) =>
+    request<{ success: boolean }>(`/admin/invoices/${id}`, {
+      method: 'DELETE',
+    }),
+
+  updateInvoiceStatus: (id: number, status: string) =>
+    request<{ success: boolean }>(`/admin/invoices/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
 };
 
 // ==================== Helpers ====================

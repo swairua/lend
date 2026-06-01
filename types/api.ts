@@ -178,6 +178,88 @@ export interface DashboardStats {
   };
 }
 
+export interface InvoiceProduct {
+  id: number;
+  name: string;
+  description: string;
+  unit_price: number;
+  tax_rate: number;
+  unit_type: string;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuotationItem {
+  id: number;
+  quotation_id: number;
+  invoice_product_id: number | null;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate: number;
+  amount: number;
+  product_name?: string;
+}
+
+export interface Quotation {
+  id: number;
+  quote_number: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  client_address: string;
+  quote_date: string;
+  expiry_date: string;
+  subtotal: number;
+  tax_total: number;
+  discount: number;
+  grand_total: number;
+  notes: string;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted';
+  created_by: number;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+  items?: QuotationItem[];
+}
+
+export interface InvoiceItem {
+  id: number;
+  invoice_id: number;
+  invoice_product_id: number | null;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate: number;
+  amount: number;
+  product_name?: string;
+}
+
+export interface Invoice {
+  id: number;
+  invoice_number: string;
+  quotation_id: number | null;
+  quote_number?: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  client_address: string;
+  invoice_date: string;
+  due_date: string;
+  subtotal: number;
+  tax_total: number;
+  discount: number;
+  grand_total: number;
+  notes: string;
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  created_by: number;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+  items?: InvoiceItem[];
+}
+
 // Re-export API functions from utils for backwards compatibility
 export {
   authApi,

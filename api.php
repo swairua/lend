@@ -411,6 +411,90 @@ function bootstrap() {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )");
 
+        $p->exec("CREATE TABLE IF NOT EXISTS invoice_products (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            unit_price DECIMAL(15,2) NOT NULL,
+            tax_rate DECIMAL(5,2) DEFAULT 0,
+            unit_type VARCHAR(50) DEFAULT 'piece',
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS quotations (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            quote_number TEXT NOT NULL UNIQUE,
+            client_name TEXT NOT NULL,
+            client_email TEXT,
+            client_phone TEXT,
+            client_address TEXT,
+            quote_date DATE NOT NULL,
+            expiry_date DATE,
+            subtotal DECIMAL(15,2) DEFAULT 0,
+            tax_total DECIMAL(15,2) DEFAULT 0,
+            discount DECIMAL(15,2) DEFAULT 0,
+            grand_total DECIMAL(15,2) DEFAULT 0,
+            notes TEXT,
+            status VARCHAR(50) DEFAULT 'draft',
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS quotation_items (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            quotation_id INTEGER NOT NULL,
+            invoice_product_id INTEGER,
+            description TEXT NOT NULL,
+            quantity DECIMAL(15,2) NOT NULL,
+            unit_price DECIMAL(15,2) NOT NULL,
+            tax_rate DECIMAL(5,2) DEFAULT 0,
+            amount DECIMAL(15,2) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE,
+            FOREIGN KEY (invoice_product_id) REFERENCES invoice_products(id) ON DELETE SET NULL
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS invoices (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            invoice_number TEXT NOT NULL UNIQUE,
+            quotation_id INTEGER,
+            client_name TEXT NOT NULL,
+            client_email TEXT,
+            client_phone TEXT,
+            client_address TEXT,
+            invoice_date DATE NOT NULL,
+            due_date DATE,
+            subtotal DECIMAL(15,2) DEFAULT 0,
+            tax_total DECIMAL(15,2) DEFAULT 0,
+            discount DECIMAL(15,2) DEFAULT 0,
+            grand_total DECIMAL(15,2) DEFAULT 0,
+            notes TEXT,
+            status VARCHAR(50) DEFAULT 'draft',
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS invoice_items (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            invoice_id INTEGER NOT NULL,
+            invoice_product_id INTEGER,
+            description TEXT NOT NULL,
+            quantity DECIMAL(15,2) NOT NULL,
+            unit_price DECIMAL(15,2) NOT NULL,
+            tax_rate DECIMAL(5,2) DEFAULT 0,
+            amount DECIMAL(15,2) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
+            FOREIGN KEY (invoice_product_id) REFERENCES invoice_products(id) ON DELETE SET NULL
+        )");
+
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
         $demoUsers = [
             ['admin@lending.com',    'Admin User',    'admin',    null],
@@ -2855,6 +2939,211 @@ try {
             $tot = one("SELECT COUNT(*) c FROM users");
             log_access('GET', 'admin/users', 200);
             echo json_encode(['success' => true, 'data' => ['users' => $rows,
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+            exit;
+        }
+
+        // ==================== INVOICE / QUOTATION MODULE ====================
+
+        // ---- Invoice Products ----
+        if (strpos($uri, 'admin/invoice-products') !== false) {
+            if ($method === 'PUT' && preg_match('#invoice-products/(\d+)#', $uri, $m)) {
+                $d = input();
+                q("UPDATE invoice_products SET name=?, description=?, unit_price=?, tax_rate=?, unit_type=?, is_active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                  [$d['name'], $d['description'] ?? null, $d['unit_price'], $d['tax_rate'] ?? 0, $d['unit_type'] ?? 'piece', $d['is_active'] ?? 1, $m[1]]);
+                log_access('PUT', 'admin/invoice-products/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            if ($method === 'DELETE' && preg_match('#invoice-products/(\d+)#', $uri, $m)) {
+                q("DELETE FROM invoice_products WHERE id=?", [$m[1]]);
+                log_access('DELETE', 'admin/invoice-products/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            if ($method === 'POST') {
+                $d = input();
+                q("INSERT INTO invoice_products (name, description, unit_price, tax_rate, unit_type, is_active) VALUES (?,?,?,?,?,?)",
+                  [$d['name'], $d['description'] ?? null, $d['unit_price'], $d['tax_rate'] ?? 0, $d['unit_type'] ?? 'piece', $d['is_active'] ?? 1]);
+                log_access('POST', 'admin/invoice-products', 201);
+                echo json_encode(['success' => true, 'data' => ['id' => pdo()->lastInsertId()]]);
+                exit;
+            }
+            log_access('GET', 'admin/invoice-products', 200);
+            echo json_encode(['success' => true, 'data' => all("SELECT * FROM invoice_products ORDER BY name")]);
+            exit;
+        }
+
+        // ---- Quotations ----
+        if (strpos($uri, 'admin/quotations') !== false) {
+            // Convert quote to invoice
+            if ($method === 'POST' && preg_match('#quotations/(\d+)/convert$#', $uri, $m)) {
+                $quote = one("SELECT * FROM quotations WHERE id=?", [$m[1]]);
+                if (!$quote) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Quotation not found']); exit; }
+                $items = all("SELECT * FROM quotation_items WHERE quotation_id=?", [$m[1]]);
+                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(invoice_number,5) AS INTEGER)),0)+1 n FROM invoices");
+                $invNum = 'INV-' . str_pad($nextNum['n'], 4, '0', STR_PAD_LEFT);
+                q("INSERT INTO invoices (invoice_number, quotation_id, client_name, client_email, client_phone, client_address, invoice_date, due_date, subtotal, tax_total, discount, grand_total, notes, status, created_by) VALUES (?,?,?,?,?,?,CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),?,?,?,?,?,'draft',?)",
+                  [$invNum, $m[1], $quote['client_name'], $quote['client_email'], $quote['client_phone'],
+                   $quote['client_address'], $quote['subtotal'], $quote['tax_total'], $quote['discount'],
+                   $quote['grand_total'], $quote['notes'], $quote['created_by']]);
+                $invId = pdo()->lastInsertId();
+                foreach ($items as $it) {
+                    q("INSERT INTO invoice_items (invoice_id, invoice_product_id, description, quantity, unit_price, tax_rate, amount) VALUES (?,?,?,?,?,?,?)",
+                      [$invId, $it['invoice_product_id'], $it['description'], $it['quantity'], $it['unit_price'], $it['tax_rate'], $it['amount']]);
+                }
+                q("UPDATE quotations SET status='converted', updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
+                log_access('POST', 'admin/quotations/' . $m[1] . '/convert', 200);
+                echo json_encode(['success' => true, 'data' => ['invoice_id' => $invId, 'invoice_number' => $invNum]]);
+                exit;
+            }
+            // Update quote status
+            if ($method === 'POST' && preg_match('#quotations/(\d+)/status$#', $uri, $m)) {
+                $d = input();
+                q("UPDATE quotations SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$d['status'], $m[1]]);
+                log_access('POST', 'admin/quotations/' . $m[1] . '/status', 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Get single quote with items
+            if ($method === 'GET' && preg_match('#quotations/(\d+)$#', $uri, $m)) {
+                $quote = one("SELECT q.*, u.name created_by_name FROM quotations q LEFT JOIN users u ON q.created_by=u.id WHERE q.id=?", [$m[1]]);
+                if (!$quote) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Quotation not found']); exit; }
+                $quote['items'] = all("SELECT qi.*, ip.name product_name FROM quotation_items qi LEFT JOIN invoice_products ip ON qi.invoice_product_id=ip.id WHERE qi.quotation_id=?", [$m[1]]);
+                log_access('GET', 'admin/quotations/' . $m[1], 200);
+                echo json_encode(['success' => true, 'data' => $quote]);
+                exit;
+            }
+            // Update quote
+            if ($method === 'PUT' && preg_match('#quotations/(\d+)$#', $uri, $m)) {
+                $d = input();
+                q("UPDATE quotations SET client_name=?, client_email=?, client_phone=?, client_address=?, quote_date=?, expiry_date=?, subtotal=?, tax_total=?, discount=?, grand_total=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                  [$d['client_name'], $d['client_email']??null, $d['client_phone']??null, $d['client_address']??null,
+                   $d['quote_date'], $d['expiry_date']??null, $d['subtotal']??0, $d['tax_total']??0,
+                   $d['discount']??0, $d['grand_total']??0, $d['notes']??null, $m[1]]);
+                // Replace items
+                if (isset($d['items']) && is_array($d['items'])) {
+                    q("DELETE FROM quotation_items WHERE quotation_id=?", [$m[1]]);
+                    foreach ($d['items'] as $it) {
+                        q("INSERT INTO quotation_items (quotation_id, invoice_product_id, description, quantity, unit_price, tax_rate, amount) VALUES (?,?,?,?,?,?,?)",
+                          [$m[1], $it['invoice_product_id']??null, $it['description'], $it['quantity'], $it['unit_price'], $it['tax_rate']??0, $it['amount']]);
+                    }
+                }
+                log_access('PUT', 'admin/quotations/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Delete quote
+            if ($method === 'DELETE' && preg_match('#quotations/(\d+)#', $uri, $m)) {
+                q("DELETE FROM quotation_items WHERE quotation_id=?", [$m[1]]);
+                q("DELETE FROM quotations WHERE id=?", [$m[1]]);
+                log_access('DELETE', 'admin/quotations/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Create quote
+            if ($method === 'POST') {
+                $d = input();
+                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(quote_number,5) AS INTEGER)),0)+1 n FROM quotations");
+                $qNum = 'QTE-' . str_pad($nextNum['n'], 4, '0', STR_PAD_LEFT);
+                $u = auth();
+                q("INSERT INTO quotations (quote_number, client_name, client_email, client_phone, client_address, quote_date, expiry_date, subtotal, tax_total, discount, grand_total, notes, status, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'draft',?)",
+                  [$qNum, $d['client_name'], $d['client_email']??null, $d['client_phone']??null, $d['client_address']??null,
+                   $d['quote_date'], $d['expiry_date']??null, $d['subtotal']??0, $d['tax_total']??0,
+                   $d['discount']??0, $d['grand_total']??0, $d['notes']??null, $u['id']]);
+                $qId = pdo()->lastInsertId();
+                if (isset($d['items']) && is_array($d['items'])) {
+                    foreach ($d['items'] as $it) {
+                        q("INSERT INTO quotation_items (quotation_id, invoice_product_id, description, quantity, unit_price, tax_rate, amount) VALUES (?,?,?,?,?,?,?)",
+                          [$qId, $it['invoice_product_id']??null, $it['description'], $it['quantity'], $it['unit_price'], $it['tax_rate']??0, $it['amount']]);
+                    }
+                }
+                log_access('POST', 'admin/quotations', 201);
+                echo json_encode(['success' => true, 'data' => ['id' => $qId, 'quote_number' => $qNum]]);
+                exit;
+            }
+            // List quotes
+            $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 50); $off = ($page - 1) * $limit;
+            $rows = all("SELECT q.*, u.name created_by_name FROM quotations q LEFT JOIN users u ON q.created_by=u.id ORDER BY q.created_at DESC LIMIT $limit OFFSET $off");
+            $tot = one("SELECT COUNT(*) c FROM quotations");
+            log_access('GET', 'admin/quotations', 200);
+            echo json_encode(['success' => true, 'data' => ['quotations' => $rows,
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+            exit;
+        }
+
+        // ---- Invoices ----
+        if (strpos($uri, 'admin/invoices') !== false) {
+            // Update invoice status
+            if ($method === 'POST' && preg_match('#invoices/(\d+)/status$#', $uri, $m)) {
+                $d = input();
+                q("UPDATE invoices SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$d['status'], $m[1]]);
+                log_access('POST', 'admin/invoices/' . $m[1] . '/status', 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Get single invoice with items
+            if ($method === 'GET' && preg_match('#invoices/(\d+)$#', $uri, $m)) {
+                $inv = one("SELECT i.*, q.quote_number, u.name created_by_name FROM invoices i LEFT JOIN quotations q ON i.quotation_id=q.id LEFT JOIN users u ON i.created_by=u.id WHERE i.id=?", [$m[1]]);
+                if (!$inv) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Invoice not found']); exit; }
+                $inv['items'] = all("SELECT ii.*, ip.name product_name FROM invoice_items ii LEFT JOIN invoice_products ip ON ii.invoice_product_id=ip.id WHERE ii.invoice_id=?", [$m[1]]);
+                log_access('GET', 'admin/invoices/' . $m[1], 200);
+                echo json_encode(['success' => true, 'data' => $inv]);
+                exit;
+            }
+            // Update invoice
+            if ($method === 'PUT' && preg_match('#invoices/(\d+)$#', $uri, $m)) {
+                $d = input();
+                q("UPDATE invoices SET client_name=?, client_email=?, client_phone=?, client_address=?, invoice_date=?, due_date=?, subtotal=?, tax_total=?, discount=?, grand_total=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                  [$d['client_name'], $d['client_email']??null, $d['client_phone']??null, $d['client_address']??null,
+                   $d['invoice_date'], $d['due_date']??null, $d['subtotal']??0, $d['tax_total']??0,
+                   $d['discount']??0, $d['grand_total']??0, $d['notes']??null, $m[1]]);
+                if (isset($d['items']) && is_array($d['items'])) {
+                    q("DELETE FROM invoice_items WHERE invoice_id=?", [$m[1]]);
+                    foreach ($d['items'] as $it) {
+                        q("INSERT INTO invoice_items (invoice_id, invoice_product_id, description, quantity, unit_price, tax_rate, amount) VALUES (?,?,?,?,?,?,?)",
+                          [$m[1], $it['invoice_product_id']??null, $it['description'], $it['quantity'], $it['unit_price'], $it['tax_rate']??0, $it['amount']]);
+                    }
+                }
+                log_access('PUT', 'admin/invoices/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Delete invoice
+            if ($method === 'DELETE' && preg_match('#invoices/(\d+)#', $uri, $m)) {
+                q("DELETE FROM invoice_items WHERE invoice_id=?", [$m[1]]);
+                q("DELETE FROM invoices WHERE id=?", [$m[1]]);
+                log_access('DELETE', 'admin/invoices/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Create invoice
+            if ($method === 'POST') {
+                $d = input();
+                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(invoice_number,5) AS INTEGER)),0)+1 n FROM invoices");
+                $invNum = 'INV-' . str_pad($nextNum['n'], 4, '0', STR_PAD_LEFT);
+                $u = auth();
+                q("INSERT INTO invoices (invoice_number, quotation_id, client_name, client_email, client_phone, client_address, invoice_date, due_date, subtotal, tax_total, discount, grand_total, notes, status, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'draft',?)",
+                  [$invNum, $d['quotation_id']??null, $d['client_name'], $d['client_email']??null, $d['client_phone']??null,
+                   $d['client_address']??null, $d['invoice_date'], $d['due_date']??null, $d['subtotal']??0,
+                   $d['tax_total']??0, $d['discount']??0, $d['grand_total']??0, $d['notes']??null, $u['id']]);
+                $invId = pdo()->lastInsertId();
+                if (isset($d['items']) && is_array($d['items'])) {
+                    foreach ($d['items'] as $it) {
+                        q("INSERT INTO invoice_items (invoice_id, invoice_product_id, description, quantity, unit_price, tax_rate, amount) VALUES (?,?,?,?,?,?,?)",
+                          [$invId, $it['invoice_product_id']??null, $it['description'], $it['quantity'], $it['unit_price'], $it['tax_rate']??0, $it['amount']]);
+                    }
+                }
+                log_access('POST', 'admin/invoices', 201);
+                echo json_encode(['success' => true, 'data' => ['id' => $invId, 'invoice_number' => $invNum]]);
+                exit;
+            }
+            // List invoices
+            $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 50); $off = ($page - 1) * $limit;
+            $rows = all("SELECT i.*, q.quote_number, u.name created_by_name FROM invoices i LEFT JOIN quotations q ON i.quotation_id=q.id LEFT JOIN users u ON i.created_by=u.id ORDER BY i.created_at DESC LIMIT $limit OFFSET $off");
+            $tot = one("SELECT COUNT(*) c FROM invoices");
+            log_access('GET', 'admin/invoices', 200);
+            echo json_encode(['success' => true, 'data' => ['invoices' => $rows,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
             exit;
         }

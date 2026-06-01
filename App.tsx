@@ -32,6 +32,9 @@ import RepaymentSchedule from "./pages/RepaymentSchedule";
 import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
 import AdminDisbursements from "./pages/AdminDisbursements";
 import AdminCreateLoan from "./pages/AdminCreateLoan";
+import AdminInvoiceProducts from "./pages/AdminInvoiceProducts";
+import AdminQuotations from "./pages/AdminQuotations";
+import AdminInvoices from "./pages/AdminInvoices";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
@@ -92,6 +95,9 @@ const AppRoutes = () => {
       <Route path="/admin/reports" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminReports /></AppLayout></PrivateRoute>} />
       <Route path="/admin/messages" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
       <Route path="/admin/disbursements" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminDisbursements /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/invoice-products" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminInvoiceProducts /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/quotations" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/invoices" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
