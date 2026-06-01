@@ -513,6 +513,27 @@ function bootstrap() {
             FOREIGN KEY (invoice_product_id) REFERENCES invoice_products(id) ON DELETE SET NULL
         )");
 
+        $p->exec("CREATE TABLE IF NOT EXISTS roles (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            key_name VARCHAR(50) NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            description TEXT,
+            system_role INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS role_permissions (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            role_id INTEGER NOT NULL,
+            permission_key TEXT NOT NULL,
+            granted INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (role_id, permission_key),
+            FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+        )");
+
         // Migrate existing quotations / invoices — add customer_id column if missing
         try { $p->exec("ALTER TABLE quotations ADD COLUMN customer_id INTEGER"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE invoices ADD COLUMN customer_id INTEGER"); } catch (Exception $e) {}
@@ -554,6 +575,52 @@ function bootstrap() {
                     q("INSERT INTO borrowers (user_id, credit_score) VALUES (?, 750)", [$userId]);
                     log_error("Borrower row created", ['user_id' => $userId]);
                 }
+            }
+        }
+
+        // Seed roles and permissions
+        $seedRoles = [
+            ['admin', 'Admin', 'Full system access', true],
+            ['releaser', 'Releaser', 'Can release loans', false],
+            ['manager', 'Manager', 'Can manage loans and repayments', false],
+            ['agent', 'Agent', 'Can handle customer interactions', false],
+            ['borrower', 'Borrower', 'Can apply for and manage loans', false],
+        ];
+
+        $allPerms = [
+            'Dashboard', 'Loan Applications (view)', 'Approve Loans', 'Release Loans', 'Disburse Loans',
+            'Create Loan', 'Loan Categories', 'Loan Products', 'Borrowers', 'Repayments', 'Disbursements',
+            'Reports', 'Users', 'Settings', 'System Logs', 'Customers / Invoicing', 'Admin Messages',
+            'My Loans', 'Apply for Loan', 'Payments', 'Profile', 'Messages',
+        ];
+
+        foreach ($seedRoles as [$key, $name, $desc, $sysRole]) {
+            $existing = one("SELECT id FROM roles WHERE key_name = ?", [$key]);
+            if (!$existing) {
+                q("INSERT INTO roles (key_name, name, description, system_role) VALUES (?, ?, ?, ?)",
+                  [$key, $name, $desc, $sysRole ? 1 : 0]);
+                $roleId = (int)pdo()->lastInsertId();
+
+                // Set default permissions based on role
+                $defaultPerms = [];
+                if ($key === 'admin') {
+                    $defaultPerms = array_fill_keys($allPerms, true);
+                } elseif ($key === 'releaser') {
+                    $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Release Loans', 'Reports'], true);
+                } elseif ($key === 'manager') {
+                    $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Approve Loans', 'Create Loan', 'Borrowers', 'Repayments', 'Reports'], true);
+                } elseif ($key === 'agent') {
+                    $defaultPerms = array_fill_keys(['Dashboard', 'Borrowers', 'Messages', 'Payments'], true);
+                } elseif ($key === 'borrower') {
+                    $defaultPerms = array_fill_keys(['Dashboard', 'My Loans', 'Apply for Loan', 'Payments', 'Profile', 'Messages'], true);
+                }
+
+                foreach ($allPerms as $perm) {
+                    $granted = isset($defaultPerms[$perm]) ? 1 : 0;
+                    q("INSERT INTO role_permissions (role_id, permission_key, granted) VALUES (?, ?, ?)",
+                      [$roleId, $perm, $granted]);
+                }
+                log_error("Role seeded", ['key' => $key, 'id' => $roleId]);
             }
         }
 
@@ -3004,6 +3071,109 @@ try {
             log_access('GET', 'admin/users', 200);
             echo json_encode(['success' => true, 'data' => ['users' => $rows,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+            exit;
+        }
+
+        // ==================== ROLES MODULE ====================
+
+        // GET /admin/roles - list all roles with their permissions
+        if ($method === 'GET' && $uri === '/admin/roles') {
+            $roles = all("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles ORDER BY name");
+            $result = [];
+            foreach ($roles as $role) {
+                $perms = all("SELECT permission_key, granted FROM role_permissions WHERE role_id = ?", [$role['id']]);
+                $permMap = [];
+                foreach ($perms as $p) {
+                    $permMap[$p['permission_key']] = (bool)$p['granted'];
+                }
+                $role['permissions'] = $permMap;
+                $role['key'] = $role['key_name'];
+                unset($role['key_name']);
+                $result[] = $role;
+            }
+            log_access('GET', '/admin/roles', 200);
+            echo json_encode(['success' => true, 'data' => $result]);
+            exit;
+        }
+
+        // GET /admin/roles/:key - get single role with permissions
+        if ($method === 'GET' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+            $roleKey = $m[1];
+            $role = one("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles WHERE key_name = ?", [$roleKey]);
+            if (!$role) {
+                http_response_code(404);
+                log_access('GET', "/admin/roles/$roleKey", 404);
+                echo json_encode(['success' => false, 'error' => 'Role not found']);
+                exit;
+            }
+            $perms = all("SELECT permission_key, granted FROM role_permissions WHERE role_id = ?", [$role['id']]);
+            $permMap = [];
+            foreach ($perms as $p) {
+                $permMap[$p['permission_key']] = (bool)$p['granted'];
+            }
+            $role['permissions'] = $permMap;
+            $role['key'] = $role['key_name'];
+            unset($role['key_name']);
+            log_access('GET', "/admin/roles/$roleKey", 200);
+            echo json_encode(['success' => true, 'data' => $role]);
+            exit;
+        }
+
+        // PUT /admin/roles/:key - update role name/description
+        if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+            $roleKey = $m[1];
+            $role = one("SELECT id, system_role FROM roles WHERE key_name = ?", [$roleKey]);
+            if (!$role) {
+                http_response_code(404);
+                log_access('PUT', "/admin/roles/$roleKey", 404);
+                echo json_encode(['success' => false, 'error' => 'Role not found']);
+                exit;
+            }
+            $d = input();
+            $updates = [];
+            $params = [];
+            if (isset($d['name'])) { $updates[] = "name = ?"; $params[] = $d['name']; }
+            if (isset($d['description'])) { $updates[] = "description = ?"; $params[] = $d['description']; }
+            if ($updates) {
+                $updates[] = "updated_at = CURRENT_TIMESTAMP";
+                $params[] = $role['id'];
+                $sql = "UPDATE roles SET " . implode(", ", $updates) . " WHERE id = ?";
+                q($sql, $params);
+            }
+            log_access('PUT', "/admin/roles/$roleKey", 200);
+            echo json_encode(['success' => true, 'message' => 'Role updated']);
+            exit;
+        }
+
+        // PUT /admin/roles/:key/permissions - update role permissions
+        if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)/permissions$#', $uri, $m)) {
+            $roleKey = $m[1];
+            $role = one("SELECT id FROM roles WHERE key_name = ?", [$roleKey]);
+            if (!$role) {
+                http_response_code(404);
+                log_access('PUT', "/admin/roles/$roleKey/permissions", 404);
+                echo json_encode(['success' => false, 'error' => 'Role not found']);
+                exit;
+            }
+            $d = input();
+            if (!isset($d['permissions']) || !is_array($d['permissions'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'permissions array required']);
+                exit;
+            }
+            // Update/insert each permission
+            foreach ($d['permissions'] as $permKey => $granted) {
+                $existing = one("SELECT id FROM role_permissions WHERE role_id = ? AND permission_key = ?", [$role['id'], $permKey]);
+                if ($existing) {
+                    q("UPDATE role_permissions SET granted = ?, updated_at = CURRENT_TIMESTAMP WHERE role_id = ? AND permission_key = ?",
+                      [$granted ? 1 : 0, $role['id'], $permKey]);
+                } else {
+                    q("INSERT INTO role_permissions (role_id, permission_key, granted) VALUES (?, ?, ?)",
+                      [$role['id'], $permKey, $granted ? 1 : 0]);
+                }
+            }
+            log_access('PUT', "/admin/roles/$roleKey/permissions", 200);
+            echo json_encode(['success' => true, 'message' => 'Permissions updated']);
             exit;
         }
 
