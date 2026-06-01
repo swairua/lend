@@ -81,7 +81,7 @@ export default function AdminCreateLoan() {
   const loadCategories = async () => {
     setLoading(true);
     try {
-      const res = await productsApi.getCategories();
+      const res = await adminApi.getCategories();
       const cats = (res.data || []).filter((c: any) => c.is_active !== false);
       setCategories(cats);
       if (cats.length > 0) setSelectedCategory(String(cats[0].id));
