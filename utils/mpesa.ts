@@ -1,6 +1,9 @@
 /**
- * M-Pesa Daraja API Integration
- * Handles OAuth2 token flow, C2B checkout, B2C disbursements
+ * M-Pesa Daraja API Integration - CLIENT-SIDE HELPER
+ * @deprecated Server-side only. Do NOT expose credentials to frontend.
+ * Use utils/mpesa-server.php (PHP) or api-server.js (Node.js) instead.
+ * This file is retained for reference but should NOT be imported from browser code.
+ * CREDENTIALS IN CLIENT-SIDE CODE ARE A SECURITY RISK.
  */
 
 interface DarajaConfig {
@@ -156,11 +159,11 @@ class MpesaClient {
     const token = await this.getAccessToken();
 
     const payload = {
-      OriginatorConversationID: `JECRIBUREAU-${Date.now()}`,
-      InitiatorName: 'JECRI BUREAU',
+      OriginatorConversationID: `LEND-${Date.now()}`,
+      InitiatorName: 'LendingSystem',
       SecurityCredential: Buffer.from(this.config.consumerSecret).toString(
         'base64'
-      ),
+      ), // @fixme: use initiator_password encrypted with Safaricom public cert, not consumerSecret
       CommandID: params.commandId,
       Amount: Math.floor(params.amount),
       PartyA: this.config.businessShortCode,

@@ -19,6 +19,7 @@ interface LoanCounts {
   pending: number;
   approved: number;
   active: number;
+  disbursing: number;
   completed: number;
   rejected: number;
   defaulted: number;
@@ -29,6 +30,7 @@ const getStatusColor = (status: string) => {
     case 'pending': return 'bg-yellow-100 text-yellow-800';
     case 'approved': return 'bg-blue-100 text-blue-800';
     case 'active': return 'bg-green-100 text-green-800';
+    case 'disbursing': return 'bg-teal-100 text-teal-800';
     case 'completed': return 'bg-gray-100 text-gray-800';
     case 'rejected': return 'bg-red-100 text-red-800';
     case 'defaulted': return 'bg-purple-100 text-purple-800';
@@ -44,7 +46,7 @@ export default function AdminLoans() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [loans, setLoans] = useState<Loan[]>([]);
-  const [counts, setCounts] = useState<LoanCounts>({ all: 0, pending: 0, approved: 0, active: 0, completed: 0, rejected: 0, defaulted: 0 });
+  const [counts, setCounts] = useState<LoanCounts>({ all: 0, pending: 0, approved: 0, active: 0, disbursing: 0, completed: 0, rejected: 0, defaulted: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -112,7 +114,7 @@ export default function AdminLoans() {
 
   useEffect(() => {
     const preloadAllStatusCounts = async () => {
-      const statuses = ['pending', 'approved', 'active', 'completed', 'rejected', 'defaulted'];
+      const statuses = ['pending', 'approved', 'active', 'disbursing', 'completed', 'rejected', 'defaulted'];
       for (const status of statuses) {
         await loadCountsByStatus(status);
       }

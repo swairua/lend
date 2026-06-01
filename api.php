@@ -2375,7 +2375,8 @@ try {
                VALUES (?, 'b2c_initiated', ?, ?, ?, 'b2c_initiated', ?)",
               [$loan_id, $phone, $amount, $command_id, json_encode($result['data'])]);
 
-            q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$loan_id]);
+            // Defer 'active' status until B2C result callback confirms disbursement
+            q("UPDATE loans SET status='disbursing', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$loan_id]);
 
             log_access('POST', 'admin/mpesa/disburse', 200);
             log_error("B2C initiated", ['loan_id' => $loan_id, 'amount' => $amount, 'command_id' => substr($command_id, 0, 8)]);
@@ -3093,7 +3094,7 @@ try {
                 if (!validateSafaricomSignature($raw, $signature, $is_production)) {
                     log_error("C2B timeout: signature verification failed", []);
                     log_access('POST', 'mpesa/c2b/timeout', 401);
-                    echo json_encode(['ResultCode' => '0']);
+                    echo json_encode(['ResultCode' => '1', 'ResultDesc' => 'Invalid signature']);
                     exit;
                 }
 
@@ -3123,7 +3124,7 @@ try {
             if (!validateSafaricomSignature($raw, $signature, $is_production)) {
                 log_error("STK callback: signature verification failed", []);
                 header('Content-Type: application/json');
-                echo json_encode(['ResultCode' => '0']);
+                echo json_encode(['ResultCode' => '1', 'ResultDesc' => 'Invalid signature']);
                 exit;
             }
 
@@ -3199,7 +3200,7 @@ try {
                 if (!validateSafaricomSignature($raw, $signature, $is_production)) {
                     log_error("B2C result: signature verification failed", []);
                     log_access('POST', 'mpesa/b2c/result', 401);
-                    echo json_encode(['ResultCode' => '0']);
+                    echo json_encode(['ResultCode' => '1', 'ResultDesc' => 'Invalid signature']);
                     exit;
                 }
 
@@ -3241,7 +3242,7 @@ try {
                 if (!validateSafaricomSignature($raw, $signature, $is_production)) {
                     log_error("B2C timeout: signature verification failed", []);
                     log_access('POST', 'mpesa/b2c/timeout', 401);
-                    echo json_encode(['ResultCode' => '0']);
+                    echo json_encode(['ResultCode' => '1', 'ResultDesc' => 'Invalid signature']);
                     exit;
                 }
 

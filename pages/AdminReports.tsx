@@ -71,7 +71,7 @@ export default function AdminReports() {
         setLoans(loans as any);
         
         const totalDisbursed = loans
-          .filter((l: any) => l && (l.status === 'active' || l.status === 'disbursed' || l.status === 'completed'))
+          .filter((l: any) => l && (l.status === 'active' || l.status === 'disbursing' || l.status === 'disbursed' || l.status === 'completed'))
           .reduce((sum: number, l: any) => sum + Number(l?.principal_amount || 0), 0);
         const totalOutstanding = loans
           .reduce((sum: number, l: any) => sum + Number(l?.balance || 0), 0);
@@ -83,7 +83,7 @@ export default function AdminReports() {
           total_outstanding: totalOutstanding,
           total_collected: totalCollected,
           pending_count: loans.filter((l: any) => l?.status === 'pending').length,
-          active_count: loans.filter((l: any) => l?.status === 'active' || l?.status === 'disbursed').length,
+          active_count: loans.filter((l: any) => l?.status === 'active' || l?.status === 'disbursing' || l?.status === 'disbursed').length,
           completed_count: loans.filter((l: any) => l?.status === 'completed').length,
         });
       }

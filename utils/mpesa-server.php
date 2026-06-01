@@ -97,7 +97,7 @@ class MpesaDaraja {
         }
 
         // Timestamp in format YYYYMMDDHHmmss
-        $timestamp = date('YYYYMMDDHHmmss');
+        $timestamp = date('YmdHis');
         
         // STK password: base64(shortcode + passkey + timestamp)
         $stk_password = base64_encode($business_shortcode . $passkey . $timestamp);

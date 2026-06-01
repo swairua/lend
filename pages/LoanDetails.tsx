@@ -60,12 +60,12 @@ function getTimelineSteps(loan: any) {
     },
     {
       label: 'Approved',
-      status: ['approved', 'active', 'completed'].includes(loan.status) ? 'completed' : loan.status === 'rejected' ? 'rejected' : 'pending' as const,
+      status: ['approved', 'disbursing', 'active', 'completed'].includes(loan.status) ? 'completed' : loan.status === 'rejected' ? 'rejected' : 'pending' as const,
       date: loan.approved_at ? formatDate(loan.approved_at) : undefined,
     },
     {
       label: 'Disbursed',
-      status: ['active', 'completed'].includes(loan.status) ? 'completed' : 'pending' as const,
+      status: ['disbursing', 'active', 'completed'].includes(loan.status) ? 'completed' : 'pending' as const,
       date: loan.disbursed_at ? formatDate(loan.disbursed_at) : undefined,
     },
     {

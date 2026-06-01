@@ -273,6 +273,7 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-3">
                         <div className={`w-2 h-2 rounded-full ${
                           loan.status === 'pending' ? 'bg-yellow-500' :
+                          loan.status === 'disbursing' ? 'bg-teal-500' :
                           loan.status === 'active' ? 'bg-green-500' :
                           loan.status === 'approved' ? 'bg-blue-500' :
                           'bg-gray-500'

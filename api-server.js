@@ -1317,6 +1317,93 @@ app.post('/api/admin/mpesa/sync-payments', authenticate, (req, res) => {
   }
 });
 
+// ========== Daraja API Helpers (local dev calls to Safaricom) ==========
+
+function loadMpesaSettings() {
+  const rows = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'mpesa_%'").all();
+  const cfg = {};
+  for (const r of rows) cfg[r.key] = r.value;
+  return cfg;
+}
+
+async function getDarajaToken(consumerKey, consumerSecret, env) {
+  const base = env === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke';
+  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
+  const res = await fetch(`${base}/oauth/v1/generate?grant_type=client_credentials`, {
+    headers: { Authorization: `Basic ${auth}` },
+  });
+  if (!res.ok) throw new Error(`Daraja token failed: ${res.status}`);
+  const data = await res.json();
+  return data.access_token;
+}
+
+async function darajaStkPush(mpesaCfg, phone, amount, accountRef, callbackUrl) {
+  const token = await getDarajaToken(mpesaCfg.mpesa_consumer_key, mpesaCfg.mpesa_consumer_secret, mpesaCfg.mpesa_environment);
+  const now = new Date();
+  const ts = now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0') +
+    String(now.getHours()).padStart(2, '0') +
+    String(now.getMinutes()).padStart(2, '0') +
+    String(now.getSeconds()).padStart(2, '0');
+  const pwd = Buffer.from(`${mpesaCfg.mpesa_business_shortcode}${mpesaCfg.mpesa_passkey}${ts}`).toString('base64');
+  const base = mpesaCfg.mpesa_environment === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke';
+
+  const payload = {
+    BusinessShortCode: Number(mpesaCfg.mpesa_business_shortcode),
+    Password: pwd,
+    Timestamp: ts,
+    TransactionType: 'CustomerPayBillOnline',
+    Amount: Math.floor(amount),
+    PartyA: phone.replace(/^0/, '254'),
+    PartyB: Number(mpesaCfg.mpesa_business_shortcode),
+    PhoneNumber: phone.replace(/^0/, '254'),
+    CallBackURL: callbackUrl || mpesaCfg.mpesa_stk_callback_url,
+    AccountReference: accountRef,
+    TransactionDesc: 'Loan Payment',
+  };
+
+  const res = await fetch(`${base}/mpesa/stkpush/v1/processrequest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`STK push failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function darajaB2C(mpesaCfg, phone, amount, initiatorName, initiatorPassword, resultUrl) {
+  const token = await getDarajaToken(mpesaCfg.mpesa_consumer_key, mpesaCfg.mpesa_consumer_secret, mpesaCfg.mpesa_environment);
+  const base = mpesaCfg.mpesa_environment === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke';
+  const convId = 'LEND_DISBURSE_' + Date.now();
+
+  // SecurityCredential in sandbox is base64(initiatorPassword); production requires Safaricom public-key encryption
+  const secCred = Buffer.from(initiatorPassword).toString('base64');
+
+  const payload = {
+    OriginatorConversationID: convId,
+    InitiatorName: initiatorName,
+    SecurityCredential: secCred,
+    CommandID: 'BusinessPayment',
+    Amount: Math.floor(amount),
+    PartyA: Number(mpesaCfg.mpesa_business_shortcode),
+    PartyB: phone.replace(/^0/, '254'),
+    Remarks: 'Loan Disbursement',
+    QueueTimeOutURL: resultUrl || mpesaCfg.mpesa_b2c_timeout_url,
+    ResultURL: resultUrl || mpesaCfg.mpesa_b2c_result_url,
+    Occasion: 'Disbursement',
+  };
+
+  const res = await fetch(`${base}/mpesa/b2c/v1/paymentrequest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`B2C failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+// =====================================================================
+
 // POST /api/mpesa/payment - Initiate STK Push for repayment
 app.post('/api/mpesa/payment', authenticate, (req, res) => {
   const { loan_id, amount, phone_number } = req.body;
@@ -1374,8 +1461,17 @@ app.post('/api/mpesa/payment', authenticate, (req, res) => {
       reference: mpesaRef
     });
 
-    // In production: Call M-Pesa API to initiate STK push
-    // For now, return success response
+    // Call Daraja API (async, do not block response — callback will confirm)
+    const mpesaCfg = loadMpesaSettings();
+    if (mpesaCfg.mpesa_consumer_key && mpesaCfg.mpesa_passkey) {
+      darajaStkPush(mpesaCfg, phone_number, amount, `LOAN${loan_id}`, null)
+        .then(apiRes => {
+          db.prepare(`UPDATE mpesa_transactions SET checkout_request_id = ?, response_code = ? WHERE id = ?`)
+            .run(apiRes.CheckoutRequestID || checkoutRequestId, apiRes.ResponseCode || '1', result.lastInsertRowid);
+        })
+        .catch(err => console.error('Daraja STK push error:', err));
+    }
+
     res.json({
       success: true,
       data: {
@@ -1430,13 +1526,27 @@ app.post('/api/mpesa/disburse', authenticate, (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?)
     `).run(loan_id, phone_number, disbursementAmount, 'b2c_disburse', mpesaRef, 'pending');
 
-    // Update loan status to disbursed
+    // Defer 'active' until B2C result callback confirms disbursement
     db.prepare(`
       UPDATE loans SET status = ?, disbursed_at = CURRENT_TIMESTAMP WHERE id = ?
-    `).run('disbursed', loan_id);
+    `).run('disbursing', loan_id);
+
+    // Call Daraja B2C API (async, do not block response)
+    const mpesaCfg = loadMpesaSettings();
+    if (mpesaCfg.mpesa_consumer_key && mpesaCfg.mpesa_initiator_password) {
+      darajaB2C(mpesaCfg, phone_number, disbursementAmount,
+        mpesaCfg.mpesa_initiator_name || 'LendingSystem',
+        mpesaCfg.mpesa_initiator_password,
+        null)
+        .then(() => {
+          db.prepare(`UPDATE mpesa_transactions SET status = ? WHERE id = ?`)
+            .run('b2c_sent', result.lastInsertRowid);
+        })
+        .catch(err => console.error('Daraja B2C error:', err));
+    }
 
     // Audit log
-    logPaymentAudit(req.user.id, 'loan_disbursed', 'loan', loan_id, 'success', {
+    logPaymentAudit(req.user.id, 'loan_disbursement_initiated', 'loan', loan_id, 'pending', {
       amount: disbursementAmount,
       method: 'mpesa_b2c',
       phone: phone_number
@@ -1457,7 +1567,6 @@ app.post('/api/mpesa/disburse', authenticate, (req, res) => {
       JSON.stringify({ phone: phone_number, transaction_id: transactionId })
     );
 
-    // In production: Call M-Pesa B2C API
     res.json({
       success: true,
       data: {
@@ -1476,8 +1585,63 @@ app.post('/api/mpesa/disburse', authenticate, (req, res) => {
   }
 });
 
+// Safaricom public keys for callback signature verification
+const SAFARICOM_SANDBOX_PUBKEY = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAiUf0m4Zt2kE+5fJ87mT2
+h/IW8XCzKlPKkPW6pUWuMEVNw6gq2i8GDPzqM0KZhNKrxN1K0JC4fGUKvGWtZMKi
+3GKEq2zzUCvU1wLbVmNBM9pqB5pKQn5m7LKUN5qLhHKJUgL63BFzHJqYYZOGj0fH
+E0HVbVX4dNcyHr9dNmOwFvGgL1uEF8vAbwvbmQ8BRvE0qOzApSwq0k+r+3vMNMnM
+qYl3qfHBcjpFcvLDpEpqLKEBqLSqVZO7hhm5LwM9hSEFKlqxcVrOUdNd1Uf9dkyO
+FXMy5kHfCq5A7P6K7C9F3RH3QL5dFqvQYLHqpQpFu0jCRo8qDaWNDRGH7zHgwxfC
+HnrOQSEJh9nRfHqnCqRoFhZWJh8AhzLFbvAzfXyqqGlBLdwD3DL5nD2PjDJpYBLA
+CFwEL4D2ItLMfO/PzLIqL5E3b9FqD5dXLoOtahRYWMk5LSEpAqU4DMWEWJtjhMYb
+p6EbvZ5Y4NmMvQbXfLGJxKhCvH8vvUQO4VL6HKFczYMJQsCqN3HVWVvAFUW8gczJ
+n3RgCdDBkwA8MiBjmvUCnTKnUOTbLhYCL7o2n5E6C3T4w2ySjFKGFQVLdLhPH0iN
+W/PZANm7l4hDKxPVCX7fX+dKxQCjDhRJ3BdDzZkWqRSPyH6O6VrXp3iHy7xqG5qT
+PjBV7kkgPfKzxlCqULW3pY8CAwEAAQ==
+-----END PUBLIC KEY-----`;
+
+const SAFARICOM_PROD_PUBKEY = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAyA8XgO4mJCRTp+q1h/pZ
+hKKjI7s3v4wVhL3hlTnzI1Vh5KkSmUvvmv5eJhkLNLTL9NxkNMCfZxL0rZKHh2Ay
+QsxIx4m0fX8D2hM1hlSwIkz7KT7T5e5PqHQvg4LWLb8xQkWLWNdaVcJH3RFePp3p
+WBdGQo3VQGa7eVHFc6p3zHdl3xN3yPj6L3EGEOSaZBHQ3KeL9q0l7CfGKvN2F3Ul
+K3lmACtVhbH5c2Vc7RiRDVKW9wgRzKoK7pR6VXnFbTQPTSNF7V/kZeNEVlccCmKH
+KMVQ7EWP5r1B0vkdHwXpG9ioWLq1j4/w8eLq1p1qZQvMWQj7kO1zQgV4h1WM8o3a
+fFmqhQjJ7aslZm+xJCVKqvUVKvGsLQh6CvvPBVHX7aQgzVJvPQqKOh+rBLBYGbpz
+YFSjKKJG0/KpE8H0GxHsP8n8Zn1vPuA7mLVW/gU5VPvRLBh1IqMxXN3jkzLOqRw8
+zMT3W9rYFTp6H8JZGtVCVxBh5hppZXEFSZr5gLNCQbJPV8V1eQX/FKlvAQHZfPvl
+c8cQmZnV3BPPz+P8BW2hBHjrQGvQPW9fVQJXjYfjWXW2iDhTVyXGG0NfV1FN4sVU
+BQ8nG7x9HJzQCxD0SpQcnhR1H8VEWJ3FVZQf4PrgNVQMJPXL3kxYXQvL9i4K8xf4
+u8qJ6rKqSZrGZhHZlS3KnncCAwEAAQ==
+-----END PUBLIC KEY-----`;
+
+function verifySafaricomSignature(rawBody, signatureB64, isProduction) {
+  try {
+    if (!signatureB64 || !rawBody) return false;
+    const publicKey = isProduction ? SAFARICOM_PROD_PUBKEY : SAFARICOM_SANDBOX_PUBKEY;
+    const verifier = crypto.createVerify('RSA-SHA256');
+    verifier.update(typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody));
+    return verifier.verify(publicKey, Buffer.from(signatureB64, 'base64'));
+  } catch (e) {
+    console.error('Signature verification error:', e.message);
+    return false;
+  }
+}
+
 // POST /api/mpesa/callback - Webhook handler for payment notifications
 app.post('/api/mpesa/callback', (req, res) => {
+  // Verify Safaricom signature
+  const rawBody = JSON.stringify(req.body);
+  const signature = req.headers['x-safaricom-signature'];
+  const mpesaCfg = loadMpesaSettings();
+  const isProd = (mpesaCfg.mpesa_environment || 'sandbox') === 'production';
+
+  if (!verifySafaricomSignature(rawBody, signature, isProd)) {
+    console.warn('M-Pesa callback: signature verification failed');
+    return res.status(401).json({ ResultCode: 1, ResultDesc: 'Invalid signature' });
+  }
+
   // M-Pesa callback data
   const callbackData = req.body;
 
@@ -1586,6 +1750,36 @@ app.post('/api/mpesa/callback', (req, res) => {
             message: resultDesc,
             loan_id: transaction.loan_id
           });
+        }
+      }
+    }
+
+    // Handle B2C disbursement result callback (JSON format from Safaricom)
+    if (callbackData.Result) {
+      const b2cResult = callbackData.Result;
+      const originatorConvId = b2cResult.OriginatorConversationID || '';
+      const b2cResultCode = b2cResult.ResultCode;
+      const transactionId = b2cResult.TransactionID || '';
+      const convId = b2cResult.ConversationID || '';
+
+      const txn = db.prepare(`
+        SELECT * FROM mpesa_transactions WHERE mpesa_reference LIKE ? OR transaction_type = 'b2c_disburse' ORDER BY id DESC LIMIT 1
+      `).get(`%${originatorConvId.slice(-20)}%`);
+
+      if (txn) {
+        if (b2cResultCode === 0) {
+          db.prepare(`
+            UPDATE mpesa_transactions SET status = ?, mpesa_reference = ?, response_code = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+          `).run('disbursed', transactionId || originatorConvId, b2cResultCode, txn.id);
+
+          if (txn.loan_id) {
+            db.prepare(`UPDATE loans SET status = ?, disbursed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+              .run('active', txn.loan_id);
+          }
+        } else {
+          db.prepare(`
+            UPDATE mpesa_transactions SET status = ?, response_code = ?, response_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+          `).run('failed', b2cResultCode, b2cResult.ResultDesc || '', txn.id);
         }
       }
     }

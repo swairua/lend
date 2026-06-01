@@ -1,27 +1,33 @@
 -- ==================== M-Pesa Tables ====================
 
 -- M-Pesa Transactions Table
+-- NOTE: Schema must match api.php CREATE TABLE for queries to work.
+-- Migrate existing rows if columns differ:
+--   ALTER TABLE mpesa_transactions ADD COLUMN ... ;
 CREATE TABLE IF NOT EXISTS `mpesa_transactions` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `loan_id` int NOT NULL,
-  `repayment_id` int DEFAULT NULL,
-  `phone_number` varchar(20) NOT NULL,
-  `amount` decimal(15,2) NOT NULL,
+  `loan_id` int DEFAULT NULL,
   `transaction_type` varchar(50) NOT NULL,
+  `phone` varchar(20) NOT NULL,
+  `amount` decimal(15,2) DEFAULT NULL,
   `mpesa_reference` varchar(100) DEFAULT NULL,
+  `safaricom_receipt` varchar(100) DEFAULT NULL,
   `checkout_request_id` varchar(100) DEFAULT NULL,
-  `status` varchar(50) DEFAULT 'pending',
+  `command_id` varchar(100) DEFAULT NULL,
+  `status` varchar(50) NOT NULL DEFAULT 'pending',
+  `validation_result` varchar(100) DEFAULT NULL,
   `response_code` varchar(50) DEFAULT NULL,
   `response_message` text,
+  `request_payload` text,
+  `response_payload` text,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `fk_mpesa_loan` (`loan_id`),
-  KEY `fk_mpesa_repayment` (`repayment_id`),
   KEY `idx_checkout_request_id` (`checkout_request_id`),
   KEY `idx_mpesa_reference` (`mpesa_reference`),
-  CONSTRAINT `fk_mpesa_loan` FOREIGN KEY (`loan_id`) REFERENCES `loans` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_mpesa_repayment` FOREIGN KEY (`repayment_id`) REFERENCES `repayments` (`id`) ON DELETE SET NULL
+  KEY `idx_command_id` (`command_id`),
+  KEY `fk_mpesa_loan` (`loan_id`),
+  CONSTRAINT `fk_mpesa_loan` FOREIGN KEY (`loan_id`) REFERENCES `loans` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- SMS Logs Table
@@ -73,6 +79,8 @@ VALUES
   ('mpesa_stk_callback_url', '', 'STK Push Callback URL', NOW()),
   ('mpesa_b2c_result_url', '', 'B2C Disbursement Result Endpoint URL', NOW()),
   ('mpesa_b2c_timeout_url', '', 'B2C Disbursement Timeout Endpoint URL', NOW()),
+  ('mpesa_initiator_name', 'LendingSystem', 'B2C Initiator Name (from Daraja portal)', NOW()),
+  ('mpesa_initiator_password', '', 'B2C Initiator Password (not consumer_secret)', NOW()),
   ('mpesa_enabled', 'false', 'Enable M-Pesa payments', NOW()),
   ('sms_enabled', 'false', 'Enable SMS notifications', NOW()),
   ('sms_provider', 'Africa''s Talking', 'SMS Provider (Africa''s Talking or Twilio)', NOW())
@@ -81,15 +89,15 @@ ON DUPLICATE KEY UPDATE `updated_at` = NOW();
 -- ==================== Indexes for Performance ====================
 
 -- Index for M-Pesa transaction lookups
-CREATE INDEX IF NOT EXISTS `idx_mpesa_loan_status` ON `mpesa_transactions` (`loan_id`, `status`);
-CREATE INDEX IF NOT EXISTS `idx_mpesa_phone_date` ON `mpesa_transactions` (`phone_number`, `created_at`);
+CREATE INDEX `idx_mpesa_loan_status` ON `mpesa_transactions` (`loan_id`, `status`);
+CREATE INDEX `idx_mpesa_phone_date` ON `mpesa_transactions` (`phone`, `created_at`);
 
 -- Index for SMS logs
-CREATE INDEX IF NOT EXISTS `idx_sms_borrower_date` ON `sms_logs` (`borrower_id`, `sent_at`);
-CREATE INDEX IF NOT EXISTS `idx_sms_status` ON `sms_logs` (`sms_status`, `sent_at`);
+CREATE INDEX `idx_sms_borrower_date` ON `sms_logs` (`borrower_id`, `sent_at`);
+CREATE INDEX `idx_sms_status` ON `sms_logs` (`sms_status`, `sent_at`);
 
 -- Index for transaction logs
-CREATE INDEX IF NOT EXISTS `idx_trans_log_type_date` ON `transaction_logs` (`transaction_type`, `created_at`);
+CREATE INDEX `idx_trans_log_type_date` ON `transaction_logs` (`transaction_type`, `created_at`);
 
 -- ==================== Verification Queries ====================
 -- Run these to verify the setup:
