@@ -55,12 +55,6 @@ export const navigationItems: NavItem[] = [
   { label: 'System Logs', href: '/admin/logs', icon: History, roles: ['admin', 'manager'] },
   { label: 'Admin Messages', href: '/admin/messages', icon: MessageSquare, roles: ['admin', 'manager'], badge: 'messages' },
 
-  // Admin - Invoicing
-  { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin', 'manager', 'releaser', 'agent'] },
-  { label: 'Invoice Products', href: '/admin/invoice-products', icon: Package, roles: ['admin', 'manager', 'releaser', 'agent'] },
-  { label: 'Quotations', href: '/admin/quotations', icon: FileText, roles: ['admin', 'manager', 'releaser', 'agent'] },
-  { label: 'Invoices', href: '/admin/invoices', icon: Receipt, roles: ['admin', 'manager', 'releaser', 'agent'] },
-
   // Admin - Settings
   { label: 'Settings', href: '/admin/config', icon: Settings, roles: ['admin'] },
 ];
