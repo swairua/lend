@@ -437,7 +437,7 @@ function bootstrap() {
 
         $p->exec("CREATE TABLE IF NOT EXISTS quotations (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
-            quote_number TEXT NOT NULL UNIQUE,
+            quote_number VARCHAR(50) NOT NULL UNIQUE,
             customer_id INTEGER,
             client_name TEXT NOT NULL,
             client_email TEXT,
@@ -474,7 +474,7 @@ function bootstrap() {
 
         $p->exec("CREATE TABLE IF NOT EXISTS invoices (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
-            invoice_number TEXT NOT NULL UNIQUE,
+            invoice_number VARCHAR(50) NOT NULL UNIQUE,
             quotation_id INTEGER,
             customer_id INTEGER,
             client_name TEXT NOT NULL,
@@ -514,6 +514,11 @@ function bootstrap() {
         // Migrate existing quotations / invoices — add customer_id column if missing
         try { $p->exec("ALTER TABLE quotations ADD COLUMN customer_id INTEGER"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE invoices ADD COLUMN customer_id INTEGER"); } catch (Exception $e) {}
+        // Fix TEXT→VARCHAR for UNIQUE columns (MySQL requires VARCHAR for UNIQUE)
+        try { $p->exec("ALTER TABLE quotations MODIFY COLUMN quote_number VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE invoices MODIFY COLUMN invoice_number VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE quotations ADD UNIQUE (quote_number)"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE invoices ADD UNIQUE (invoice_number)"); } catch (Exception $e) {}
 
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
         $demoUsers = [
