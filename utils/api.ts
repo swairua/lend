@@ -1,4 +1,4 @@
-import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, InvoiceProduct, Quotation, Invoice } from '../types/api';
+import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, Customer, InvoiceProduct, Quotation, Invoice } from '../types/api';
 import { secureStorage } from './secureStorage';
 
 // Always use the production API endpoint
@@ -510,6 +510,29 @@ export const adminApi = {
 
   deleteInvoiceProduct: (id: number) =>
     request<{ success: boolean }>(`/admin/invoice-products/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // ---- Customers ----
+  getCustomers: (search?: string) => {
+    const query = search ? `?search=${encodeURIComponent(search)}` : '';
+    return request<{ success: boolean; data: Customer[] }>(`/admin/customers${query}`);
+  },
+
+  createCustomer: (data: Partial<Customer>) =>
+    request<{ success: boolean; data: { id: number } }>('/admin/customers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateCustomer: (id: number, data: Partial<Customer>) =>
+    request<{ success: boolean }>(`/admin/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteCustomer: (id: number) =>
+    request<{ success: boolean }>(`/admin/customers/${id}`, {
       method: 'DELETE',
     }),
 

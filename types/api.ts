@@ -178,6 +178,18 @@ export interface DashboardStats {
   };
 }
 
+export interface Customer {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  company: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InvoiceProduct {
   id: number;
   name: string;
@@ -205,6 +217,9 @@ export interface QuotationItem {
 export interface Quotation {
   id: number;
   quote_number: string;
+  customer_id: number | null;
+  customer_name?: string;
+  customer_company?: string;
   client_name: string;
   client_email: string;
   client_phone: string;
@@ -241,6 +256,9 @@ export interface Invoice {
   invoice_number: string;
   quotation_id: number | null;
   quote_number?: string;
+  customer_id: number | null;
+  customer_name?: string;
+  customer_company?: string;
   client_name: string;
   client_email: string;
   client_phone: string;
