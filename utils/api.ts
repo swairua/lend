@@ -483,6 +483,14 @@ export const adminApi = {
     request<{ success: boolean }>(`/admin/disbursements/${id}`, {
       method: 'DELETE',
     }),
+
+  getLogs: (params?: { page?: number; limit?: number; log_type?: string; status?: string; search?: string; start_date?: string; end_date?: string }) => {
+    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    const query = new URLSearchParams(filtered as any).toString();
+    return request<{ success: boolean; data: { logs: any[]; pagination: { page: number; limit: number; total: number } } }>(
+      `/admin/logs${query ? `?${query}` : ''}`
+    );
+  },
 };
 
 // ==================== Helpers ====================

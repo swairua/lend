@@ -24,18 +24,13 @@ interface SystemLog {
   status: 'success' | 'failed';
 }
 
-interface PaginationInfo {
-  offset: number;
-  limit: number;
-  total: number;
-  hasMore: boolean;
-}
-
 export default function AdminSystemLogs() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<SystemLog[]>([]);
-  const [pagination, setPagination] = useState<PaginationInfo>({ offset: 0, limit: 20, total: 0, hasMore: false });
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
   const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -56,31 +51,19 @@ export default function AdminSystemLogs() {
 
   const loadLogs = async (pageNum: number = 1) => {
     setLoading(true);
+    setPage(pageNum);
     try {
-      const offset = (pageNum - 1) * 20;
-      const params = new URLSearchParams();
-      params.set('offset', offset.toString());
-      params.set('limit', '20');
-      if (filters.logType) params.set('log_type', filters.logType);
-      if (filters.status) params.set('status', filters.status);
-      if (filters.search) params.set('search', filters.search);
-      if (filters.startDate) params.set('dateFrom', filters.startDate);
-      if (filters.endDate) params.set('dateTo', filters.endDate);
-
-      const response = await fetch(`/api/admin/logs?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+      const result = await adminApi.getLogs({
+        page: pageNum,
+        limit,
+        log_type: filters.logType || undefined,
+        status: filters.status || undefined,
+        search: filters.search || undefined,
+        start_date: filters.startDate || undefined,
+        end_date: filters.endDate || undefined,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load logs`);
-      }
-
-      const result = await response.json();
-      setLogs(result.data || []);
-      setPagination(result.pagination || { offset, limit: 20, total: 0, hasMore: false });
+      setLogs(result.data.logs || []);
+      setTotal(result.data.pagination.total);
     } catch (error) {
       console.error('Error loading logs:', error);
       toast({
@@ -329,16 +312,16 @@ export default function AdminSystemLogs() {
                 </p>
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => loadLogs(Math.floor(pagination.offset / pagination.limit))}
-                    disabled={pagination.offset === 0 || loading}
+                    onClick={() => loadLogs(page - 1)}
+                    disabled={page <= 1 || loading}
                     variant="outline"
                     size="sm"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                   <Button
-                    onClick={() => loadLogs(Math.floor(pagination.offset / pagination.limit) + 2)}
-                    disabled={!pagination.hasMore || loading}
+                    onClick={() => loadLogs(page + 1)}
+                    disabled={page * limit >= total || loading}
                     variant="outline"
                     size="sm"
                   >
