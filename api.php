@@ -526,7 +526,7 @@ function bootstrap() {
         $p->exec("CREATE TABLE IF NOT EXISTS role_permissions (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             role_id INTEGER NOT NULL,
-            permission_key TEXT NOT NULL,
+            permission_key VARCHAR(255) NOT NULL,
             granted INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
