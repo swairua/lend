@@ -13,53 +13,41 @@ import { adminApi } from '@/utils/api';
 import { toast } from 'sonner';
 
 interface Role {
+  id?: number;
   key: string;
   name: string;
   description: string;
   system_role?: boolean;
+  permissions?: Record<string, boolean>;
 }
 
-interface Permission {
-  area: string;
-  [key: string]: any;
-}
-
-const staticRoles: Role[] = [
-  { key: 'admin', name: 'Admin', description: 'Full system access — can manage users, settings, loans, and all modules', system_role: true },
-  { key: 'releaser', name: 'Releaser', description: 'Approves loan release and disbursement after admin approval' },
-  { key: 'manager', name: 'Manager', description: 'Day-to-day operations — loans, products, borrowers, repayments, reports, and invoicing' },
-  { key: 'agent', name: 'Agent', description: 'View loans and borrowers for field work' },
-  { key: 'borrower', name: 'Borrower', description: 'Apply for loans, make payments, view own loans' },
-];
-
-const staticPermissions: Permission[] = [
-  { area: 'Dashboard' },
-  { area: 'Loan Applications (view)' },
-  { area: 'Approve Loans' },
-  { area: 'Release Loans' },
-  { area: 'Disburse Loans' },
-  { area: 'Create Loan' },
-  { area: 'Loan Categories' },
-  { area: 'Loan Products' },
-  { area: 'Borrowers' },
-  { area: 'Repayments' },
-  { area: 'Disbursements' },
-  { area: 'Reports' },
-  { area: 'Users' },
-  { area: 'Settings' },
-  { area: 'System Logs' },
-  { area: 'Customers / Invoicing' },
-  { area: 'Admin Messages' },
-  { area: 'My Loans' },
-  { area: 'Apply for Loan' },
-  { area: 'Payments' },
-  { area: 'Profile' },
-  { area: 'Messages' },
+const allPermissions = [
+  'Dashboard',
+  'Loan Applications (view)',
+  'Approve Loans',
+  'Release Loans',
+  'Disburse Loans',
+  'Create Loan',
+  'Loan Categories',
+  'Loan Products',
+  'Borrowers',
+  'Repayments',
+  'Disbursements',
+  'Reports',
+  'Users',
+  'Settings',
+  'System Logs',
+  'Customers / Invoicing',
+  'Admin Messages',
+  'My Loans',
+  'Apply for Loan',
+  'Payments',
+  'Profile',
+  'Messages',
 ];
 
 export default function AdminRoles() {
   const [roles, setRoles] = useState<Role[]>([]);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -70,14 +58,24 @@ export default function AdminRoles() {
   const roleKeys = roles.map(r => r.key);
 
   useEffect(() => {
-    setLoading(true);
     loadRoles();
-    setLoading(false);
   }, []);
 
-  const loadRoles = () => {
-    setRoles(staticRoles);
-    setPermissions(staticPermissions);
+  const loadRoles = async () => {
+    try {
+      setLoading(true);
+      const response = await adminApi.getRoles();
+      if (response.success && response.data) {
+        setRoles(response.data);
+      } else {
+        toast.error('Failed to load roles');
+      }
+    } catch (error) {
+      console.error('Failed to load roles:', error);
+      toast.error('Failed to load roles');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openEditDialog = (role: Role) => {
@@ -160,14 +158,14 @@ export default function AdminRoles() {
           <ResponsiveTable>
             <caption className="sr-only">Role permission matrix showing which roles can access which features</caption>
             <ResponsiveTableHeader className="bg-muted/50">
-              <tr>
+              <ResponsiveTableRow>
                 <ResponsiveTableHead className="text-left">Feature</ResponsiveTableHead>
                 {roleKeys.map((k) => (
                   <ResponsiveTableHead key={k} className="text-center">
                     {roles.find(r => r.key === k)?.name}
                   </ResponsiveTableHead>
                 ))}
-              </tr>
+              </ResponsiveTableRow>
             </ResponsiveTableHeader>
             <ResponsiveTableBody>
               {staticPermissions.map((perm) => (
