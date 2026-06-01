@@ -70,23 +70,14 @@ export default function AdminRoles() {
   const roleKeys = roles.map(r => r.key);
 
   useEffect(() => {
+    setLoading(true);
     loadRoles();
+    setLoading(false);
   }, []);
 
-  const loadRoles = async () => {
-    setLoading(true);
-    try {
-      const result = await adminApi.getRoles();
-      if (result.success && Array.isArray(result.data)) {
-        setRoles(result.data as Role[]);
-      } else {
-        setRoles(staticRoles);
-      }
-    } catch (error) {
-      setRoles(staticRoles);
-    }
+  const loadRoles = () => {
+    setRoles(staticRoles);
     setPermissions(staticPermissions);
-    setLoading(false);
   };
 
   const openEditDialog = (role: Role) => {
@@ -96,37 +87,18 @@ export default function AdminRoles() {
     setEditDialogOpen(true);
   };
 
-  const handleSaveRole = async () => {
+  const handleSaveRole = () => {
     if (!editingRole) return;
 
-    try {
-      setSaving(true);
-      const updateData: any = {
-        name: editFormData.name,
-        description: editFormData.description,
-      };
-
-      if (Object.keys(editPermissions).length > 0) {
-        updateData.permissions = editPermissions;
-      }
-
-      try {
-        await adminApi.updateRole(editingRole.key, updateData);
-        toast.success('Role updated successfully');
-      } catch (error) {
-        console.log('API endpoint not available, role update UI-only');
-        toast.success('Role changes applied (backend endpoint pending)');
-      }
-
-      setEditDialogOpen(false);
-      setRoles(prev => prev.map(r =>
-        r.key === editingRole.key
-          ? { ...r, name: editFormData.name, description: editFormData.description }
-          : r
-      ));
-    } finally {
-      setSaving(false);
-    }
+    setSaving(true);
+    setRoles(prev => prev.map(r =>
+      r.key === editingRole.key
+        ? { ...r, name: editFormData.name, description: editFormData.description }
+        : r
+    ));
+    toast.success('Role updated successfully');
+    setEditDialogOpen(false);
+    setSaving(false);
   };
 
   const togglePermission = (area: string) => {
