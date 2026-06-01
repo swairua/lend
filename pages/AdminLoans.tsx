@@ -9,7 +9,8 @@ import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, Responsive
 import { adminApi, formatKES, formatDate, Loan } from '../types/api';
 import { generateInvoiceHTML } from '../utils/pdfTemplates';
 import { normalizeList } from '../utils/normalize';
-import { Loader2, Eye, Check, X, Wallet, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar, FileText } from 'lucide-react';
+import { secureStorage } from '../utils/secureStorage';
+import { Loader2, Eye, Check, X, Wallet, Send, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar, FileText } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
 
@@ -18,8 +19,8 @@ interface LoanCounts {
   all: number;
   pending: number;
   approved: number;
+  released: number;
   active: number;
-  disbursing: number;
   completed: number;
   rejected: number;
   defaulted: number;
@@ -29,8 +30,8 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'pending': return 'bg-yellow-100 text-yellow-800';
     case 'approved': return 'bg-blue-100 text-blue-800';
+    case 'released': return 'bg-teal-100 text-teal-800';
     case 'active': return 'bg-green-100 text-green-800';
-    case 'disbursing': return 'bg-teal-100 text-teal-800';
     case 'completed': return 'bg-gray-100 text-gray-800';
     case 'rejected': return 'bg-red-100 text-red-800';
     case 'defaulted': return 'bg-purple-100 text-purple-800';
@@ -46,7 +47,8 @@ export default function AdminLoans() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [loans, setLoans] = useState<Loan[]>([]);
-  const [counts, setCounts] = useState<LoanCounts>({ all: 0, pending: 0, approved: 0, active: 0, disbursing: 0, completed: 0, rejected: 0, defaulted: 0 });
+  const [counts, setCounts] = useState<LoanCounts>({ all: 0, pending: 0, approved: 0, released: 0, active: 0, completed: 0, rejected: 0, defaulted: 0 });
+  const [userRole, setUserRole] = useState<string>('admin');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -114,13 +116,17 @@ export default function AdminLoans() {
 
   useEffect(() => {
     const preloadAllStatusCounts = async () => {
-      const statuses = ['pending', 'approved', 'active', 'disbursing', 'completed', 'rejected', 'defaulted'];
+      const statuses = ['pending', 'approved', 'released', 'active', 'completed', 'rejected', 'defaulted'];
       for (const status of statuses) {
         await loadCountsByStatus(status);
       }
     };
     preloadAllStatusCounts();
   }, [loadCountsByStatus]);
+
+  useEffect(() => {
+    secureStorage.getUser().then(u => { if (u?.role) setUserRole(u.role); });
+  }, []);
 
   const loadCompanySettings = useCallback(async () => {
     try {
@@ -217,6 +223,22 @@ export default function AdminLoans() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleRelease = async (loanId: number) => {
+    confirm('Release this loan for disbursement?', async () => {
+      setActionLoading(true);
+      try {
+        await adminApi.releaseLoan(loanId);
+        toast.success('Loan released for disbursement');
+        await refreshAfterUpdate();
+      } catch (error: any) {
+        showAlert({ type: 'error', message: error.message });
+        toast.error(error.message || 'Failed to release loan');
+      } finally {
+        setActionLoading(false);
+      }
+    });
   };
 
   const handleDisburse = async (loanId: number) => {
@@ -348,7 +370,7 @@ export default function AdminLoans() {
       </div>
 
       {/* Status Filter Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-8 gap-2 mb-4">
         <Card className={`cursor-pointer hover:border-primary ${statusFilter === 'all' ? 'border-primary bg-primary/5' : ''}`} onClick={() => { setStatusFilter('all'); setPage(1); }}>
           <CardContent className="p-2 text-center">
             <p className="text-lg font-bold">{counts.all}</p>
@@ -365,6 +387,12 @@ export default function AdminLoans() {
           <CardContent className="p-2 text-center">
             <p className="text-lg font-bold text-blue-600">{counts.approved}</p>
             <p className="text-xs text-muted-foreground">Approved</p>
+          </CardContent>
+        </Card>
+        <Card className={`cursor-pointer hover:border-teal-500 ${statusFilter === 'released' ? 'border-teal-500 bg-teal-50' : ''}`} onClick={() => { setStatusFilter('released'); setPage(1); }}>
+          <CardContent className="p-2 text-center">
+            <p className="text-lg font-bold text-teal-600">{counts.released}</p>
+            <p className="text-xs text-muted-foreground">Released</p>
           </CardContent>
         </Card>
         <Card className={`cursor-pointer hover:border-green-500 ${statusFilter === 'active' ? 'border-green-500 bg-green-50' : ''}`} onClick={() => { setStatusFilter('active'); setPage(1); }}>
@@ -442,7 +470,7 @@ export default function AdminLoans() {
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setSelectedLoan(loan); setDialogOpen(true); }} title="View">
                         <Eye className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
-                      {loan.status === 'pending' && (
+                      {loan.status === 'pending' && userRole === 'admin' && (
                         <>
                           <Button size="sm" variant="ghost" className="text-green-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleApprove(loan.id, true)} title="Approve">
                             <Check className="h-3 w-3 md:h-4 md:w-4" />
@@ -452,7 +480,12 @@ export default function AdminLoans() {
                           </Button>
                         </>
                       )}
-                      {loan.status === 'approved' && (
+                      {loan.status === 'approved' && (userRole === 'admin' || userRole === 'releaser') && (
+                        <Button size="sm" variant="ghost" className="text-teal-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleRelease(loan.id)} title="Release">
+                          <Send className="h-3 w-3 md:h-4 md:w-4" />
+                        </Button>
+                      )}
+                      {loan.status === 'released' && (userRole === 'admin' || userRole === 'releaser') && (
                         <Button size="sm" variant="ghost" className="text-blue-600 h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleDisburse(loan.id)} title="Disburse">
                           <Wallet className="h-3 w-3 md:h-4 md:w-4" />
                         </Button>
@@ -575,13 +608,18 @@ export default function AdminLoans() {
                 Sync Payments
               </Button>
             )}
-            {selectedLoan?.status === 'pending' && (
+            {selectedLoan?.status === 'pending' && userRole === 'admin' && (
               <>
                 <Button variant="destructive" onClick={() => { setDialogOpen(false); handleApprove(selectedLoan.id, false); }} className="w-full sm:w-auto">Reject</Button>
                 <Button onClick={() => { setDialogOpen(false); handleApprove(selectedLoan.id, true); }} className="w-full sm:w-auto">Approve</Button>
               </>
             )}
-            {selectedLoan?.status === 'approved' && <Button onClick={() => { setDialogOpen(false); handleDisburse(selectedLoan.id); }} className="w-full sm:w-auto">Disburse</Button>}
+            {selectedLoan?.status === 'approved' && (userRole === 'admin' || userRole === 'releaser') && (
+              <Button onClick={() => { setDialogOpen(false); handleRelease(selectedLoan.id); }} className="w-full sm:w-auto">Release</Button>
+            )}
+            {selectedLoan?.status === 'released' && (userRole === 'admin' || userRole === 'releaser') && (
+              <Button onClick={() => { setDialogOpen(false); handleDisburse(selectedLoan.id); }} className="w-full sm:w-auto">Disburse</Button>
+            )}
             {(selectedLoan?.status === 'rejected' || selectedLoan?.status === 'defaulted') && <Button onClick={() => { setDialogOpen(false); handleReactivate(selectedLoan.id); }} className="w-full sm:w-auto">Reactivate</Button>}
           </DialogFooter>
         </DialogContent>

@@ -306,9 +306,9 @@ export default function AdminSystemLogs() {
 
               <div className="flex items-center justify-between mt-4">
                 <p className="text-sm text-gray-600">
-                  Showing {pagination.offset + 1} to{' '}
-                  {Math.min(pagination.offset + pagination.limit, pagination.total)} of{' '}
-                  {pagination.total} logs
+                  Showing {(page - 1) * limit + 1} to{' '}
+                  {Math.min(page * limit, total)} of{' '}
+                  {total} logs
                 </p>
                 <div className="flex gap-2">
                   <Button

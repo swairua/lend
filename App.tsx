@@ -80,26 +80,26 @@ const AppRoutes = () => {
       <Route path="/messages" element={<PrivateRoute><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
       <Route path="/messages/:messageId" element={<PrivateRoute><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
 
-      {/* Admin Pages */}
-      <Route path="/admin" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminDashboard /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/loans" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/loans/create" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminCreateLoan /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/loans/:loanId" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminRepaymentSchedule /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/categories" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminCategories /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/products" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminProducts /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/borrowers" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminBorrowers /></AppLayout></PrivateRoute>} />
+      {/* Admin Pages — role-gated */}
+      <Route path="/admin" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminDashboard /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans/create" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminCreateLoan /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans/:loanId" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/loans/:loanId/repayment-schedule" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminRepaymentSchedule /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/categories" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminCategories /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/products" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminProducts /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/borrowers" element={<PrivateRoute requiredRole={['admin','manager','agent']}><AppLayout user={user}><AdminBorrowers /></AppLayout></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminUsers /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/repayments" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminRepayments /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/logs" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminSystemLogs /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/repayments" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminRepayments /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/logs" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminSystemLogs /></AppLayout></PrivateRoute>} />
       <Route path="/admin/config" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminSettings /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/reports" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminReports /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/messages" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/disbursements" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminDisbursements /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/customers" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminCustomers /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/invoice-products" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminInvoiceProducts /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/quotations" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
-      <Route path="/admin/invoices" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/reports" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminReports /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/messages" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><Messages /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/disbursements" element={<PrivateRoute requiredRole={['admin','releaser']}><AppLayout user={user}><AdminDisbursements /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/customers" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminCustomers /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/invoice-products" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminInvoiceProducts /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/quotations" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/invoices" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

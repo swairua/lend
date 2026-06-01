@@ -14,7 +14,7 @@ import {
   Receipt,
 } from 'lucide-react';
 
-export type UserRole = 'borrower' | 'admin';
+export type UserRole = 'borrower' | 'admin' | 'releaser' | 'manager' | 'agent';
 
 interface NavItem {
   label: string;
@@ -25,33 +25,41 @@ interface NavItem {
 }
 
 export const navigationItems: NavItem[] = [
-  // Shared
+  // Shared - Borrower
   { label: 'Dashboard', href: '/dashboard', icon: Home, roles: ['borrower'] },
-  { label: 'Dashboard', href: '/admin', icon: Home, roles: ['admin'] },
-
-  // Borrower
   { label: 'My Loans', href: '/loans', icon: FileText, roles: ['borrower'] },
   { label: 'Apply for Loan', href: '/apply', icon: CreditCard, roles: ['borrower'] },
   { label: 'Payments', href: '/payments', icon: History, roles: ['borrower'] },
   { label: 'Profile', href: '/profile', icon: User, roles: ['borrower'] },
   { label: 'Messages', href: '/messages', icon: MessageSquare, roles: ['borrower'], badge: 'messages' },
 
-  // Admin
-  { label: 'Loan Applications', href: '/admin/loans', icon: FileText, roles: ['admin'] },
-  { label: 'Create Loan', href: '/admin/loans/create', icon: CreditCard, roles: ['admin'] },
-  { label: 'Categories', href: '/admin/categories', icon: Package, roles: ['admin'] },
-  { label: 'Products', href: '/admin/products', icon: CreditCard, roles: ['admin'] },
-  { label: 'Borrowers', href: '/admin/borrowers', icon: Users, roles: ['admin'] },
-  { label: 'Repayments', href: '/admin/repayments', icon: DollarSign, roles: ['admin'] },
-  { label: 'Disbursements', href: '/admin/disbursements', icon: Wallet, roles: ['admin'] },
+  // Admin Dashboards
+  { label: 'Dashboard', href: '/admin', icon: Home, roles: ['admin', 'releaser', 'manager', 'agent'] },
+
+  // Admin - Loans & Core
+  { label: 'Loan Applications', href: '/admin/loans', icon: FileText, roles: ['admin', 'releaser', 'manager', 'agent'] },
+  { label: 'Create Loan', href: '/admin/loans/create', icon: CreditCard, roles: ['admin', 'manager'] },
+  { label: 'Categories', href: '/admin/categories', icon: Package, roles: ['admin', 'manager'] },
+  { label: 'Products', href: '/admin/products', icon: CreditCard, roles: ['admin', 'manager'] },
+  { label: 'Borrowers', href: '/admin/borrowers', icon: Users, roles: ['admin', 'manager', 'agent'] },
+
+  // Admin - Financial
+  { label: 'Repayments', href: '/admin/repayments', icon: DollarSign, roles: ['admin', 'manager'] },
+  { label: 'Disbursements', href: '/admin/disbursements', icon: Wallet, roles: ['admin', 'releaser'] },
+  { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin', 'manager'] },
+
+  // Admin - Management
   { label: 'Users', href: '/admin/users', icon: User, roles: ['admin'] },
-  { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin'] },
-  { label: 'System Logs', href: '/admin/logs', icon: History, roles: ['admin'] },
-  { label: 'Admin Messages', href: '/admin/messages', icon: MessageSquare, roles: ['admin'], badge: 'messages' },
-  { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin'] },
-  { label: 'Invoice Products', href: '/admin/invoice-products', icon: Package, roles: ['admin'] },
-  { label: 'Quotations', href: '/admin/quotations', icon: FileText, roles: ['admin'] },
-  { label: 'Invoices', href: '/admin/invoices', icon: Receipt, roles: ['admin'] },
+  { label: 'System Logs', href: '/admin/logs', icon: History, roles: ['admin', 'manager'] },
+  { label: 'Admin Messages', href: '/admin/messages', icon: MessageSquare, roles: ['admin', 'manager'], badge: 'messages' },
+
+  // Admin - Invoicing
+  { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin', 'manager'] },
+  { label: 'Invoice Products', href: '/admin/invoice-products', icon: Package, roles: ['admin', 'manager'] },
+  { label: 'Quotations', href: '/admin/quotations', icon: FileText, roles: ['admin', 'manager'] },
+  { label: 'Invoices', href: '/admin/invoices', icon: Receipt, roles: ['admin', 'manager'] },
+
+  // Admin - Settings
   { label: 'Settings', href: '/admin/config', icon: Settings, roles: ['admin'] },
 ];
 
@@ -60,5 +68,11 @@ export function getNavItemsForRole(role: UserRole): NavItem[] {
 }
 
 export function getPortalTitle(role: UserRole): string {
-  return role === 'admin' ? 'Admin Portal' : 'Borrower Portal';
+  switch (role) {
+    case 'admin': return 'Admin Portal';
+    case 'releaser': return 'Releaser Portal';
+    case 'manager': return 'Manager Portal';
+    case 'agent': return 'Agent Portal';
+    default: return 'Borrower Portal';
+  }
 }

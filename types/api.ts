@@ -3,7 +3,7 @@ export interface User {
   email: string;
   name: string;
   phone: string | null;
-  role: 'admin' | 'borrower';
+  role: 'admin' | 'borrower' | 'releaser' | 'manager' | 'agent';
   client_type?: 'individual' | 'corporate';
   is_active: boolean;
   created_at: string;
@@ -59,9 +59,11 @@ export interface Loan {
   late_fee_rate: number;
   total_amount: number;
   term_months: number;
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'completed' | 'defaulted' | 'written_off';
+  status: 'pending' | 'approved' | 'released' | 'rejected' | 'active' | 'completed' | 'defaulted' | 'written_off';
   approved_by: number | null;
   approved_at: string | null;
+  released_by: number | null;
+  released_at: string | null;
   disbursed_at: string | null;
   due_date: string | null;
   security_details: string | null;

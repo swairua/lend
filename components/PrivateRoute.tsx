@@ -1,10 +1,11 @@
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { secureStorage } from "../utils/secureStorage";
+import type { UserRole } from "../config/navigationConfig";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
-  requiredRole?: "admin" | "borrower";
+  requiredRole?: UserRole | UserRole[];
 }
 
 export default function PrivateRoute({ children, requiredRole }: PrivateRouteProps) {
@@ -22,10 +23,17 @@ export default function PrivateRoute({ children, requiredRole }: PrivateRoutePro
         return;
       }
 
-      if (requiredRole && user.role !== requiredRole) {
-        setRedirect(user.role === "admin" ? "/admin" : "/dashboard");
-        setIsAuthorized(false);
-        return;
+      if (requiredRole) {
+        const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+        if (!roles.includes(user.role)) {
+          if (user.role === "admin" || user.role === "releaser" || user.role === "manager" || user.role === "agent") {
+            setRedirect("/admin");
+          } else {
+            setRedirect("/dashboard");
+          }
+          setIsAuthorized(false);
+          return;
+        }
       }
 
       setIsAuthorized(true);

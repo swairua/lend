@@ -270,6 +270,8 @@ function bootstrap() {
             status VARCHAR(50) DEFAULT 'pending',
             approved_by INTEGER,
             approved_at TIMESTAMP,
+            released_by INTEGER,
+            released_at TIMESTAMP,
             disbursed_at TIMESTAMP,
             due_date DATE,
             security_details TEXT,
@@ -406,7 +408,7 @@ function bootstrap() {
             action VARCHAR(255) NOT NULL,
             details TEXT,
             user_id INTEGER,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             status VARCHAR(50) DEFAULT 'success',
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )");
@@ -519,6 +521,11 @@ function bootstrap() {
         try { $p->exec("ALTER TABLE invoices MODIFY COLUMN invoice_number VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE quotations ADD UNIQUE (quote_number)"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE invoices ADD UNIQUE (invoice_number)"); } catch (Exception $e) {}
+        // Rename system_logs.timestamp → created_at for consistency with all query code
+        try { $p->exec("ALTER TABLE system_logs CHANGE COLUMN `timestamp` `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); } catch (Exception $e) {}
+        // Add released_by / released_at columns to loans table for release workflow
+        try { $p->exec("ALTER TABLE loans ADD COLUMN released_by INTEGER REFERENCES users(id) ON DELETE SET NULL"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE loans ADD COLUMN released_at TIMESTAMP"); } catch (Exception $e) {}
 
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
         $demoUsers = [
@@ -711,10 +718,10 @@ function auth() {
     }
     return $u;
 }
-function requireAdmin($u) {
-    if ($u['role'] !== 'admin') {
+function requireRole($u, ...$roles) {
+    if (!in_array($u['role'], $roles)) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'error' => 'Admin access required']);
+        echo json_encode(['success' => false, 'error' => 'Access denied. Required role: ' . implode(' or ', $roles)]);
         exit;
     }
 }
@@ -1257,7 +1264,7 @@ try {
 
     // -------------------- ADMIN --------------------
     if ($resource === 'admin') {
-        requireAdmin($user);
+        requireRole($user, 'admin', 'releaser', 'manager', 'agent');
 
         if (strpos($uri, 'admin/dashboard') !== false) {
             $borrowers = one("SELECT COUNT(*) c FROM users WHERE role='borrower'");
@@ -1389,8 +1396,9 @@ try {
             }
         }
 
-        // Loan actions
+        // Approve loan (admin only)
         if ($method === 'POST' && preg_match('#admin/loans/(\d+)/approve$#', $uri, $m)) {
+            requireRole($user, 'admin');
             try {
                 $loan = one("SELECT * FROM loans WHERE id = ?", [$m[1]]);
                 if (!$loan || $loan['status'] !== 'pending') {
@@ -1421,12 +1429,37 @@ try {
                 throw $e;
             }
         }
-        if ($method === 'POST' && preg_match('#admin/loans/(\d+)/disburse$#', $uri, $m)) {
+        // Release approved loan (admin or releaser)
+        if ($method === 'POST' && preg_match('#admin/loans/(\d+)/release$#', $uri, $m)) {
+            requireRole($user, 'admin', 'releaser');
             try {
                 $loan = one("SELECT * FROM loans WHERE id = ?", [$m[1]]);
                 if (!$loan || $loan['status'] !== 'approved') {
-                    log_error("Loan disbursement failed - not approved", ['loan_id' => $m[1], 'status' => $loan['status'] ?? 'unknown']);
-                    echo json_encode(['success' => false, 'error' => 'Loan must be approved first']); 
+                    echo json_encode(['success' => false, 'error' => 'Loan must be approved first']);
+                    exit;
+                }
+                q("UPDATE loans SET status='released', released_by=?, released_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$user['id'], $m[1]]);
+                logAudit($user['id'], 'loan_released', 'loan', $m[1], [
+                    'previous_status' => 'approved',
+                    'new_status' => 'released',
+                    'released_by_user_id' => $user['id']
+                ]);
+                log_access('POST', 'admin/loans/' . $m[1] . '/release', 200);
+                echo json_encode(['success' => true, 'message' => 'Loan released for disbursement']);
+                exit;
+            } catch (Exception $e) {
+                log_error("Loan release exception", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
+                throw $e;
+            }
+        }
+        // Disburse loan (admin or releaser) — requires 'released' status
+        if ($method === 'POST' && preg_match('#admin/loans/(\d+)/disburse$#', $uri, $m)) {
+            requireRole($user, 'admin', 'releaser');
+            try {
+                $loan = one("SELECT * FROM loans WHERE id = ?", [$m[1]]);
+                if (!$loan || $loan['status'] !== 'released') {
+                    log_error("Loan disbursement failed - not released", ['loan_id' => $m[1], 'status' => $loan['status'] ?? 'unknown']);
+                    echo json_encode(['success' => false, 'error' => 'Loan must be released first']); 
                     exit;
                 }
                 $d = input();
@@ -1454,7 +1487,7 @@ try {
             }
         }
         if ($method === 'POST' && preg_match('#admin/loans/(\d+)/reactivate$#', $uri, $m)) {
-            q("UPDATE loans SET status='pending', approved_by=NULL, approved_at=NULL, disbursed_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
+            q("UPDATE loans SET status='pending', approved_by=NULL, approved_at=NULL, released_by=NULL, released_at=NULL, disbursed_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
             log_access('POST', 'admin/loans/' . $m[1] . '/reactivate', 200);
             echo json_encode(['success' => true]);
             exit;
@@ -2259,6 +2292,7 @@ try {
 
         // Upload Company Logo
         if ($method === 'POST' && strpos($uri, 'admin/upload-logo') !== false) {
+            requireRole($user, 'admin');
             if (!isset($_FILES['file'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'File is required']);
@@ -2303,6 +2337,7 @@ try {
         // Settings
         if (strpos($uri, 'admin/settings') !== false) {
             if ($method === 'PUT' || $method === 'POST') {
+                requireRole($user, 'admin');
                 $d = input();
                 $settings = [];
                 if (isset($d['settings']) && is_array($d['settings'])) {
@@ -2342,6 +2377,7 @@ try {
             }
 
             if ($method === 'POST' && !strpos($uri, 'admin/email-settings/test')) {
+                requireRole($user, 'admin');
                 $d = input();
                 $fields = ['smtp_host' => $d['smtp_host'] ?? '', 'smtp_port' => $d['smtp_port'] ?? '587', 'smtp_user' => $d['smtp_user'] ?? '', 'smtp_pass' => $d['smtp_pass'] ?? '', 'smtp_from' => $d['smtp_from'] ?? ''];
                 foreach ($fields as $k => $v) {
@@ -2376,8 +2412,9 @@ try {
             }
         }
 
-        // M-Pesa STK Push - Initiate borrower payment (authenticated)
+        // M-Pesa STK Push - Initiate borrower payment (admin only)
         if ($method === 'POST' && strpos($uri, 'admin/mpesa/payment') !== false) {
+            requireRole($user, 'admin');
             require_once __DIR__ . '/utils/mpesa-server.php';
 
             $d = input();
@@ -2458,19 +2495,20 @@ try {
             exit;
         }
 
-        // M-Pesa B2C Disbursement - Initiate disbursement (authenticated, admin only)
+        // M-Pesa B2C Disbursement
         if ($method === 'POST' && strpos($uri, 'admin/mpesa/disburse') !== false) {
+            requireRole($user, 'admin', 'releaser');
             require_once __DIR__ . '/utils/mpesa-server.php';
 
             $d = input();
             $loan_id = $d['loan_id'] ?? 0;
             $phone = $d['phone_number'] ?? $d['phone'] ?? '';
 
-            // Validate loan exists and is approved
+            // Validate loan exists and is released
             $loan = one("SELECT * FROM loans WHERE id = ?", [$loan_id]);
-            if (!$loan || $loan['status'] !== 'approved') {
+            if (!$loan || $loan['status'] !== 'released') {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Loan must be approved']);
+                echo json_encode(['success' => false, 'error' => 'Loan must be released first']);
                 log_error("B2C disbursement failed: invalid loan status", ['loan_id' => $loan_id, 'status' => $loan['status'] ?? 'missing']);
                 exit;
             }
@@ -2540,7 +2578,7 @@ try {
         // GET /admin/mpesa/orphaned-payments - Find M-Pesa transactions without repayment records
         if ($method === 'GET' && strpos($uri, 'admin/mpesa/orphaned-payments') !== false) {
             $u = auth();
-            requireAdmin($u);
+            requireRole($u, 'admin');
 
             $orphaned = all("
                 SELECT mt.* FROM mpesa_transactions mt
@@ -2567,7 +2605,7 @@ try {
         // POST /admin/mpesa/sync-payments - Create repayment records from orphaned M-Pesa transactions
         if ($method === 'POST' && strpos($uri, 'admin/mpesa/sync-payments') !== false) {
             $u = auth();
-            requireAdmin($u);
+            requireRole($u, 'admin');
             $d = input();
             $transactionIds = $d['transaction_ids'] ?? [];
 
@@ -2641,7 +2679,7 @@ try {
         // POST /admin/mpesa/match-repayment - Link an orphaned repayment to a specific loan
         if ($method === 'POST' && strpos($uri, 'admin/mpesa/match-repayment') !== false) {
             $u = auth();
-            requireAdmin($u);
+            requireRole($u, 'admin');
             $d = input();
             $repaymentId = $d['repayment_id'] ?? null;
             $loanId = $d['loan_id'] ?? null;
@@ -2732,7 +2770,7 @@ try {
         // Disbursements
         if (strpos($uri, 'admin/disbursements') !== false) {
             $u = auth();
-            requireAdmin($u);
+            requireRole($u, 'admin', 'releaser');
 
             if ($method === 'POST') {
                 try {
@@ -2847,7 +2885,7 @@ try {
         // System Logs
         if (strpos($uri, 'admin/logs') !== false) {
             $u = auth();
-            requireAdmin($u);
+            requireRole($u, 'admin', 'manager');
 
             $page = intval($_GET['page'] ?? 1);
             $limit = intval($_GET['limit'] ?? 20);
@@ -2901,6 +2939,7 @@ try {
 
         // Users
         if (strpos($uri, 'admin/users') !== false) {
+            requireRole($user, 'admin');
             if ($method === 'POST') {
                 try {
                     $d = input();
