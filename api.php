@@ -2078,6 +2078,8 @@ try {
             }
             if ($method === 'PUT' && preg_match('#products/(\d+)#', $uri, $m)) {
                 $d = input();
+                $product_id = $m[1];
+                log_error("PUT /admin/products/$product_id payload", ['input' => $d]);
                 $allowed = ['category_id','name','description','min_amount','max_amount','min_term_months',
                             'max_term_months','interest_rate','interest_type','processing_fee_percent',
                             'asset_transfer_fee','tracking_system_fee','late_fee_percent',
@@ -2086,13 +2088,26 @@ try {
                 $fields = []; $values = [];
                 foreach ($d as $k => $v) {
                     if (in_array($k, $allowed)) { $fields[] = "$k = ?"; $values[] = $v; }
+                    else { log_error("PUT /admin/products/$product_id skipped field", ['field' => $k, 'value' => $v]); }
                 }
                 if ($fields) {
                     $fields[] = "updated_at = CURRENT_TIMESTAMP";
-                    $values[] = $m[1];
-                    q("UPDATE loan_products SET " . implode(', ', $fields) . " WHERE id = ?", $values);
+                    $values[] = $product_id;
+                    $sql = "UPDATE loan_products SET " . implode(', ', $fields) . " WHERE id = ?";
+                    log_error("PUT /admin/products/$product_id sql", ['sql' => $sql, 'params' => $values]);
+                    try {
+                        q($sql, $values);
+                        log_error("PUT /admin/products/$product_id success", ['affected_fields' => count($fields) - 1]);
+                    } catch (Exception $e) {
+                        log_error("PUT /admin/products/$product_id db error", ['error' => $e->getMessage()]);
+                        http_response_code(500);
+                        echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+                        exit;
+                    }
+                } else {
+                    log_error("PUT /admin/products/$product_id no allowed fields", ['received_keys' => array_keys($d)]);
                 }
-                log_access('PUT', 'admin/products/' . $m[1], 200);
+                log_access('PUT', 'admin/products/' . $product_id, 200);
                 echo json_encode(['success' => true]);
                 exit;
             }
