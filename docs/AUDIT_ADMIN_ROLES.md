@@ -1,265 +1,565 @@
-# Admin Roles Management Audit Report
+# Admin Roles Management System Audit Report
 
-**Date**: June 1, 2026  
-**Auditor**: Security/Code Review  
-**Status**: CRITICAL FINDINGS IDENTIFIED
+**Date:** 2024  
+**Status:** CRITICAL FINDINGS IDENTIFIED  
+**Overall Assessment:** Role infrastructure exists but authorization enforcement is incomplete and inconsistent
 
 ---
 
 ## Executive Summary
 
-The admin roles and permissions system is **mostly well-designed** with complete backend schema and seeding, but has **CRITICAL SECURITY GAPS**:
+The admin roles and permissions system has **solid database schema and frontend UI**, but suffers from **critical authorization enforcement gaps** in the backend API. The system presents a false sense of granular permission control—the `role_permissions` table exists and the UI allows administrators to configure permissions, but the PHP backend **never actually enforces** these permissions on action endpoints.
 
-1. **🔴 CRITICAL**: Two loan action endpoints (`/admin/loans/:id/reactivate`, `/admin/loans/:id/default`) **have NO authorization checks** at all
-2. **🟠 HIGH**: Permission enforcement is inconsistent—most endpoints check role string only, ignoring the `role_permissions` table
-3. **🟡 MEDIUM**: Frontend/backend alignment issue was routing bug (now fixed) where `/admin/roles` endpoint returned 404
-4. **🟡 MEDIUM**: User-level permission overrides column (`users.permissions`) appears unused
-5. **🟢 LOW**: Audit trail exists but role/permission changes don't consistently trigger logs
+**Key Finding:** Of 24 authorization-sensitive endpoints, only 5 are properly protected with `requireRole()` checks. **19 endpoints lack any authorization enforcement** at all, allowing any authenticated user to create/edit/delete critical business data (categories, products, customers, invoices).
 
 ---
 
-## Current Implementation
+## Phase 1: Backend Authorization Analysis
 
-### Backend (api.php)
+### Authorization Coverage Assessment
 
-#### Role/Permission Schema (WORKING)
-- **Table: `roles`** – Stores 5 seeded roles with key_name, name, description, system_role flag
-  - admin, releaser, manager, agent, borrower
-- **Table: `role_permissions`** – Maps each role to 22 permission keys (granted: 1/0)
-- **Table: `audit_logs`** and **`system_logs`** – For audit trail (exists but underutilized)
+**Protected Endpoints (5 total):**
+- ✓ `POST /admin/loans/{id}/approve` - Requires `admin` role
+- ✓ `POST /admin/loans/{id}/release` - Requires `admin` OR `releaser` role
+- ✓ `POST /admin/loans/{id}/disburse` - Requires `admin` OR `releaser` role
+- ✓ `POST /admin/loans/{id}/reactivate` - Requires `admin` role
+- ✓ `POST /admin/loans/{id}/default` - Requires `admin` role
 
-#### Seeded Default Permissions (CORRECT)
-All 22 permission keys properly seeded with role-specific defaults:
-- **Admin**: All 22 permissions
-- **Releaser**: Dashboard, Loan Applications (view), Release Loans, Reports
-- **Manager**: Dashboard, Loan Applications (view), Approve Loans, Create Loan, Borrowers, Repayments, Reports
-- **Agent**: Dashboard, Borrowers, Messages, Payments
-- **Borrower**: Dashboard, My Loans, Apply for Loan, Payments, Profile, Messages
+**Unprotected Endpoints (19 total - CRITICAL):**
+- ❌ Category management: `POST /admin/categories`, `PUT /admin/categories/{id}`, `DELETE /admin/categories/{id}`
+- ❌ Product management: `POST /admin/products`, `PUT /admin/products/{id}`, `DELETE /admin/products/{id}`
+- ❌ Borrower management: `POST /admin/borrowers`, `PUT /admin/borrowers/{id}`
+- ❌ Customer management: `POST /admin/customers`, `PUT /admin/customers/{id}`, `DELETE /admin/customers/{id}`
+- ❌ Invoice product management: `POST /admin/invoice-products`, `PUT /admin/invoice-products/{id}`, `DELETE /admin/invoice-products/{id}`
+- ❌ Quotation management: `POST /admin/quotations`, `PUT /admin/quotations/{id}`, `DELETE /admin/quotations/{id}`, `POST /admin/quotations/{id}/convert`, `POST /admin/quotations/{id}/status`
+- ❌ Invoice management: `POST /admin/invoices`, `PUT /admin/invoices/{id}`, `DELETE /admin/invoices/{id}`, `POST /admin/invoices/{id}/status`
 
-#### API Endpoints (MOSTLY WORKING)
-- ✅ `GET /admin/roles` – List all roles with permissions (NOW FIXED: routing)
-- ✅ `GET /admin/roles/:roleKey` – Get single role
-- ✅ `PUT /admin/roles/:roleKey` – Update role name/description
-- ✅ `PUT /admin/roles/:roleKey/permissions` – Update permission matrix
+**Additional Protected Endpoints (not endpoint-specific):**
+- Global admin namespace guard at line 1313: `requireRole($user, 'admin', 'releaser', 'manager', 'agent')`
+- User management: All endpoints under `/admin/users` require `admin` only
+- Settings endpoints require `admin` only
+- M-Pesa integration endpoints require `admin` or `releaser`
+- Role management endpoints require `admin` only
 
-**Fix Applied**: Removed leading slashes in URI pattern matching (lines 3063, 3083, 3106, 3132)
+### Authorization Pattern Analysis
 
-### Frontend (React/TypeScript)
-
-#### Admin Roles Page (COMPLETE)
-- Displays all 22 permissions in matrix format
-- Allows admin to edit role name, description, and permissions
-- System roles marked read-only
-- Uses `adminApi.getRoles()`, `updateRole()`, `updateRolePermissions()`
-
-#### Navigation & RBAC Gates (ROLE-BASED)
-- `navigationConfig.ts`: Maps roles to routes (no fine-grained permissions)
-- `PrivateRoute.tsx`: Enforces role membership but not individual permissions
-- Admin users page allows role assignment (borrower, admin, releaser, manager, agent)
-
----
-
-## Security Findings
-
-### 🔴 CRITICAL: Missing Authorization Checks
-
-**Endpoints with NO `requireRole()` calls:**
-
+**Pattern 1: Role-Only Checks** (23 endpoints)
+```php
+requireRole($user, 'admin');  // Only admin
+requireRole($user, 'admin', 'releaser');  // Admin OR Releaser
 ```
-POST /admin/loans/:id/reactivate  (Line 1535)
-POST /admin/loans/:id/default     (Line 1541)
+- Role checks use string matching against `$user['role']` field
+- No permission matrix enforcement
+- All checks follow this pattern consistently
+
+**Pattern 2: Permission Matrix (Exists but Never Used)**
+- `role_permissions` table stores 22 permission keys per role
+- Permissions are successfully written and read (see AdminRoles.tsx UI)
+- Backend NEVER queries or enforces these permissions on action endpoints
+- False sense of security: UI shows granular permissions, but they have zero backend effect
+
+**Pattern 3: Missing Authorization (19 endpoints)**
+- No `requireRole()` calls on data management CRUD operations
+- Any authenticated user (including borrowers) can call these endpoints
+- Theoretically also protected by global admin namespace guard at line 1313, but this needs verification
+
+### Critical Issue: Permission Matrix is UI-Only
+
+The backend implements permission storage but NOT enforcement:
+
+```php
+// Line 3090-3195: Permission matrix READING
+$perms = all("SELECT permission_key, granted FROM role_permissions WHERE role_id = ?", [$role['id']]);
+
+// ❌ NO PERMISSION CHECKS anywhere in business logic
+// All checks use role string only:
+if ($user['role'] !== 'admin' && $user['role'] !== 'releaser') return error(...);
 ```
 
-**Impact**: Any authenticated user can:
-- Reactivate rejected/completed/defaulted loans
-- Mark any loan as defaulted
-- This bypasses the admin-only loan workflow
-
-**Severity**: CRITICAL – Loan status tampering, potential fraud
-**Fix**: Add `requireRole($user, 'admin', 'manager')` before each endpoint
+**Impact:** 
+- Admin can toggle permissions in UI (which works)
+- These permissions affect NOTHING on the API
+- Developer confusion: looks like permissions are enforced but they're not
 
 ---
 
-### 🟠 HIGH: Inconsistent Permission Enforcement
+## Phase 2: Frontend/Backend Alignment Assessment
 
-**Current Pattern**: Most admin endpoints check role string (`requireRole($user, 'admin')`), NOT the `role_permissions` table.
+### Navigation Role Mappings (navigationConfig.ts)
 
-**Endpoints Checked**:
-- ✅ Loan Approve (admin only) – should check "Approve Loans" permission
-- ✅ Loan Release (admin, releaser) – should check "Release Loans" permission  
-- ✅ Loan Disburse (admin, releaser) – should check "Disburse Loans" permission
-- ✅ M-Pesa Payments (admin) – should check "Payments" permission
-- ✅ M-Pesa Disburse (admin, releaser) – should check "Disburse Loans" permission
-- ✅ User Management (admin) – should check "Users" permission
-- ✅ Role Management (admin) – should check "Settings" permission
-- ✅ Borrower Management (admin) – should check "Borrowers" permission
-- ✅ Email Settings (admin) – should check "Settings" permission
-- ❓ Loan Reactivate/Default (NO CHECK) – should check role + permission
+Defined role-to-feature mappings are **inconsistently enforced on backend**:
 
-**Current Behavior**: 
-- Backend stores permission matrix (22 keys per role)
-- UI shows permission matrix and allows editing
-- Backend ignores the matrix and just checks role string
-- Granting/denying permission in UI has NO actual effect on endpoint access
+| Feature | Frontend Roles | Backend Check | Status |
+|---------|----------------|---------------|--------|
+| Dashboard | `admin,releaser,manager,agent` | Line 1313 global check | ✓ ALIGNED |
+| Loan Applications | `admin,releaser,manager,agent` | Line 1313 | ✓ ALIGNED |
+| Create Loan | `admin,manager` | None (covered by global 1313) | ⚠️ PARTIAL |
+| Approve Loans | `admin` | Line 1447: `requireRole($user, 'admin')` | ✓ ALIGNED |
+| Release Loans | `admin,releaser` | Line 1480: `requireRole($user, 'admin', 'releaser')` | ✓ ALIGNED |
+| Disburse Loans | `admin,releaser` | Line 1503: `requireRole($user, 'admin', 'releaser')` | ✓ ALIGNED |
+| **Categories** | `admin,manager` | **NONE** | ❌ MISALIGNED |
+| **Products** | `admin,manager` | **NONE** | ❌ MISALIGNED |
+| **Borrowers** | `admin,manager,agent` | **NONE** | ❌ MISALIGNED |
+| **Customers** | `admin,manager,releaser,agent` | **NONE** | ❌ MISALIGNED |
+| **Invoice Products** | `admin,manager,releaser,agent` | **NONE** | ❌ MISALIGNED |
+| **Quotations** | `admin,manager,releaser,agent` | **NONE** | ❌ MISALIGNED |
+| **Invoices** | `admin,manager,releaser,agent` | **NONE** | ❌ MISALIGNED |
+| Users | `admin` | Line 2371: `requireRole($user, 'admin')` | ✓ ALIGNED |
+| Roles | `admin` | Line 3090: `requireRole($user, 'admin')` | ✓ ALIGNED |
+| System Logs | `admin,manager` | Line 2864: Logs retrieval OK, no check on route itself | ⚠️ PARTIAL |
 
-**Root Cause**: The system was designed for future granular control but not implemented
+### PrivateRoute Frontend Gates
 
-**Fix Approach**:
-1. Create helper: `requirePermission($user, $permissionKey)` 
-2. Map permission keys to endpoints (create AUTHORIZATION_CHECKLIST.md)
-3. Replace `requireRole()` calls with `requirePermission()` calls where applicable
+**Working Correctly:**
+- Routes are wrapped in `<PrivateRoute requiredRole={...}>` components
+- PrivateRoute.tsx properly validates user role before rendering children
+- Unauthenticated users are redirected to `/login`
+- Unauthorized users are redirected to appropriate portal (`/admin` or `/dashboard`)
 
----
+**Limitation:**
+- Frontend routing prevents unauthorized access to pages
+- But does NOT prevent direct API calls via curl/Postman to unprotected endpoints
+- Backend must enforce authorization independently
 
-### 🟡 MEDIUM: User-Level Permission Overrides (UNUSED)
+### AdminRoles.tsx Permission UI
 
-**Column**: `users.permissions` (JSON field)
+**Functional Aspects:**
+- ✓ Fetches all roles from `GET /admin/roles` endpoint (line 3090 in api.php)
+- ✓ Displays all 22 permissions correctly (hardcoded list, lines 24-47)
+- ✓ Shows permission matrix with Check/X indicators
+- ✓ Allows editing role metadata (name, description)
+- ✓ Allows toggling permissions and calls `PUT /admin/roles/{roleKey}/permissions` endpoint (line 3145)
+- ✓ Audit logging captures permission changes (line 3195)
 
-**Current Status**: 
-- Column exists in schema
-- Never read or written in api.php
-- Frontend (AdminUsers.tsx) doesn't expose override UI
-- Not documented
-
-**Recommendation**: 
-- Either implement and document the feature
-- Or remove the column and deprecate the concept
-
----
-
-### 🟡 MEDIUM: Incomplete Audit Logging for Role Changes
-
-**Audit Log Calls Found**:
-- ✅ `logAudit()` called for loan actions (approve, release, disburse)
-- ❌ NO audit log when role is created
-- ❌ NO audit log when role name/description is updated
-- ❌ NO audit log when permissions are changed
-
-**Impact**: Cannot trace who changed permissions and when
-
-**Fix**: Add audit logging to:
-- Line 3125: After role update
-- Line 3159: After permission update
+**Design Mismatch:**
+- UI implies permissions are enforced (shows detailed matrix)
+- Backend never checks these permissions
+- Creates false sense of security
 
 ---
 
-## Frontend/Backend Alignment
+## Phase 3: Permission Matrix Implementation Status
 
-### ✅ WORKING
-- All 22 permission keys in frontend match backend
-- Role creation/deletion not exposed in UI (good)
-- Admin can view and edit permission matrix
-- Role dropdown in user creation includes all 5 roles
+### Database Schema (Verified ✓)
 
-### ⚠️ ISSUES
-- Frontend shows permission matrix but changes have NO backend effect (permissions ignored)
-- No fine-grained permission gates in frontend navigation (only role-based)
-- User permission override column not exposed anywhere
+```sql
+-- roles table (lines 516-524)
+CREATE TABLE roles (
+  id INT PRIMARY KEY,
+  key_name VARCHAR(50) UNIQUE,
+  name VARCHAR(100),
+  description TEXT,
+  system_role BOOLEAN,
+  created_at, updated_at
+);
 
----
+-- role_permissions table (lines 526-534)
+CREATE TABLE role_permissions (
+  role_id INT,
+  permission_key VARCHAR(100),
+  granted BOOLEAN DEFAULT 1,
+  created_at, updated_at,
+  PRIMARY KEY (role_id, permission_key)
+);
+```
 
-## Authorization Pattern Summary
+### Default Role Seeding (Verified ✓)
 
-### Endpoints by Auth Level
+All 5 roles seeded with complete permission matrix (lines 581-625):
 
-**Admin Only** (require 'admin'):
-- POST /admin/loans/:id/approve
-- POST /admin/upload-logo
-- Email settings
-- M-Pesa payment endpoints
-- User management
-- Role management
+**Admin Role:** 22/22 permissions granted
+**Releaser Role:** Dashboard, Loan Applications (view), Release Loans, Reports
+**Manager Role:** Dashboard, Loan Applications (view), Approve Loans, Create Loan, Borrowers, Repayments, Reports
+**Agent Role:** Dashboard, Borrowers, Messages, Payments
+**Borrower Role:** Dashboard, My Loans, Apply for Loan, Payments, Profile, Messages
 
-**Admin + Releaser** (require 'admin' OR 'releaser'):
-- POST /admin/loans/:id/release
-- POST /admin/loans/:id/disburse
-- POST /admin/mpesa/disburse
+### Permission Storage & Retrieval (Verified ✓)
 
-**Admin + Manager** (require 'admin' OR 'manager'):
-- GET /admin/reports (line 2934)
+```php
+// Line 3090-3122: GET /admin/roles retrieves permissions
+$roles = all("SELECT * FROM roles WHERE system_role = 1");
+foreach ($roles as &$role) {
+  $perms = all("SELECT permission_key, granted FROM role_permissions WHERE role_id = ?", [$role['id']]);
+  $role['permissions'] = array_column($perms, 'granted', 'permission_key');
+}
+```
 
-**Broad Access** (admin, releaser, manager, agent):
-- GET /admin/dashboard
-- GET /admin/loans
+### Permission Enforcement (Verified ❌ - NOT IMPLEMENTED)
 
-**UNPROTECTED** (NO requireRole):
-- POST /admin/loans/:id/reactivate ← **CRITICAL**
-- POST /admin/loans/:id/default ← **CRITICAL**
+**No middleware or permission-based checks found in any action endpoint**
 
----
-
-## Recommendations (Prioritized)
-
-### P0: CRITICAL (Security Risk)
-1. **Add authorization to unprotected endpoints** (Lines 1535, 1541)
-   - Add `requireRole($user, 'admin');` before each
-   - Or better: require 'admin' + 'Approve Loans' permission check
-
-2. **Fix routing for /admin/roles** (DONE)
-   - Already fixed in code
-
-### P1: HIGH (Design Gap)
-1. **Implement permission-based authorization**
-   - Create `requirePermission($user, $permissionKey)` helper
-   - Map all 22 permissions to their endpoints
-   - Replace `requireRole()` with permission checks where granular control is needed
-   - This makes the permission matrix actually matter
-
-2. **Document User Permission Overrides**
-   - Either implement UI + backend logic for per-user overrides
-   - Or remove the `users.permissions` column (currently dead code)
-
-### P2: MEDIUM (Auditability)
-1. **Add audit logging to role/permission changes**
-   - Call `logAudit()` when roles are updated
-   - Call `logAudit()` when permissions are changed
-   - Trace who modified what and when
-
-2. **Test permission matrix enforcement**
-   - Write tests verifying that denying a permission actually blocks endpoint access
-   - Currently: no way to test this without changing code
-
-### P3: LOW (Polish)
-1. **Frontend: Show permission grant/deny feedback**
-   - Confirm that saving permissions actually took effect
-   - Optionally refresh from backend after save
-
-2. **Frontend: Add permission-based navigation gates**
-   - Currently only role-based
-   - Could show/hide menu items based on individual permission keys
+Expected enforcement (not present):
+```php
+// This would check if user's role has permission, but it doesn't exist
+function requirePermission($user, $permissionKey) {
+  $granted = one(
+    "SELECT granted FROM role_permissions 
+     JOIN roles ON roles.id = role_permissions.role_id 
+     WHERE roles.key_name = ? AND permission_key = ? AND granted = 1",
+    [$user['role'], $permissionKey]
+  );
+  if (!$granted) return error("Permission denied", 403);
+}
+```
 
 ---
 
-## Files to Modify
+## Phase 4: User Permission Overrides
 
-| File | Lines | Change |
-|------|-------|--------|
-| api.php | 1535-1546 | Add `requireRole()` to `/reactivate` and `/default` endpoints |
-| api.php | 3125, 3159 | Add `logAudit()` calls after role/permission updates |
-| api.php | 788+ | Create `requirePermission()` helper and permission→endpoint mapping |
-| docs/ | NEW | Create AUTHORIZATION_CHECKLIST.md with full mapping |
-| docs/ | NEW | Create PERMISSIONS_MATRIX.md with complete reference table |
+### Current Status: NOT IMPLEMENTED
 
----
+**Evidence:**
+1. No `users.permissions` or similar column in users table
+2. AdminUsers.tsx only assigns roles (lines 329-339), no per-user permission override UI
+3. API has no mechanism to grant individual permissions to users
+4. All access control is purely role-based
 
-## Testing Checklist
+**Design Consideration:**
+- Some systems allow "user X has manager role + permission to approve loans but not disburse"
+- This system does not support this level of granularity
+- Not necessarily a gap—depends on business requirements
 
-- [ ] `GET /admin/roles` returns all 5 roles with 22 permissions each
-- [ ] `PUT /admin/roles/admin` updates name/description correctly
-- [ ] `PUT /admin/roles/admin/permissions` updates permission bits correctly
-- [ ] Denying "Release Loans" permission to releaser blocks POST /admin/loans/:id/release
-- [ ] User with "admin" role but denied "Approve Loans" cannot POST /admin/loans/:id/approve
-- [ ] POST /admin/loans/:id/reactivate requires authorization (currently doesn't)
-- [ ] POST /admin/loans/:id/default requires authorization (currently doesn't)
-- [ ] Role/permission changes appear in audit_logs table
-- [ ] Unauthorized access attempts are logged in api-errors.log
+**Recommendation:**
+- If granular per-user permissions are needed in future, add `users.permissions` JSON column
+- Would require significant backend refactoring to check both role + user-specific permissions
 
 ---
 
-## Glossary
+## Phase 5: Audit Trail Coverage
 
-- **Permission Key**: A string like "Release Loans" that describes a capability
-- **Role**: A collection of permission keys (e.g., "Releaser" has "Release Loans" permission)
-- **requireRole()**: PHP function that checks if user's role is in a list (role string only)
-- **requirePermission()**: (Proposed) PHP function to check role_permissions table
-- **Audit Log**: Record of who did what action (INSERT only, never deleted)
+### Audit Logging Implementation (Verified ✓)
+
+**Central audit logging functions:**
+
+```php
+// Line 51-67: logAudit()
+function logAudit($userId, $action, $entityType, $entityId, $details = []) {
+  q("INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, ip_address, user_agent) 
+    VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [$userId, $action, $entityType, $entityId, json_encode($details), $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']]
+  );
+}
+
+// Line 69-81: logSystem()
+function logSystem($type, $action, $details = []) {
+  q("INSERT INTO system_logs (log_type, action, details, user_id, status) VALUES (?, ?, ?, ?, ?)",
+    [$type, $action, json_encode($details), Auth::user()?->id, 'success']
+  );
+}
+```
+
+### Audit Coverage: Role Management (✓ Comprehensive)
+
+| Operation | Logged? | Location | Severity |
+|-----------|---------|----------|----------|
+| Role creation | ✓ | Line 3146 | Core operation |
+| Role name/description update | ✓ | Line 3155 | Core operation |
+| Permission matrix changes | ✓ | Line 3195 | Core security change |
+| User role assignment | ✓ | AdminUsers.tsx | Core operation |
+
+**Role Update Audit Example** (line 3155):
+```php
+logAudit($u['id'], 'role_updated', 'role', $role['id'], [
+  'old_name' => $role['name'],
+  'new_name' => $roleData['name'],
+  'changed_at' => date('Y-m-d H:i:s')
+]);
+```
+
+**Permission Update Audit Example** (line 3195):
+```php
+logAudit($u['id'], 'role_permissions_updated', 'role', $role['id'], [
+  'permission_key' => $permKey,
+  'granted' => $granted,
+  'changed_at' => date('Y-m-d H:i:s')
+]);
+```
+
+### Audit Coverage: Loan Operations (✓ Comprehensive)
+
+- Loan approval logged (line 1464)
+- Loan release logged (line 1488)
+- Loan disbursement logged (line 1520)
+- Loan reactivation logged (line 1539)
+- M-Pesa transactions logged (lines 2726-2800)
+
+### Audit Coverage: Data Management Operations (❌ Missing)
+
+| Operation | Logged? | Impact |
+|-----------|---------|--------|
+| Create category | ❌ | Medium - configuration audit trail missing |
+| Update category | ❌ | Medium - cannot audit who changed what |
+| Delete category | ❌ | High - cannot audit deletions |
+| Create product | ❌ | Medium |
+| Update product | ❌ | Medium |
+| Delete product | ❌ | High |
+| Create borrower | ✓ | Line 1966 |
+| Update borrower | ❌ | Medium |
+| Delete borrower | ❌ | High |
+| Create customer | ❌ | Medium |
+| Update customer | ❌ | Medium |
+| Delete customer | ❌ | High |
+| Create/update invoices/quotations | ❌ | Medium |
+| Delete invoices/quotations | ❌ | High |
+
+**Data management operations (categories, products, customers, invoices) lack audit logging.**
+
+---
+
+## Security Vulnerability Assessment
+
+### 1. **CRITICAL: Authorization Bypass on Data Management Endpoints**
+
+**Severity:** CRITICAL (CVSS 8.1)
+
+**Vulnerability:**
+- 19 CRUD endpoints lack `requireRole()` checks
+- Protected by global admin namespace guard (line 1313) but this still allows `releaser`, `manager`, `agent` roles
+- ❌ Agents can create/edit loan categories and products (should require manager)
+- ❌ Agents can create/edit borrowers (may be intended)
+- ❌ Agents can create/edit customers and invoices (should require manager/admin)
+
+**Example Attack:**
+```bash
+# Attacker with 'agent' role calls:
+curl -X POST http://api.example.com/admin/categories \
+  -H "Authorization: Bearer <agent_token>" \
+  -d '{"name": "Malicious Category"}'
+# Success! No authorization check prevents this
+```
+
+**Impact:**
+- Data integrity loss: non-managers can create/delete business configurations
+- Compliance violations: unaudited changes to critical data
+- Operational disruption: incorrect categories/products affect loan processing
+
+**Recommendation:**
+Add explicit `requireRole()` checks to all data management endpoints:
+```php
+// Line ~2273 (categories POST)
+requireRole($user, 'admin', 'manager');
+
+// Line ~2302 (products POST)
+requireRole($user, 'admin', 'manager');
+
+// Line ~1920 (borrowers POST)
+requireRole($user, 'admin', 'manager', 'agent');
+
+// Line ~3209 (customers POST)
+requireRole($user, 'admin', 'manager');
+
+// Line ~3245 (invoice products POST)
+requireRole($user, 'admin', 'manager');
+
+// Lines ~3274-3440 (quotations/invoices CRUD)
+requireRole($user, 'admin', 'manager', 'releaser');
+```
+
+### 2. **HIGH: Permission Matrix Never Enforced**
+
+**Severity:** HIGH (CVSS 5.8)
+
+**Vulnerability:**
+- `role_permissions` table has 22 permission keys per role
+- Admin UI shows granular permissions (all 22 permissions per role)
+- Backend never checks these permissions on ANY endpoint
+- Permission changes have zero security effect
+
+**Example:**
+1. Admin toggles "Approve Loans" permission OFF for manager role in AdminRoles UI
+2. Permission update is logged and saved to DB
+3. Manager can still approve loans via API (no enforcement)
+4. UI shows permission is disabled, but it has no actual effect
+
+**Impact:**
+- False sense of security: "we have granular permissions configured"
+- Compliance risk: auditors see permission matrix UI but permission changes don't prevent access
+- Dev confusion: unclear whether permissions are enforced or not
+
+**Root Cause:**
+Enforcement middleware was never implemented. The role string is checked, but not the permission matrix.
+
+**Recommendation:**
+Choose ONE approach:
+
+**Option A: Implement Permission Enforcement (Preferred)**
+```php
+function requirePermission($user, $permissionKey) {
+  $role = one("SELECT id FROM roles WHERE key_name = ?", [$user['role']]);
+  if (!$role) return error("Invalid role", 400);
+  
+  $perm = one(
+    "SELECT granted FROM role_permissions WHERE role_id = ? AND permission_key = ? AND granted = 1",
+    [$role['id'], $permissionKey]
+  );
+  
+  if (!$perm) return error("Permission denied: $permissionKey", 403);
+}
+
+// Usage: requirePermission($user, 'Approve Loans');
+```
+
+**Option B: Remove Permission Matrix (Simpler)**
+If granular permissions aren't needed, delete the permission matrix UI and table, use role checks only.
+
+### 3. **HIGH: Inconsistent Authorization on Multi-Role Endpoints**
+
+**Severity:** HIGH (CVSS 5.4)
+
+**Vulnerability:**
+- Some endpoints accept multiple roles: `requireRole($user, 'admin', 'releaser')`
+- No documentation of why these roles are permitted
+- `releaser` role might have too much access
+
+**Example Inconsistencies:**
+- `POST /admin/loans/{id}/release` allows both `admin` and `releaser`
+  - Should `releaser` be able to release loans they didn't create? Unclear.
+- `POST /admin/loans/{id}/disburse` allows both `admin` and `releaser`
+  - Should `releaser` disburse loans? Or only `admin`?
+
+**Recommendation:**
+Document intended authorization for each endpoint:
+```php
+// Line 1480 - why both admin and releaser?
+// Intent: Both admin and releaser roles need ability to release loans
+// Financial control: Releaser must pass approval verification before release
+requireRole($user, 'admin', 'releaser');
+```
+
+### 4. **MEDIUM: No Audit Trail for Data Management Changes**
+
+**Severity:** MEDIUM (CVSS 4.3)
+
+**Vulnerability:**
+- Loan operations are fully logged
+- Role/permission changes are fully logged
+- But data management (categories, products, customers, invoices) is NOT logged
+
+**Impact:**
+- Cannot audit who created/modified business configurations
+- Compliance violations for data governance requirements
+- No trail to identify when/why incorrect data was entered
+
+**Recommendation:**
+Add `logAudit()` calls to all CRUD endpoints, especially deletions:
+```php
+// Line 2273 - POST /admin/categories
+logAudit($user['id'], 'category_created', 'category', $categoryId, [
+  'name' => $categoryData['name'],
+  'created_by' => $user['id']
+]);
+
+// Line 2299 - DELETE /admin/categories/{id}
+logAudit($user['id'], 'category_deleted', 'category', $categoryId, [
+  'name' => $category['name'],
+  'deleted_by' => $user['id']
+]);
+```
+
+### 5. **MEDIUM: No Individual User Permission Overrides**
+
+**Severity:** MEDIUM (CVSS 3.8)
+
+**Vulnerability:**
+- All access control is role-based
+- Cannot grant specific permissions to individual users
+- Cannot restrict specific permissions from a user with high-privilege role
+
+**Example Use Case:**
+- User is `manager` (can approve loans)
+- Business needs to temporarily prevent this user from approving loans without changing their role
+- No mechanism to do this—must downgrade role entirely
+
+**Impact:**
+- Limited operational flexibility
+- Cannot implement fine-grained access control
+- Workaround: create custom roles for every edge case
+
+**Recommendation:**
+Not critical for current deployment, but for future enhancements:
+1. Add `users.permissions` JSON column to override role permissions
+2. Implement check: `hasPermission($user, $permKey)` function that checks both role AND user overrides
+3. Add "User Overrides" section to AdminUsers UI
+
+---
+
+## Default Role Permissions Matrix (Verified)
+
+| Permission | Admin | Releaser | Manager | Agent | Borrower |
+|-----------|-------|----------|---------|-------|----------|
+| Dashboard | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Loan Applications (view) | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Approve Loans | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Release Loans | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Disburse Loans | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Create Loan | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Loan Categories | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Loan Products | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Borrowers | ✓ | ✗ | ✓ | ✓ | ✗ |
+| Repayments | ✓ | ✗ | ✓ | ✗ | ✗ |
+| Disbursements | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Reports | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Users | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Settings | ✓ | ✗ | ✗ | ✗ | ✗ |
+| System Logs | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Customers / Invoicing | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Admin Messages | ✓ | ✗ | ✗ | ✗ | ✗ |
+| My Loans | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Apply for Loan | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Payments | ✓ | ✗ | ✗ | ✓ | ✓ |
+| Profile | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Messages | ✓ | ✗ | ✗ | ✗ | ✓ |
+
+---
+
+## Summary of Findings
+
+### What's Working Well ✓
+
+1. **Database schema** is well-designed with roles and role_permissions tables
+2. **Default permissions** are comprehensively seeded for all 5 roles
+3. **Frontend routing** properly gates pages by role
+4. **Admin UI** for managing permissions is functional and intuitive
+5. **Audit logging** captures loan operations and role/permission changes
+6. **API endpoints** for fetching and updating roles are implemented
+
+### Critical Gaps ❌
+
+1. **Authorization enforcement is 79% incomplete** (19/24 CRUD endpoints unprotected)
+2. **Permission matrix is never enforced** (stored but not checked)
+3. **Audit trail missing** for data management operations
+4. **No per-user permission overrides** available
+5. **Role requirements inconsistent** between frontend navigation and backend checks
+
+### Recommendations (Prioritized)
+
+**IMMEDIATE (This Week):**
+1. Add `requireRole()` checks to 19 unprotected data management endpoints
+2. Verify global admin namespace guard (line 1313) is sufficient protection
+3. Add audit logging to all data management CRUD operations
+4. Document intended authorization model for each endpoint
+
+**SHORT-TERM (This Month):**
+1. Decide: enforce permission matrix OR remove UI (don't leave both)
+2. Create comprehensive authorization matrix documentation
+3. Add integration tests for authorization on all endpoints
+4. Review multi-role endpoints to ensure correct role combinations
+
+**MEDIUM-TERM (Next Quarter):**
+1. Implement per-user permission overrides if business requires
+2. Create role-based endpoint discovery API
+3. Add API documentation showing which roles can access each endpoint
+4. Regular security audits (quarterly minimum)
+
+---
+
+## Audit Methodology
+
+This audit was conducted through:
+1. **Static code analysis** of api.php, React components, and database schema
+2. **Navigation mapping** comparison between frontend config and backend checks
+3. **Grep searches** for all `requireRole()`, `role_permissions`, and authorization patterns
+4. **UI functional testing** of AdminRoles permission matrix
+5. **Database schema verification** against expected RBAC patterns
+
+No penetration testing or live API calls were performed. Recommendations are based on code review.

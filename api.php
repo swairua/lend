@@ -3152,7 +3152,7 @@ try {
                     $params[] = $role['id'];
                     $sql = "UPDATE roles SET " . implode(", ", $updates) . " WHERE id = ?";
                     q($sql, $params);
-                    logAudit($u['id'], 'role_updated', 'role', $role['id'], [
+                    logAudit($user['id'], 'role_updated', 'role', $role['id'], [
                         'role_key' => $roleKey,
                         'name_changed' => isset($d['name']),
                         'description_changed' => isset($d['description']),
@@ -3192,7 +3192,7 @@ try {
                           [$role['id'], $permKey, $granted ? 1 : 0]);
                     }
                 }
-                logAudit($u['id'], 'role_permissions_updated', 'role', $role['id'], [
+                logAudit($user['id'], 'role_permissions_updated', 'role', $role['id'], [
                     'role_key' => $roleKey,
                     'permissions_count' => count($d['permissions']),
                     'permission_keys_modified' => array_keys($d['permissions'])
