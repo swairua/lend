@@ -804,61 +804,40 @@ try {
             $d = input();
             $email = $d['email'] ?? '';
             $password = $d['password'] ?? '';
-            $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
-
-            // Debug logging
-            log_error("Login attempt", ['email' => $email, 'password_length' => strlen($password)]);
 
             try {
-                $user = one("SELECT * FROM users WHERE email = ?", [$email]);
+                $user = one("SELECT id, email, name, phone, password, role, is_active FROM users WHERE email = ?", [$email]);
 
-                if (!$user) {
-                    log_error("User not found", ['email' => $email]);
+                if (!$user || !$user['is_active']) {
                     http_response_code(401);
                     echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
                     exit;
                 }
 
-                $passwordMatch = password_verify($password, $user['password']);
-                log_error("Password check", ['email' => $email, 'match' => $passwordMatch, 'is_active' => $user['is_active']]);
-
-                if ($passwordMatch && $user['is_active']) {
-                    // Successful login
-                    $tok = 't_' . bin2hex(random_bytes(32));
-                    q("INSERT INTO tokens (user_id, token) VALUES (?, ?)", [$user['id'], $tok]);
-                    q("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", [$user['id']]);
-                    $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
-
-                    // Log successful login
-                    $logMsg = "[$timestamp] LOGIN SUCCESS | Email: $email | User ID: {$user['id']} | Role: {$user['role']} | IP: $ip | UA: $userAgent\n";
-                    @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
-
-                    $payload = [
-                        'id' => $user['id'], 'email' => $user['email'], 'name' => $user['name'],
-                        'phone' => $user['phone'], 'role' => $user['role'],
-                        'borrower_id' => $b['id'] ?? null,
-                    ];
-                    log_access('POST', 'auth/login', 200);
-                    echo json_encode(['success' => true, 'token' => $tok, 'user' => $payload,
-                                      'data' => ['token' => $tok, 'user' => $payload]]);
+                if (!password_verify($password, $user['password'])) {
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
                     exit;
                 }
 
-                // Failed login - log the attempt
-                $reason = !$passwordMatch ? 'Invalid password' : 'User inactive';
-                $logMsg = "[$timestamp] LOGIN FAILED | Email: $email | Reason: $reason | IP: $ip | UA: $userAgent\n";
-                @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
-                log_error("Login failed", ['email' => $email, 'reason' => $reason]);
+                // Successful login - create token and update last_login
+                $tok = 't_' . bin2hex(random_bytes(32));
+                q("INSERT INTO tokens (user_id, token) VALUES (?, ?)", [$user['id'], $tok]);
+                q("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", [$user['id']]);
+                $b = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
 
-                http_response_code(401);
-                echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
+                $payload = [
+                    'id' => $user['id'], 'email' => $user['email'], 'name' => $user['name'],
+                    'phone' => $user['phone'], 'role' => $user['role'],
+                    'borrower_id' => $b['id'] ?? null,
+                ];
+                echo json_encode(['success' => true, 'token' => $tok, 'user' => $payload,
+                                  'data' => ['token' => $tok, 'user' => $payload]]);
                 exit;
             } catch (Exception $e) {
-                $logMsg = "[$timestamp] LOGIN EXCEPTION | Email: $email | Error: {$e->getMessage()} | IP: $ip\n";
-                @file_put_contents($LOG_DIR . '/login.log', $logMsg, FILE_APPEND);
-                log_error("Login exception", ['email' => $email, 'error' => $e->getMessage(), 'ip' => $ip]);
-                throw $e;
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Server error']);
+                exit;
             }
         }
         if ($method === 'POST' && strpos($uri, 'auth/logout') !== false) {
