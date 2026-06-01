@@ -2,7 +2,7 @@ import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, Custo
 import { secureStorage } from './secureStorage';
 
 // Always use the production API endpoint
-const API_BASE = 'https://lending.wayrus.co.ke/api.php';
+const API_BASE = 'https://lending.wayrus.co.ke';
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
 
 // Helper to construct full file URL
