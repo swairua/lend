@@ -46,6 +46,8 @@ const allPermissions = [
   'Messages',
 ];
 
+const staticPermissions = allPermissions.map(area => ({ area }));
+
 export default function AdminRoles() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,11 @@ export default function AdminRoles() {
       setLoading(true);
       const response = await adminApi.getRoles();
       if (response.success && response.data) {
-        setRoles(response.data);
+        const rolesData = response.data.map((r: any) => ({
+          ...r,
+          system_role: Boolean(r.system_role),
+        }));
+        setRoles(rolesData);
       } else {
         toast.error('Failed to load roles');
       }
@@ -81,22 +87,31 @@ export default function AdminRoles() {
   const openEditDialog = (role: Role) => {
     setEditingRole(role);
     setEditFormData({ name: role.name, description: role.description });
-    setEditPermissions({});
+    setEditPermissions(role.permissions || {});
     setEditDialogOpen(true);
   };
 
-  const handleSaveRole = () => {
+  const handleSaveRole = async () => {
     if (!editingRole) return;
 
-    setSaving(true);
-    setRoles(prev => prev.map(r =>
-      r.key === editingRole.key
-        ? { ...r, name: editFormData.name, description: editFormData.description }
-        : r
-    ));
-    toast.success('Role updated successfully');
-    setEditDialogOpen(false);
-    setSaving(false);
+    try {
+      setSaving(true);
+      await Promise.all([
+        adminApi.updateRole(editingRole.key, {
+          name: editFormData.name,
+          description: editFormData.description,
+        }),
+        adminApi.updateRolePermissions(editingRole.key, editPermissions),
+      ]);
+      await loadRoles();
+      toast.success('Role updated successfully');
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save role:', error);
+      toast.error('Failed to save role');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const togglePermission = (area: string) => {
@@ -134,17 +149,16 @@ export default function AdminRoles() {
             </CardHeader>
             <CardContent className="space-y-2">
               <p className="text-xs text-muted-foreground">{r.description}</p>
-              {!r.system_role && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEditDialog(r)}
-                  className="w-full mt-2"
-                >
-                  <Edit2 className="h-3 w-3 mr-1" />
-                  Edit
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openEditDialog(r)}
+                disabled={r.system_role}
+                className="w-full mt-2"
+              >
+                <Edit2 className="h-3 w-3 mr-1" />
+                {r.system_role ? 'System Role' : 'Edit'}
+              </Button>
             </CardContent>
           </Card>
         ))}
@@ -171,11 +185,19 @@ export default function AdminRoles() {
               {staticPermissions.map((perm) => (
                 <ResponsiveTableRow key={perm.area}>
                   <ResponsiveTableCell label="Feature" className="font-medium text-sm">{perm.area}</ResponsiveTableCell>
-                  {roleKeys.map((k) => (
-                    <ResponsiveTableCell key={k} label={roles.find(r => r.key === k)?.name} className="text-center">
-                      <Check className="h-4 w-4 text-green-600 mx-auto" />
-                    </ResponsiveTableCell>
-                  ))}
+                  {roleKeys.map((k) => {
+                    const role = roles.find(r => r.key === k);
+                    const hasPermission = role?.permissions?.[perm.area] || false;
+                    return (
+                      <ResponsiveTableCell key={k} label={role?.name} className="text-center">
+                        {hasPermission ? (
+                          <Check className="h-4 w-4 text-green-600 mx-auto" />
+                        ) : (
+                          <X className="h-4 w-4 text-gray-300 mx-auto" />
+                        )}
+                      </ResponsiveTableCell>
+                    );
+                  })}
                 </ResponsiveTableRow>
               ))}
             </ResponsiveTableBody>

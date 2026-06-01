@@ -25,9 +25,13 @@ class ApiError extends Error {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
 
-  const token = await secureStorage.getToken();
+  let token: string | null = null;
+  try {
+    token = await secureStorage.getToken();
+  } catch (e) {
+    console.error('Failed to get token from storage:', e);
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -38,6 +42,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
@@ -45,9 +51,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       signal: controller.signal,
       cache: 'no-cache',
     });
-    // Handle empty responses (clearTimeout after body read covers slow transfers)
-    const text = await response.text();
+
     clearTimeout(timeout);
+    const text = await response.text();
     let data;
     try {
       data = text ? JSON.parse(text) : { success: false, error: 'Empty response from server' };
