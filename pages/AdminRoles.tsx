@@ -68,7 +68,11 @@ export default function AdminRoles() {
       setLoading(true);
       const response = await adminApi.getRoles();
       if (response.success && response.data) {
-        setRoles(response.data);
+        const rolesData = response.data.map((r: any) => ({
+          ...r,
+          system_role: Boolean(r.system_role),
+        }));
+        setRoles(rolesData);
       } else {
         toast.error('Failed to load roles');
       }
@@ -145,17 +149,16 @@ export default function AdminRoles() {
             </CardHeader>
             <CardContent className="space-y-2">
               <p className="text-xs text-muted-foreground">{r.description}</p>
-              {!r.system_role && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEditDialog(r)}
-                  className="w-full mt-2"
-                >
-                  <Edit2 className="h-3 w-3 mr-1" />
-                  Edit
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openEditDialog(r)}
+                disabled={r.system_role}
+                className="w-full mt-2"
+              >
+                <Edit2 className="h-3 w-3 mr-1" />
+                {r.system_role ? 'System Role' : 'Edit'}
+              </Button>
             </CardContent>
           </Card>
         ))}
