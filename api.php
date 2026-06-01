@@ -450,6 +450,24 @@ function bootstrap() {
             q("INSERT INTO loan_categories (name, code, description) VALUES (?, ?, ?)",
               ['LPO Finance', 'LPO', 'Advancing against Local Purchase Orders']);
             log_error("Loan categories seeded", []);
+        } else {
+            // Fix category names if they differ from seed (e.g. after manual reordering)
+            $fixed = 0;
+            $expected = [
+                1 => ['Asset Finance', 'ASSET', 'Asset purchase/financing with logbook transfer'],
+                2 => ['Micro Finance', 'MICRO', 'Small loans against salary or security'],
+                3 => ['LPO Finance', 'LPO', 'Advancing against Local Purchase Orders'],
+            ];
+            foreach ($expected as $id => $vals) {
+                $row = one("SELECT name, code FROM loan_categories WHERE id=?", [$id]);
+                if ($row && ($row['name'] !== $vals[0] || $row['code'] !== $vals[1])) {
+                    q("UPDATE loan_categories SET name=?, code=?, description=? WHERE id=?", [$vals[0], $vals[1], $vals[2], $id]);
+                    $fixed++;
+                }
+            }
+            if ($fixed) {
+                log_error("Loan categories corrected", ['fixed_count' => $fixed]);
+            }
         }
 
         // Seed loan products
