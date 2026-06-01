@@ -2062,13 +2062,16 @@ try {
                 $d = input();
                 q("INSERT INTO loan_products (category_id, name, description, min_amount, max_amount,
                        min_term_months, max_term_months, interest_rate, interest_type, processing_fee_percent,
-                       asset_transfer_fee, tracking_system_fee, late_fee_percent, is_active)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                       asset_transfer_fee, tracking_system_fee, late_fee_percent, requires_security,
+                       requires_guarantor, requires_postdated_checks, min_income, is_active)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   [$d['category_id'], $d['name'], $d['description'] ?? null,
                    $d['min_amount'], $d['max_amount'], $d['min_term_months'], $d['max_term_months'],
                    $d['interest_rate'], $d['interest_type'] ?? 'flat', $d['processing_fee_percent'] ?? 0,
                    $d['asset_transfer_fee'] ?? 0, $d['tracking_system_fee'] ?? 0,
-                   $d['late_fee_percent'] ?? 0, $d['is_active'] ?? 1]);
+                   $d['late_fee_percent'] ?? 0, $d['requires_security'] ?? 0,
+                   $d['requires_guarantor'] ?? 0, $d['requires_postdated_checks'] ?? 0,
+                   $d['min_income'] ?? 0, $d['is_active'] ?? 1]);
                 log_access('POST', 'admin/products', 201);
                 echo json_encode(['success' => true, 'data' => ['id' => pdo()->lastInsertId()]]); 
                 exit;
@@ -2077,7 +2080,9 @@ try {
                 $d = input();
                 $allowed = ['category_id','name','description','min_amount','max_amount','min_term_months',
                             'max_term_months','interest_rate','interest_type','processing_fee_percent',
-                            'asset_transfer_fee','tracking_system_fee','late_fee_percent','is_active'];
+                            'asset_transfer_fee','tracking_system_fee','late_fee_percent',
+                            'requires_security','requires_guarantor','requires_postdated_checks','min_income',
+                            'is_active'];
                 $fields = []; $values = [];
                 foreach ($d as $k => $v) {
                     if (in_array($k, $allowed)) { $fields[] = "$k = ?"; $values[] = $v; }
