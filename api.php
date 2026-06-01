@@ -486,6 +486,9 @@ function bootstrap() {
         // Seed default settings
         $defaults = [
             'company_name' => 'Wayrus Lending',
+            'company_email' => '',
+            'company_phone' => '',
+            'company_address' => '',
             'default_currency' => 'KES',
             'default_interest_rate' => '10',
             'default_processing_fee' => '4.00',
@@ -496,6 +499,9 @@ function bootstrap() {
         foreach ($defaults as $k => $v) {
             q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
         }
+
+        // Cleanup: remove legacy 'currency' key — use 'default_currency' instead
+        q("DELETE FROM settings WHERE key_name = 'currency'");
 
         // Create performance indexes
         $indexes = [

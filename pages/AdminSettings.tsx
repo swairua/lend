@@ -156,8 +156,13 @@ export default function AdminSettings() {
     mpesa_consumer_secret: '',
     mpesa_business_shortcode: '',
     mpesa_passkey: '',
-    mpesa_callback_url: '',
     mpesa_environment: 'sandbox',
+    mpesa_c2b_validation_url: '',
+    mpesa_c2b_confirmation_url: '',
+    mpesa_c2b_timeout_url: '',
+    mpesa_stk_callback_url: '',
+    mpesa_b2c_result_url: '',
+    mpesa_b2c_timeout_url: '',
     enable_mpesa: '0',
   });
 
