@@ -3060,7 +3060,7 @@ try {
             requireRole($user, 'admin');
 
             // GET /admin/roles - list all roles with their permissions
-            if ($method === 'GET' && $uri === '/admin/roles') {
+            if ($method === 'GET' && $uri === 'admin/roles') {
                 $roles = all("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles ORDER BY name");
                 $result = [];
                 foreach ($roles as $role) {
@@ -3080,7 +3080,7 @@ try {
             }
 
             // GET /admin/roles/:key - get single role with permissions
-            if ($method === 'GET' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+            if ($method === 'GET' && preg_match('#admin/roles/([a-z_]+)$#', $uri, $m)) {
                 $roleKey = $m[1];
                 $role = one("SELECT id, key_name, name, description, system_role, created_at, updated_at FROM roles WHERE key_name = ?", [$roleKey]);
                 if (!$role) {
@@ -3103,7 +3103,7 @@ try {
             }
 
             // PUT /admin/roles/:key - update role name/description
-            if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)$#', $uri, $m)) {
+            if ($method === 'PUT' && preg_match('#admin/roles/([a-z_]+)$#', $uri, $m)) {
                 $roleKey = $m[1];
                 $role = one("SELECT id, system_role FROM roles WHERE key_name = ?", [$roleKey]);
                 if (!$role) {
@@ -3129,7 +3129,7 @@ try {
             }
 
             // PUT /admin/roles/:key/permissions - update role permissions
-            if ($method === 'PUT' && preg_match('#/admin/roles/([a-z_]+)/permissions$#', $uri, $m)) {
+            if ($method === 'PUT' && preg_match('#admin/roles/([a-z_]+)/permissions$#', $uri, $m)) {
                 $roleKey = $m[1];
                 $role = one("SELECT id FROM roles WHERE key_name = ?", [$roleKey]);
                 if (!$role) {
