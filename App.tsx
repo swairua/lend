@@ -114,9 +114,9 @@ const AppRoutes = () => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster />
-      <Sonner />
       <BrowserRouter>
+        <Toaster />
+        <Sonner />
         <AppRoutes />
       </BrowserRouter>
     </QueryClientProvider>
