@@ -1,5 +1,10 @@
 <?php
 require_once __DIR__ . '/vendor/autoload.php';
+// Auto-generate config.php with APP_KEY if missing
+if (!file_exists(__DIR__ . '/config.php')) {
+    $key = 'APP_KEY_' . bin2hex(random_bytes(32));
+    file_put_contents(__DIR__ . '/config.php', "<?php\nif (!defined('APP_KEY')) { define('APP_KEY', '$key'); }\n");
+}
 require_once __DIR__ . '/config.php';
 
 /**
