@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/config.php';
+
 /**
  * Wayrus Lending - Single-file PHP API
  * Deploy: copy this file and .htaccess into the Apache document root.
@@ -83,22 +86,62 @@ function logAudit($userId, $action, $entityType, $entityId, $details = []) {
     logSystem($logType, $action, $details, $userId, 'success', $entityType, $entityId);
 }
 
-// Send email via sendmail — reads smtp_from from settings for the From address
+function encryptSmtpPass($plain) {
+    if (!defined('APP_KEY') || empty($plain)) return $plain;
+    $method = 'aes-256-cbc';
+    $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length($method));
+    $encrypted = openssl_encrypt($plain, $method, APP_KEY, 0, $iv);
+    return base64_encode($iv . '::' . $encrypted);
+}
+
+function decryptSmtpPass($encrypted) {
+    if (!defined('APP_KEY') || empty($encrypted)) return $encrypted;
+    $method = 'aes-256-cbc';
+    $data = base64_decode($encrypted);
+    if ($data === false) return $encrypted;
+    $parts = explode('::', $data, 2);
+    if (count($parts) !== 2) return $encrypted;
+    return openssl_decrypt($parts[1], $method, APP_KEY, 0, $parts[0]);
+}
+
 function sendMail($to, $subject, $body, $isHtml = true) {
     try {
-        $from = one("SELECT key_value FROM settings WHERE key_name = 'smtp_from'");
-        $fromAddr = $from ? $from['key_value'] : 'noreply@lendingapp.com';
-        $headers = "From: $fromAddr\r\nReply-To: $fromAddr\r\nMIME-Version: 1.0\r\n";
-        $headers .= $isHtml
-            ? "Content-Type: text/html; charset=UTF-8\r\n"
-            : "Content-Type: text/plain; charset=UTF-8\r\n";
-        $headers .= "X-Mailer: Lending System/" . phpversion();
-        return @mail($to, $subject, $body, $headers);
+        $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
+        $config = [];
+        foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
+        if (empty($config['smtp_host']) || empty($config['smtp_user']) || empty($config['smtp_pass'])) {
+            log_error("sendMail failed: SMTP not fully configured");
+            return false;
+        }
+        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = $config['smtp_host'];
+        $mail->Port = intval($config['smtp_port'] ?? 587);
+        $mail->SMTPAuth = true;
+        $mail->Username = $config['smtp_user'];
+        $mail->Password = decryptSmtpPass($config['smtp_pass']);
+        $mail->SMTPSecure = (intval($config['smtp_port'] ?? 587) === 465)
+            ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+            : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->CharSet = 'UTF-8';
+        $mail->Timeout = 30;
+        $fromAddr = !empty($config['smtp_from']) ? $config['smtp_from'] : $config['smtp_user'];
+        $mail->setFrom($fromAddr, 'Lending System');
+        $mail->addReplyTo($fromAddr);
+        $mail->addAddress($to);
+        $mail->Subject = $subject;
+        $mail->isHTML($isHtml);
+        $mail->Body = $body;
+        if (!$isHtml) {
+            $mail->AltBody = strip_tags($body);
+        }
+        return $mail->send();
     } catch (Exception $e) {
         log_error("sendMail failed", ['to' => $to, 'error' => $e->getMessage()]);
         return false;
     }
 }
+
 
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     log_error("PHP Error ($errno)", [
@@ -2556,9 +2599,11 @@ try {
         // Email Settings
         if (strpos($uri, 'admin/email-settings') !== false) {
             if ($method === 'GET') {
-                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_from')");
+                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
                 $config = [];
                 foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
+                // Mask the password ? never expose the real encrypted value
+                if (!empty($config['smtp_pass'])) $config['smtp_pass'] = '********';
                 log_access('GET', 'admin/email-settings', 200);
                 echo json_encode(['success' => true, 'data' => $config]);
                 exit;
@@ -2568,6 +2613,12 @@ try {
                 requireRole($user, 'admin');
                 $d = input();
                 $fields = ['smtp_host' => $d['smtp_host'] ?? '', 'smtp_port' => $d['smtp_port'] ?? '587', 'smtp_user' => $d['smtp_user'] ?? '', 'smtp_pass' => $d['smtp_pass'] ?? '', 'smtp_from' => $d['smtp_from'] ?? ''];
+                // If password sentinel sent, keep existing; otherwise encrypt
+                if ($fields['smtp_pass'] === '********') {
+                    unset($fields['smtp_pass']);
+                } elseif (!empty($fields['smtp_pass'])) {
+                    $fields['smtp_pass'] = encryptSmtpPass($fields['smtp_pass']);
+                }
                 foreach ($fields as $k => $v) {
                     q("INSERT INTO settings (key_name, key_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$k, $v, $v]);
                 }

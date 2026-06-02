@@ -121,6 +121,7 @@ export default function AdminSettings() {
   });
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
+  const [smtpPassChanged, setSmtpPassChanged] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
   const [config, setConfig] = useState<SystemConfig>({
     company_name: '',
@@ -221,13 +222,15 @@ export default function AdminSettings() {
     try {
       const response: any = await emailApi.getEmailSettings();
       if (response.success && response.data) {
+        const pass = response.data.smtp_pass || '';
         setEmailSettings({
           smtp_host: response.data.smtp_host || '',
           smtp_port: response.data.smtp_port || '587',
           smtp_user: response.data.smtp_user || '',
-          smtp_pass: response.data.smtp_pass || '',
+          smtp_pass: pass === '********' ? '' : pass,
           smtp_from: response.data.smtp_from || '',
         });
+        setSmtpPassChanged(false);
       }
     } catch (error: any) {
       if (error.status === 404) {
@@ -356,20 +359,23 @@ export default function AdminSettings() {
   };
 
   const handleSaveEmailSettings = async () => {
-    if (!emailSettings.smtp_host || !emailSettings.smtp_port || !emailSettings.smtp_user || !emailSettings.smtp_pass || !emailSettings.smtp_from) {
-      showAlert({ type: 'warning', message: 'All email settings are required' });
+    if (!emailSettings.smtp_host || !emailSettings.smtp_port || !emailSettings.smtp_user || !emailSettings.smtp_from) {
+      showAlert({ type: 'warning', message: 'SMTP host, port, username, and from address are required' });
       return;
     }
 
     setEmailSaving(true);
     try {
+      // If user didn't modify the password field, send sentinel to keep existing
+      const passToSend = smtpPassChanged ? emailSettings.smtp_pass : '********';
       await emailApi.updateEmailSettings(
         emailSettings.smtp_host,
         parseInt(emailSettings.smtp_port),
         emailSettings.smtp_user,
-        emailSettings.smtp_pass,
+        passToSend,
         emailSettings.smtp_from
       );
+      setSmtpPassChanged(false);
       toast.success('Email settings saved successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to save email settings');
@@ -984,13 +990,16 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div>
-                  <Label>Password/App Password *</Label>
+                  <Label>Password/App Password</Label>
                   <Input
                     type="password"
                     value={emailSettings.smtp_pass}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_pass: e.target.value })}
-                    placeholder="Your SMTP password or app-specific password"
+                    onChange={(e) => { setEmailSettings({ ...emailSettings, smtp_pass: e.target.value }); setSmtpPassChanged(true); }}
+                    placeholder={smtpPassChanged ? '' : '(unchanged - enter new value to change)'}
                   />
+                  {!smtpPassChanged && emailSettings.smtp_host && (
+                    <p className="text-xs text-muted-foreground mt-1">Leave empty to keep existing password</p>
+                  )}
                 </div>
               </div>
 

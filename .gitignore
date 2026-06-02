@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 build/
 .vite/
@@ -9,7 +9,6 @@ logs/
 *.db
 *.sqlite
 vendor/
-composer.lock
 debug.log
 allfiles.txt
 .DS_Store
@@ -17,3 +16,4 @@ Thumbs.db
 *.swp
 *.swo
 uploads/
+config.php
