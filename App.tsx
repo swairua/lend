@@ -1,11 +1,10 @@
 import "./global.css";
 
 import { useState, useEffect } from "react";
-import { Toaster } from "@/components/ui/toaster";
 import { createRoot } from "react-dom/client";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { initializeCapacitor } from "./utils/capacitorInit";
 
 // Pages
@@ -37,6 +36,7 @@ import AdminQuotations from "./pages/AdminQuotations";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminCustomers from "./pages/AdminCustomers";
 import AdminRoles from "./pages/AdminRoles";
+import AdminDocumentation from "./pages/AdminDocumentation";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
@@ -102,6 +102,7 @@ const AppRoutes = () => {
       <Route path="/admin/invoice-products" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminInvoiceProducts /></AppLayout></PrivateRoute>} />
       <Route path="/admin/quotations" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
       <Route path="/admin/invoices" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/documentation" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminDocumentation /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
@@ -112,11 +113,11 @@ const AppRoutes = () => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
@@ -125,33 +126,33 @@ const container = document.getElementById("root");
 if (container) {
   const root = createRoot(container);
   root.render(<App />);
-}
 
-// Initialize Capacitor (native mobile features) - after React is ready
-initializeCapacitor();
+  // Initialize after React renders
+  setTimeout(() => {
+    initializeCapacitor();
 
-// Register service worker for PWA support
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service Worker registered:', registration);
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('Service Worker registered:', registration);
 
-      // Listen for service worker updates
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        if (!newWorker) return;
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (!newWorker) return;
 
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            const event = new CustomEvent('sw-update-ready', { detail: { registration } });
-            window.dispatchEvent(event);
-            console.log('Service Worker update available');
-          }
-        });
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                const event = new CustomEvent('sw-update-ready', { detail: { registration } });
+                window.dispatchEvent(event);
+                console.log('Service Worker update available');
+              }
+            });
+          });
+        } catch (error) {
+          console.error('Service Worker registration failed:', error);
+        }
       });
-    } catch (error) {
-      console.error('Service Worker registration failed:', error);
     }
-  });
+  }, 0);
 }

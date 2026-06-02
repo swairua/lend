@@ -13,6 +13,7 @@ import {
   Wallet,
   Receipt,
   Shield,
+  BookOpen,
 } from 'lucide-react';
 
 export type UserRole = 'borrower' | 'admin' | 'releaser' | 'manager' | 'agent';
@@ -57,6 +58,9 @@ export const navigationItems: NavItem[] = [
 
   // Admin - Settings
   { label: 'Settings', href: '/admin/config', icon: Settings, roles: ['admin'] },
+
+  // Admin - Documentation
+  { label: 'Documentation', href: '/admin/documentation', icon: BookOpen, roles: ['admin', 'releaser', 'manager', 'agent'] },
 ];
 
 export function getNavItemsForRole(role: UserRole): NavItem[] {
