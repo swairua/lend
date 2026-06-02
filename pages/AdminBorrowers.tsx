@@ -56,7 +56,7 @@ export default function AdminBorrowers() {
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', email: '', phone: '', password: '', national_id: '', address: '', business_name: '', business_type: '', monthly_income: '' });
+  const [createForm, setCreateForm] = useState({ client_type: 'individual', name: '', email: '', phone: '', password: '', national_id: '', address: '', business_name: '', business_type: '', monthly_income: '', company_name: '', nature_of_business: '' });
 
   useEffect(() => {
     loadBorrowers();
@@ -112,25 +112,39 @@ export default function AdminBorrowers() {
       toast.error('Name and email are required');
       return;
     }
+    if (createForm.client_type === 'individual' && !createForm.national_id) {
+      toast.error('National ID is required for individuals');
+      return;
+    }
+    if (createForm.client_type === 'corporate' && (!createForm.company_name || !createForm.nature_of_business)) {
+      toast.error('Company name and nature of business are required for corporates');
+      return;
+    }
     setCreating(true);
     try {
-      const res = await adminApi.createBorrower({
+      const payload: any = {
+        client_type: createForm.client_type,
         name: createForm.name,
         email: createForm.email,
         phone: createForm.phone || undefined,
         password: createForm.password || undefined,
-        national_id: createForm.national_id || undefined,
         address: createForm.address || undefined,
-        business_name: createForm.business_name || undefined,
-        business_type: createForm.business_type || undefined,
         monthly_income: createForm.monthly_income ? Number(createForm.monthly_income) : undefined,
-      });
+      };
+      if (createForm.client_type === 'individual') {
+        payload.national_id = createForm.national_id || undefined;
+        payload.business_type = createForm.business_type || undefined;
+      } else {
+        payload.company_name = createForm.company_name || undefined;
+        payload.nature_of_business = createForm.nature_of_business || undefined;
+      }
+      const res = await adminApi.createBorrower(payload);
       toast.success(`Borrower ${createForm.name} created successfully`);
       if (res.generated_password) {
         toast.info(`Generated password: ${res.generated_password}`, { duration: 10000 });
       }
       setCreateDialogOpen(false);
-      setCreateForm({ name: '', email: '', phone: '', password: '', national_id: '', address: '', business_name: '', business_type: '', monthly_income: '' });
+      setCreateForm({ client_type: 'individual', name: '', email: '', phone: '', password: '', national_id: '', address: '', business_name: '', business_type: '', monthly_income: '', company_name: '', nature_of_business: '' });
       await loadBorrowers();
     } catch (e: any) {
       toast.error(e.message || 'Failed to create borrower');
@@ -282,6 +296,33 @@ export default function AdminBorrowers() {
             <DialogTitle>New Borrower</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2">
+              <Label>Client Type *</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="client_type"
+                    value="individual"
+                    checked={createForm.client_type === 'individual'}
+                    onChange={(e) => setCreateForm({ ...createForm, client_type: 'individual' })}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">Individual</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="client_type"
+                    value="corporate"
+                    checked={createForm.client_type === 'corporate'}
+                    onChange={(e) => setCreateForm({ ...createForm, client_type: 'corporate' })}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">Corporate</span>
+                </label>
+              </div>
+            </div>
             <div className="space-y-1">
               <Label>Name *</Label>
               <Input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Full name" />
@@ -298,21 +339,33 @@ export default function AdminBorrowers() {
               <Label>Password (leave blank to auto-generate)</Label>
               <Input value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Auto-generated if empty" type="text" />
             </div>
-            <div className="space-y-1">
-              <Label>National ID</Label>
-              <Input value={createForm.national_id} onChange={(e) => setCreateForm({ ...createForm, national_id: e.target.value })} placeholder="ID number" />
-            </div>
+            {createForm.client_type === 'individual' && (
+              <>
+                <div className="space-y-1">
+                  <Label>National ID *</Label>
+                  <Input value={createForm.national_id} onChange={(e) => setCreateForm({ ...createForm, national_id: e.target.value })} placeholder="ID number" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Business Type</Label>
+                  <Input value={createForm.business_type} onChange={(e) => setCreateForm({ ...createForm, business_type: e.target.value })} placeholder="e.g. retail, services" />
+                </div>
+              </>
+            )}
+            {createForm.client_type === 'corporate' && (
+              <>
+                <div className="space-y-1">
+                  <Label>Company Name *</Label>
+                  <Input value={createForm.company_name} onChange={(e) => setCreateForm({ ...createForm, company_name: e.target.value })} placeholder="Company name" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Nature of Business *</Label>
+                  <Input value={createForm.nature_of_business} onChange={(e) => setCreateForm({ ...createForm, nature_of_business: e.target.value })} placeholder="e.g. retail, services" />
+                </div>
+              </>
+            )}
             <div className="space-y-1">
               <Label>Address</Label>
               <Input value={createForm.address} onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })} placeholder="Physical address" />
-            </div>
-            <div className="space-y-1">
-              <Label>Business Name</Label>
-              <Input value={createForm.business_name} onChange={(e) => setCreateForm({ ...createForm, business_name: e.target.value })} placeholder="Business name" />
-            </div>
-            <div className="space-y-1">
-              <Label>Business Type</Label>
-              <Input value={createForm.business_type} onChange={(e) => setCreateForm({ ...createForm, business_type: e.target.value })} placeholder="e.g. retail, services" />
             </div>
             <div className="space-y-1">
               <Label>Monthly Income (KES)</Label>
