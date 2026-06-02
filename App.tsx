@@ -37,6 +37,7 @@ import AdminQuotations from "./pages/AdminQuotations";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminCustomers from "./pages/AdminCustomers";
 import AdminRoles from "./pages/AdminRoles";
+import AdminDocumentation from "./pages/AdminDocumentation";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
@@ -102,6 +103,7 @@ const AppRoutes = () => {
       <Route path="/admin/invoice-products" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminInvoiceProducts /></AppLayout></PrivateRoute>} />
       <Route path="/admin/quotations" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
       <Route path="/admin/invoices" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/documentation" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminDocumentation /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
