@@ -48,36 +48,39 @@ function log_access($method, $uri, $statusCode, $responseTime = null) {
     @file_put_contents($ACCESS_LOG_FILE, $logMessage, FILE_APPEND);
 }
 
-function logAudit($userId, $action, $entityType, $entityId, $details = []) {
-    global $db;
-    try {
-        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
-        $detailsJson = json_encode($details);
-
-        $stmt = pdo()->prepare("
-            INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, ip_address, user_agent, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ");
-
-        $stmt->execute([$userId, $action, $entityType, $entityId, $detailsJson, $ipAddress, $userAgent]);
-    } catch (Exception $e) {
-        error_log("Audit logging failed: " . $e->getMessage());
-    }
-}
-
-function logSystem($logType, $action, $details = [], $userId = null, $status = 'success') {
+function logSystem($logType, $action, $details = [], $userId = null, $status = 'success', $entityType = null, $entityId = null) {
     global $db;
     try {
         $detailsJson = !empty($details) ? json_encode($details) : null;
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
         $stmt = pdo()->prepare("
-            INSERT INTO system_logs (log_type, action, details, user_id, status, created_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO system_logs (log_type, action, entity_type, entity_id, details, user_id, ip_address, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ");
-        $stmt->execute([$logType, $action, $detailsJson, $userId, $status]);
+        $stmt->execute([$logType, $action, $entityType, $entityId, $detailsJson, $userId, $ipAddress, $status]);
     } catch (Exception $e) {
         error_log("System logging failed: " . $e->getMessage());
     }
+}
+
+// Map audit-style actions to log_type for unified system_logs storage
+function actionToLogType($action) {
+    $map = [
+        'loan_'              => 'loan_action',
+        'payment_'           => 'payment',
+        'borrower_'          => 'user_mgmt',
+        'role_'              => 'admin_action',
+        'user_'              => 'user_mgmt',
+    ];
+    foreach ($map as $prefix => $type) {
+        if (strpos($action, $prefix) === 0) return $type;
+    }
+    return 'admin_action';
+}
+
+function logAudit($userId, $action, $entityType, $entityId, $details = []) {
+    $logType = actionToLogType($action);
+    logSystem($logType, $action, $details, $userId, 'success', $entityType, $entityId);
 }
 
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
@@ -406,10 +409,13 @@ function bootstrap() {
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             log_type VARCHAR(50) NOT NULL,
             action VARCHAR(255) NOT NULL,
+            entity_type VARCHAR(50),
+            entity_id INTEGER,
             details TEXT,
             user_id INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address VARCHAR(45),
             status VARCHAR(50) DEFAULT 'success',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )");
 
@@ -544,6 +550,10 @@ function bootstrap() {
         try { $p->exec("ALTER TABLE invoices ADD UNIQUE (invoice_number)"); } catch (Exception $e) {}
         // Rename system_logs.timestamp → created_at for consistency with all query code
         try { $p->exec("ALTER TABLE system_logs CHANGE COLUMN `timestamp` `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); } catch (Exception $e) {}
+        // Add entity_type, entity_id, ip_address columns to system_logs for richer audit context
+        try { $p->exec("ALTER TABLE system_logs ADD COLUMN entity_type VARCHAR(50)"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE system_logs ADD COLUMN entity_id INTEGER"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE system_logs ADD COLUMN ip_address VARCHAR(45)"); } catch (Exception $e) {}
         // Add released_by / released_at columns to loans table for release workflow
         try { $p->exec("ALTER TABLE loans ADD COLUMN released_by INTEGER REFERENCES users(id) ON DELETE SET NULL"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE loans ADD COLUMN released_at TIMESTAMP"); } catch (Exception $e) {}
@@ -2429,6 +2439,7 @@ try {
                            ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$key_name, $key_value, $key_value]);
                     }
                 }
+                logSystem('admin_action', 'settings_updated', ['count' => count($settings)], $user['id'], 'success', 'settings', null);
                 log_access($method, 'admin/settings', 200);
                 echo json_encode(['success' => true]);
                 exit;
@@ -3013,6 +3024,18 @@ try {
             exit;
         }
 
+        // Log Cleanup — delete system_logs older than N days (default 90)
+        if ($uri === 'admin/logs/cleanup' && $method === 'POST') {
+            requireRole($user, 'admin');
+            $days = intval($_POST['days'] ?? 90);
+            if ($days < 1) $days = 90;
+            $deleted = q("DELETE FROM system_logs WHERE created_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)", [$days]);
+            logSystem('admin_action', 'logs_cleaned', ['deleted' => $deleted->rowCount(), 'retention_days' => $days], $user['id'], 'success', 'system_logs', null);
+            log_access('POST', 'admin/logs/cleanup', 200);
+            echo json_encode(['success' => true, 'message' => "Deleted logs older than $days days"]);
+            exit;
+        }
+
         // Users
         if (strpos($uri, 'admin/users') !== false) {
             requireRole($user, 'admin');
@@ -3060,6 +3083,7 @@ try {
                         q("INSERT INTO borrowers (user_id, credit_score) VALUES (?, 750)", [$userId]);
                     }
 
+                    logSystem('user_mgmt', 'user_created_by_admin', ['email' => $email, 'role' => $role], $user['id'], 'success', 'user', $userId);
                     log_error("User created successfully via admin", ['user_id' => $userId, 'email' => $email, 'role' => $role]);
                     log_access('POST', 'admin/users', 201);
                     echo json_encode(['success' => true, 'data' => $newUser]);

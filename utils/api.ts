@@ -502,6 +502,11 @@ export const adminApi = {
       `/admin/logs${query ? `?${query}` : ''}`
     );
   },
+  cleanupLogs: (days: number = 90) =>
+    request<{ success: boolean; message: string }>('/admin/logs/cleanup', {
+      method: 'POST',
+      body: JSON.stringify({ days }),
+    }),
 
   // ---- Invoice Products ----
   getInvoiceProducts: () =>

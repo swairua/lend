@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Download, Eye } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Download, Eye, Trash2 } from 'lucide-react';
 import { adminApi, formatDate } from '../types/api';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeList } from '../utils/normalize';
@@ -42,7 +42,7 @@ export default function AdminSystemLogs() {
     endDate: '',
   });
 
-  const logTypes = ['loan_action', 'payment', 'sms', 'admin_action', 'user_mgmt', 'document'];
+  const logTypes = ['loan_action', 'payment', 'admin_action', 'user_mgmt', 'api_request', 'mpesa_transaction', 'error'];
   const statusOptions = ['success', 'failed'];
 
   useEffect(() => {
@@ -130,14 +130,26 @@ export default function AdminSystemLogs() {
     }
   };
 
+  const handleCleanup = async () => {
+    if (!confirm('Delete logs older than 90 days? This cannot be undone.')) return;
+    try {
+      await adminApi.cleanupLogs(90);
+      toast({ title: 'Success', description: 'Old logs cleaned up' });
+      loadLogs(1);
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to clean logs', variant: 'destructive' });
+    }
+  };
+
   const getLogTypeColor = (logType: string) => {
     const colors: Record<string, string> = {
       loan_action: 'bg-blue-100 text-blue-800',
       payment: 'bg-green-100 text-green-800',
-      sms: 'bg-purple-100 text-purple-800',
       admin_action: 'bg-orange-100 text-orange-800',
       user_mgmt: 'bg-indigo-100 text-indigo-800',
-      document: 'bg-yellow-100 text-yellow-800',
+      api_request: 'bg-purple-100 text-purple-800',
+      mpesa_transaction: 'bg-teal-100 text-teal-800',
+      error: 'bg-red-100 text-red-800',
     };
     return colors[logType] || 'bg-gray-100 text-gray-800';
   };
@@ -237,9 +249,13 @@ export default function AdminSystemLogs() {
             <Button onClick={handleClearFilters} variant="outline">
               Clear Filters
             </Button>
-            <Button onClick={handleExportCsv} variant="outline" className="ml-auto">
+            <Button onClick={handleExportCsv} variant="outline">
               <Download className="w-4 h-4 mr-2" />
               Export CSV
+            </Button>
+            <Button onClick={handleCleanup} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Cleanup Old Logs
             </Button>
           </div>
         </CardContent>
