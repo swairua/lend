@@ -6,8 +6,6 @@ import { LogOut, Menu, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { secureStorage } from '@/utils/secureStorage';
 import { getNavItemsForRole, getPortalTitle, UserRole } from '@/config/navigationConfig';
-import { Toaster } from '@/components/ui/toaster';
-import { Toaster as Sonner } from '@/components/ui/sonner';
 
 interface User {
   id: number;
@@ -160,10 +158,6 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
         {/* Page Content */}
         <div className="p-4">{children}</div>
       </main>
-
-      {/* Toast Providers */}
-      <Toaster />
-      <Sonner />
     </div>
   );
 }
