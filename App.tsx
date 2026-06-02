@@ -1,9 +1,7 @@
 import "./global.css";
 
 import { useState, useEffect } from "react";
-import { Toaster } from "@/components/ui/toaster";
 import { createRoot } from "react-dom/client";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
@@ -112,35 +110,11 @@ const AppRoutes = () => {
   );
 };
 
-const SafeToaster = () => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-  return <Toaster />;
-};
-
-const SafeSonner = () => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-  return <Sonner />;
-};
-
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <BrowserRouter>
-          <SafeToaster />
-          <SafeSonner />
           <AppRoutes />
         </BrowserRouter>
       </ThemeProvider>
