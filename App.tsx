@@ -123,13 +123,24 @@ const SafeToaster = () => {
   return <Toaster />;
 };
 
+const SafeSonner = () => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+  return <Sonner />;
+};
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <BrowserRouter>
           <SafeToaster />
-          <Sonner />
+          <SafeSonner />
           <AppRoutes />
         </BrowserRouter>
       </ThemeProvider>
@@ -141,33 +152,33 @@ const container = document.getElementById("root");
 if (container) {
   const root = createRoot(container);
   root.render(<App />);
-}
 
-// Initialize Capacitor (native mobile features) - after React is ready
-initializeCapacitor();
+  // Initialize after React renders
+  setTimeout(() => {
+    initializeCapacitor();
 
-// Register service worker for PWA support
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service Worker registered:', registration);
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('Service Worker registered:', registration);
 
-      // Listen for service worker updates
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        if (!newWorker) return;
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (!newWorker) return;
 
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            const event = new CustomEvent('sw-update-ready', { detail: { registration } });
-            window.dispatchEvent(event);
-            console.log('Service Worker update available');
-          }
-        });
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                const event = new CustomEvent('sw-update-ready', { detail: { registration } });
+                window.dispatchEvent(event);
+                console.log('Service Worker update available');
+              }
+            });
+          });
+        } catch (error) {
+          console.error('Service Worker registration failed:', error);
+        }
       });
-    } catch (error) {
-      console.error('Service Worker registration failed:', error);
     }
-  });
+  }, 0);
 }
