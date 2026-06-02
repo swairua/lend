@@ -112,12 +112,23 @@ const AppRoutes = () => {
   );
 };
 
+const SafeToaster = () => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+  return <Toaster />;
+};
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <BrowserRouter>
-          <Toaster />
+          <SafeToaster />
           <Sonner />
           <AppRoutes />
         </BrowserRouter>
