@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { initializeCapacitor } from "./utils/capacitorInit";
 
 // Pages
@@ -114,11 +115,13 @@ const AppRoutes = () => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Toaster />
-        <Sonner />
-        <AppRoutes />
-      </BrowserRouter>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <BrowserRouter>
+          <Toaster />
+          <Sonner />
+          <AppRoutes />
+        </BrowserRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
