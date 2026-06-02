@@ -40,6 +40,8 @@ import AdminDocumentation from "./pages/AdminDocumentation";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import { AppLayout } from "./components/layouts/AppLayout";
 import PrivateRoute from "./components/PrivateRoute";
 
@@ -69,6 +71,8 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
 
       {/* All Authenticated Pages with Layout */}
       <Route path="/dashboard" element={<PrivateRoute requiredRole="borrower"><AppLayout user={user}><BorrowerDashboard /></AppLayout></PrivateRoute>} />

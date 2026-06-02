@@ -83,6 +83,23 @@ function logAudit($userId, $action, $entityType, $entityId, $details = []) {
     logSystem($logType, $action, $details, $userId, 'success', $entityType, $entityId);
 }
 
+// Send email via sendmail — reads smtp_from from settings for the From address
+function sendMail($to, $subject, $body, $isHtml = true) {
+    try {
+        $from = one("SELECT key_value FROM settings WHERE key_name = 'smtp_from'");
+        $fromAddr = $from ? $from['key_value'] : 'noreply@lendingapp.com';
+        $headers = "From: $fromAddr\r\nReply-To: $fromAddr\r\nMIME-Version: 1.0\r\n";
+        $headers .= $isHtml
+            ? "Content-Type: text/html; charset=UTF-8\r\n"
+            : "Content-Type: text/plain; charset=UTF-8\r\n";
+        $headers .= "X-Mailer: Lending System/" . phpversion();
+        return @mail($to, $subject, $body, $headers);
+    } catch (Exception $e) {
+        log_error("sendMail failed", ['to' => $to, 'error' => $e->getMessage()]);
+        return false;
+    }
+}
+
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     log_error("PHP Error ($errno)", [
         'message' => $errstr,
@@ -557,6 +574,9 @@ function bootstrap() {
         // Add released_by / released_at columns to loans table for release workflow
         try { $p->exec("ALTER TABLE loans ADD COLUMN released_by INTEGER REFERENCES users(id) ON DELETE SET NULL"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE loans ADD COLUMN released_at TIMESTAMP"); } catch (Exception $e) {}
+        // Add password reset token columns to users table
+        try { $p->exec("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) DEFAULT NULL"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME DEFAULT NULL"); } catch (Exception $e) {}
 
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
         $demoUsers = [
@@ -810,6 +830,61 @@ try {
     // AUTH
     // ====================================================================
     if ($resource === 'auth') {
+        // Forgot password — generates reset token and sends email
+        if ($method === 'POST' && strpos($uri, 'auth/forgot-password') !== false) {
+            $d = input();
+            $email = $d['email'] ?? '';
+            if (!$email) {
+                echo json_encode(['success' => false, 'error' => 'Email is required']);
+                exit;
+            }
+            $user = one("SELECT id, name, email FROM users WHERE email = ?", [$email]);
+            if (!$user) {
+                // Don't reveal whether the email exists
+                echo json_encode(['success' => true, 'message' => 'If the email exists, a reset link has been sent']);
+                exit;
+            }
+            $token = bin2hex(random_bytes(32));
+            $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+            q("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [$token, $expires, $user['id']]);
+            $resetLink = "https://lending.wayrus.co.ke/reset-password/$token";
+            $subject = "Password Reset - Lending System";
+            $body = "<h2>Password Reset</h2><p>Dear {$user['name']},</p><p>We received a request to reset your password.</p>";
+            $body .= "<p>Click the link below to reset your password (valid for 1 hour):</p>";
+            $body .= "<p><a href=\"$resetLink\" style=\"display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;\">Reset Password</a></p>";
+            $body .= "<p>If you did not request this, please ignore this email.</p><p>Best regards,<br/>Lending System</p>";
+            sendMail($email, $subject, $body, true);
+            log_access('POST', 'auth/forgot-password', 200);
+            echo json_encode(['success' => true, 'message' => 'If the email exists, a reset link has been sent']);
+            exit;
+        }
+
+        // Reset password — validates token and updates password
+        if ($method === 'POST' && strpos($uri, 'auth/reset-password') !== false) {
+            $d = input();
+            $token = $d['token'] ?? '';
+            $password = $d['password'] ?? '';
+            if (!$token || !$password) {
+                echo json_encode(['success' => false, 'error' => 'Token and password are required']);
+                exit;
+            }
+            if (strlen($password) < 6) {
+                echo json_encode(['success' => false, 'error' => 'Password must be at least 6 characters']);
+                exit;
+            }
+            $user = one("SELECT id, name, email FROM users WHERE reset_token = ? AND reset_token_expires > CURRENT_TIMESTAMP", [$token]);
+            if (!$user) {
+                echo json_encode(['success' => false, 'error' => 'Invalid or expired reset token']);
+                exit;
+            }
+            $hashed = password_hash($password, PASSWORD_BCRYPT);
+            q("UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [$hashed, $user['id']]);
+            logSystem('user_mgmt', 'password_reset', ['user_id' => $user['id']], $user['id'], 'success', 'user', $user['id']);
+            log_access('POST', 'auth/reset-password', 200);
+            echo json_encode(['success' => true, 'message' => 'Password reset successfully']);
+            exit;
+        }
+
         if ($method === 'POST' && strpos($uri, 'auth/login') !== false) {
             $d = input();
             $email = $d['email'] ?? '';
@@ -1471,6 +1546,17 @@ try {
                    $approve ? 'Loan Approved' : 'Loan Rejected',
                    $approve ? "Your loan #{$m[1]} has been approved." : "Your loan #{$m[1]} has been rejected.",
                    $approve ? 'approval' : 'rejection']);
+                // Email notification
+                $borrowerUser = one("SELECT email, name FROM users WHERE id = ?", [$b['user_id']]);
+                if ($borrowerUser) {
+                    $actionLabel = $approve ? 'Approved' : 'Rejected';
+                    $subject = "Loan $actionLabel - Loan #{$m[1]}";
+                    $body = "<h2>Loan $actionLabel</h2><p>Dear {$borrowerUser['name']},</p>";
+                    $body .= "<p>Your loan application #{$m[1]} has been <strong>" . strtolower($actionLabel) . "</strong>.</p>";
+                    if (!$approve && !empty($d['reason'])) $body .= "<p><strong>Reason:</strong> " . htmlspecialchars($d['reason']) . "</p>";
+                    $body .= "<p>Best regards,<br/>Lending System</p>";
+                    sendMail($borrowerUser['email'], $subject, $body, true);
+                }
                 logAudit($user['id'], $approve ? 'loan_approved' : 'loan_rejected', 'loan', $m[1], [
                     'previous_status' => 'pending',
                     'new_status' => $ns,
@@ -1495,6 +1581,12 @@ try {
                     exit;
                 }
                 q("UPDATE loans SET status='released', released_by=?, released_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$user['id'], $m[1]]);
+                $borrowerUser = one("SELECT u.email, u.name FROM loans l JOIN borrowers b ON l.borrower_id = b.id JOIN users u ON b.user_id = u.id WHERE l.id = ?", [$m[1]]);
+                if ($borrowerUser) {
+                    $subject = "Loan Released for Disbursement - Loan #{$m[1]}";
+                    $body = "<h2>Loan Released</h2><p>Dear {$borrowerUser['name']},</p><p>Your loan #{$m[1]} has been released and is ready for disbursement.</p><p>You will be notified once the funds have been sent.</p><p>Best regards,<br/>Lending System</p>";
+                    sendMail($borrowerUser['email'], $subject, $body, true);
+                }
                 logAudit($user['id'], 'loan_released', 'loan', $m[1], [
                     'previous_status' => 'approved',
                     'new_status' => 'released',
@@ -1527,6 +1619,15 @@ try {
                 q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type)
                    VALUES (?,?,?,'Loan Disbursed',?,'disbursement')",
                   [$user['id'], $b['user_id'], $m[1], "Your loan #{$m[1]} has been disbursed."]);
+                $borrowerUser = one("SELECT email, name FROM users WHERE id = ?", [$b['user_id']]);
+                if ($borrowerUser) {
+                    $subject = "Loan Disbursed - Loan #{$m[1]}";
+                    $body = "<h2>Loan Disbursed</h2><p>Dear {$borrowerUser['name']},</p><p>Your loan #{$m[1]} has been disbursed.</p>";
+                    $body .= "<p><strong>Amount:</strong> " . number_format($amt, 2) . "</p>";
+                    if (!empty($d['reference'])) $body .= "<p><strong>Reference:</strong> " . htmlspecialchars($d['reference']) . "</p>";
+                    $body .= "<p>Best regards,<br/>Lending System</p>";
+                    sendMail($borrowerUser['email'], $subject, $body, true);
+                }
                 logAudit($user['id'], 'loan_disbursed', 'loan', $m[1], [
                     'disbursement_amount' => $amt,
                     'method' => 'bank',
@@ -2479,13 +2580,13 @@ try {
                 $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
                 $config = [];
                 foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
-                if (empty($config['smtp_host'])) {
+                if (empty($config['smtp_from'])) {
                     echo json_encode(['success' => false, 'message' => 'Email settings not configured']);
                     exit;
                 }
                 try {
-                    $headers = 'From: ' . ($config['smtp_from'] ?? '') . "\r\n" . 'Reply-To: ' . ($config['smtp_from'] ?? '') . "\r\n" . 'X-Mailer: PHP/' . phpversion();
-                    $sent = @mail($config['smtp_from'] ?? 'test@example.com', 'Test Email from Lending System', 'This is a test email to verify your SMTP configuration.', $headers);
+                    $body = '<h2>Test Email</h2><p>This is a test email to verify your SMTP configuration.</p><p>If you received this, your email settings are working correctly.</p>';
+                    $sent = sendMail($config['smtp_from'], 'Test Email from Lending System', $body, true);
                     if ($sent) {
                         echo json_encode(['success' => true, 'message' => 'Email sent successfully! Check your inbox.']);
                     } else {
@@ -2497,6 +2598,62 @@ try {
                 log_access('POST', 'admin/email-settings/test', $sent ? 200 : 400);
                 exit;
             }
+        }
+
+        // Send receipt via email (admin only)
+        if ($method === 'POST' && strpos($uri, 'admin/send-receipt') !== false) {
+            requireRole($user, 'admin');
+            $d = input();
+            $loanId = intval($d['loan_id'] ?? 0);
+            $repaymentId = intval($d['repayment_id'] ?? 0);
+            $recipientEmail = $d['recipient_email'] ?? '';
+            if (!$loanId || !$recipientEmail) {
+                echo json_encode(['success' => false, 'error' => 'loan_id and recipient_email required']);
+                exit;
+            }
+            $loan = one("SELECT l.*, u.name borrower_name, u.email borrower_email FROM loans l LEFT JOIN users u ON l.user_id = u.id WHERE l.id = ?", [$loanId]);
+            if (!$loan) { echo json_encode(['success' => false, 'error' => 'Loan not found']); exit; }
+            $borrowerName = $loan['borrower_name'] ?? 'Borrower';
+            $subject = "Payment Receipt - Loan #$loanId";
+            $body = "<h2>Payment Receipt</h2><p>Dear $borrowerName,</p><p>Thank you for your payment on Loan #$loanId.</p>";
+            if ($repaymentId) {
+                $rep = one("SELECT * FROM repayments WHERE id = ?", [$repaymentId]);
+                if ($rep) $body .= "<p><strong>Amount:</strong> " . number_format($rep['amount'], 2) . "</p><p><strong>Date:</strong> {$rep['paid_at']}</p>";
+            }
+            $body .= "<p>If you have any questions, please contact our support team.</p><p>Best regards,<br/>Lending System</p>";
+            $sent = sendMail($recipientEmail, $subject, $body, true);
+            logSystem('payment', 'receipt_sent', ['loan_id' => $loanId, 'recipient' => $recipientEmail, 'sent' => $sent], $user['id'], $sent ? 'success' : 'failed', 'loan', $loanId);
+            log_access('POST', 'admin/send-receipt', $sent ? 200 : 400);
+            echo json_encode(['success' => $sent, 'message' => $sent ? 'Receipt sent successfully' : 'Failed to send receipt']);
+            exit;
+        }
+
+        // Send invoice via email (admin only)
+        if ($method === 'POST' && strpos($uri, 'admin/send-invoice') !== false) {
+            requireRole($user, 'admin');
+            $d = input();
+            $loanId = intval($d['loan_id'] ?? 0);
+            $recipientEmail = $d['recipient_email'] ?? '';
+            if (!$loanId || !$recipientEmail) {
+                echo json_encode(['success' => false, 'error' => 'loan_id and recipient_email required']);
+                exit;
+            }
+            $loan = one("SELECT l.*, u.name borrower_name, u.email borrower_email FROM loans l LEFT JOIN users u ON l.user_id = u.id WHERE l.id = ?", [$loanId]);
+            if (!$loan) { echo json_encode(['success' => false, 'error' => 'Loan not found']); exit; }
+            $borrowerName = $loan['borrower_name'] ?? 'Borrower';
+            $balance = floatval($loan['total_amount'] ?? 0) - floatval($loan['total_paid'] ?? 0);
+            $subject = "Loan Invoice - Loan #$loanId";
+            $body = "<h2>Loan Invoice</h2><p>Dear $borrowerName,</p><p>Please find your updated loan invoice for Loan #$loanId.</p>";
+            $body .= "<p><strong>Principal:</strong> " . number_format($loan['principal_amount'] ?? 0, 2) . "</p>";
+            $body .= "<p><strong>Total Amount:</strong> " . number_format($loan['total_amount'] ?? 0, 2) . "</p>";
+            $body .= "<p><strong>Paid:</strong> " . number_format($loan['total_paid'] ?? 0, 2) . "</p>";
+            $body .= "<p><strong>Balance:</strong> " . number_format($balance, 2) . "</p>";
+            $body .= "<p>If you have any questions, please contact our support team.</p><p>Best regards,<br/>Lending System</p>";
+            $sent = sendMail($recipientEmail, $subject, $body, true);
+            logSystem('payment', 'invoice_sent', ['loan_id' => $loanId, 'recipient' => $recipientEmail, 'sent' => $sent], $user['id'], $sent ? 'success' : 'failed', 'loan', $loanId);
+            log_access('POST', 'admin/send-invoice', $sent ? 200 : 400);
+            echo json_encode(['success' => $sent, 'message' => $sent ? 'Invoice sent successfully' : 'Failed to send invoice']);
+            exit;
         }
 
         // M-Pesa STK Push - Initiate borrower payment (admin only)
@@ -3819,6 +3976,15 @@ try {
                             'interest_paid' => 0,
                             'mpesa_transaction_id' => $receipt
                         ]);
+                        $borrowerUser = one("SELECT email, name FROM users WHERE id = ?", [$borrower['user_id']]);
+                        if ($borrowerUser) {
+                            $subject = "Payment Received - Loan #{$txn['loan_id']}";
+                            $body = "<h2>Payment Confirmation</h2><p>Dear {$borrowerUser['name']},</p><p>We have received your payment for Loan #{$txn['loan_id']}.</p>";
+                            $body .= "<p><strong>Amount:</strong> " . number_format($amount, 2) . "</p>";
+                            $body .= "<p><strong>Reference:</strong> $receipt</p>";
+                            $body .= "<p>Thank you for your payment.</p><p>Best regards,<br/>Lending System</p>";
+                            sendMail($borrowerUser['email'], $subject, $body, true);
+                        }
                         log_error("STK callback success: repayment created", ['loan_id' => $txn['loan_id'], 'amount' => $amount, 'receipt' => $receipt]);
                     }
                 } else {

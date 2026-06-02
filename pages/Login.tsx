@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -155,6 +155,12 @@ export default function Login() {
                   </button>
                 </div>
               </div>
+
+              {isLogin && (
+                <div className="text-right text-sm">
+                  <Link to="/forgot-password" className="text-muted-foreground hover:text-primary">Forgot Password?</Link>
+                </div>
+              )}
 
               <Button type="submit" className="w-full h-10" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -102,6 +102,18 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+
+  forgotPassword: (email: string) =>
+    request<{ success: boolean; message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    request<{ success: boolean; message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
 };
 
 // ==================== Categories & Products ====================
