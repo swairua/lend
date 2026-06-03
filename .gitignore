@@ -17,3 +17,5 @@ Thumbs.db
 *.swo
 uploads/
 config.php
+
+.lovable/
