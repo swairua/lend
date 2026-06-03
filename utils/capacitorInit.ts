@@ -1,37 +1,55 @@
-import { App as CapacitorApp } from '@capacitor/app';
-import { SplashScreen } from '@capacitor/splash-screen';
-import { StatusBar, Style } from '@capacitor/status-bar';
-
+// Safe initialization that works in browser and native contexts
 export async function initializeCapacitor() {
-  try {
-    // Hide splash screen after 3 seconds
-    setTimeout(async () => {
-      try {
-        await SplashScreen.hide();
-      } catch (e) {
-        console.log('Splash screen not available');
-      }
-    }, 3000);
+  const win = typeof window !== 'undefined' ? (window as any) : null;
 
-    // Configure status bar for Android
+  // Skip if Capacitor is not available (we're in browser/web context)
+  if (!win || typeof win.Capacitor === 'undefined') {
+    return;
+  }
+
+  // In native context, defer the actual initialization
+  if (win && win.Capacitor) {
+    // Capacitor is available, initialize native features
     try {
-      await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: '#ffffff' });
-    } catch (e) {
-      console.log('Status bar not available');
+      const capacitor = win.Capacitor;
+      
+      // Get plugins from Capacitor global
+      const App = capacitor.Plugins?.App;
+      const SplashScreen = capacitor.Plugins?.SplashScreen;
+      const StatusBar = capacitor.Plugins?.StatusBar;
+
+      if (SplashScreen) {
+        setTimeout(async () => {
+          try {
+            await SplashScreen.hide();
+          } catch (e) {
+            console.log('Splash screen not available');
+          }
+        }, 3000);
+      }
+
+      if (StatusBar) {
+        try {
+          await StatusBar.setStyle({ style: 'dark' });
+          await StatusBar.setBackgroundColor({ color: '#ffffff' });
+        } catch (e) {
+          console.log('Status bar not available');
+        }
+      }
+
+      if (App) {
+        App.addListener('pause', () => {
+          console.log('App paused');
+        });
+
+        App.addListener('resume', () => {
+          console.log('App resumed');
+        });
+      }
+
+      console.log('Capacitor initialized successfully');
+    } catch (error) {
+      console.log('Error initializing Capacitor:', error);
     }
-
-    // Handle app pause/resume
-    CapacitorApp.addListener('pause', () => {
-      console.log('App paused');
-    });
-
-    CapacitorApp.addListener('resume', () => {
-      console.log('App resumed');
-    });
-
-    console.log('Capacitor initialized successfully');
-  } catch (error) {
-    console.log('Error initializing Capacitor:', error);
   }
 }
