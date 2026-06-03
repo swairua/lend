@@ -114,6 +114,8 @@ function sendMail($to, $subject, $body, $isHtml = true) {
         $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
         $config = [];
         foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
+        $decrypted = false;
+        error_log("[email-debug] sendMail: host={$config['smtp_host']} port={$config['smtp_port']} user={$config['smtp_user']} pass_exists=" . (!empty($config['smtp_pass']) ? 'yes' : 'no') . " to=$to subject=$subject");
         if (empty($config['smtp_host']) || empty($config['smtp_user']) || empty($config['smtp_pass'])) {
             log_error("sendMail failed: SMTP not fully configured");
             return false;
@@ -124,7 +126,9 @@ function sendMail($to, $subject, $body, $isHtml = true) {
         $mail->Port = intval($config['smtp_port'] ?? 587);
         $mail->SMTPAuth = true;
         $mail->Username = $config['smtp_user'];
-        $mail->Password = decryptSmtpPass($config['smtp_pass']);
+        $decrypted = decryptSmtpPass($config['smtp_pass']);
+        error_log("[email-debug] sendMail: decrypted_pass_length=" . strlen($decrypted) . " decrypted_pass_first4=" . substr($decrypted, 0, 4));
+        $mail->Password = $decrypted;
         $mail->SMTPSecure = (intval($config['smtp_port'] ?? 587) === 465)
             ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
             : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
@@ -849,6 +853,7 @@ if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
 function auth() {
     global $token;
     if (!$token) {
+        error_log("[email-debug] auth() failed: no token in request");
         http_response_code(401);
         echo json_encode(['success' => false, 'error' => 'Unauthorized']);
         exit;
@@ -857,6 +862,7 @@ function auth() {
               FROM tokens t JOIN users u ON u.id = t.user_id
               WHERE t.token = ? LIMIT 1", [$token]);
     if (!$u || !$u['is_active']) {
+        error_log("[email-debug] auth() failed: token not found or user inactive. token=" . substr($token, 0, 20) . "...");
         http_response_code(401);
         echo json_encode(['success' => false, 'error' => 'Invalid token']);
         exit;
@@ -865,6 +871,7 @@ function auth() {
 }
 function requireRole($u, ...$roles) {
     if (!in_array($u['role'], $roles)) {
+        error_log("[email-debug] requireRole() denied: user_role={$u['role']} required=" . implode(',', $roles) . " user_id={$u['id']}");
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Access denied. Required role: ' . implode(' or ', $roles)]);
         exit;
@@ -2607,8 +2614,10 @@ try {
                 $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
                 $config = [];
                 foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
-                // Mask the password ? never expose the real encrypted value
-                if (!empty($config['smtp_pass'])) $config['smtp_pass'] = '********';
+                $hasPass = !empty($config['smtp_pass']);
+                error_log("[email-debug] GET email-settings: returned " . count($config) . " keys, smtp_pass_exists=" . ($hasPass ? 'yes' : 'no'));
+                // Mask the password — never expose the real encrypted value
+                if ($hasPass) $config['smtp_pass'] = '********';
                 log_access('GET', 'admin/email-settings', 200);
                 echo json_encode(['success' => true, 'data' => $config]);
                 exit;
@@ -2618,6 +2627,8 @@ try {
                 requireRole($user, 'admin');
                 $d = input();
                 $fields = ['smtp_host' => $d['smtp_host'] ?? '', 'smtp_port' => $d['smtp_port'] ?? '587', 'smtp_user' => $d['smtp_user'] ?? '', 'smtp_pass' => $d['smtp_pass'] ?? '', 'smtp_from' => $d['smtp_from'] ?? ''];
+                $passChanged = $fields['smtp_pass'] !== '********' && !empty($fields['smtp_pass']);
+                error_log("[email-debug] POST email-settings: host={$fields['smtp_host']} port={$fields['smtp_port']} user={$fields['smtp_user']} from={$fields['smtp_from']} pass_changed=" . ($passChanged ? 'yes' : 'no'));
                 // If password sentinel sent, keep existing; otherwise encrypt
                 if ($fields['smtp_pass'] === '********') {
                     unset($fields['smtp_pass']);
@@ -2625,6 +2636,8 @@ try {
                     $fields['smtp_pass'] = encryptSmtpPass($fields['smtp_pass']);
                 }
                 foreach ($fields as $k => $v) {
+                    $truncated = (strlen($k) > 10 ? substr($v, 0, 20) : $v);
+                    error_log("[email-debug] POST email-settings: saving key={$k} value={$truncated}");
                     q("INSERT INTO settings (key_name, key_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$k, $v, $v]);
                 }
                 log_access('POST', 'admin/email-settings', 200);
@@ -2636,19 +2649,23 @@ try {
                 $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
                 $config = [];
                 foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
+                error_log("[email-debug] TEST email-settings: from={$config['smtp_from']} host={$config['smtp_host']} port={$config['smtp_port']} user={$config['smtp_user']} pass_exists=" . (!empty($config['smtp_pass']) ? 'yes' : 'no'));
                 if (empty($config['smtp_from'])) {
+                    error_log("[email-debug] TEST email-settings: smtp_from empty, aborting");
                     echo json_encode(['success' => false, 'message' => 'Email settings not configured']);
                     exit;
                 }
                 try {
                     $body = '<h2>Test Email</h2><p>This is a test email to verify your SMTP configuration.</p><p>If you received this, your email settings are working correctly.</p>';
                     $sent = sendMail('gichukisimon@gmail.com', 'Test Email from Lending System', $body, true);
+                    error_log("[email-debug] TEST email-settings: sendMail returned " . ($sent ? 'true' : 'false'));
                     if ($sent) {
                         echo json_encode(['success' => true, 'message' => 'Email sent successfully! Check your inbox.']);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'Failed to send test email. Check your SMTP settings.']);
                     }
                 } catch (Exception $e) {
+                    error_log("[email-debug] TEST email-settings: exception: " . $e->getMessage());
                     echo json_encode(['success' => false, 'message' => 'Email test failed: ' . $e->getMessage()]);
                 }
                 log_access('POST', 'admin/email-settings/test', $sent ? 200 : 400);
