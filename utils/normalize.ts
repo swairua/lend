@@ -17,6 +17,6 @@ export function normalizeList<T>(resp: any): T[] {
 export function normalizeSingle<T>(resp: any): T | undefined {
   if (!resp) return undefined;
   const d = resp?.data ?? resp;
-  if (Array.isArray(d)) return d[0] as unknown as T;
+  if (Array.isArray(d)) return d[0] as T;
   return d as T;
 }
