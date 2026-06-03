@@ -2642,7 +2642,7 @@ try {
                 }
                 try {
                     $body = '<h2>Test Email</h2><p>This is a test email to verify your SMTP configuration.</p><p>If you received this, your email settings are working correctly.</p>';
-                    $sent = sendMail($config['smtp_from'], 'Test Email from Lending System', $body, true);
+                    $sent = sendMail('gichukisimon@gmail.com', 'Test Email from Lending System', $body, true);
                     if ($sent) {
                         echo json_encode(['success' => true, 'message' => 'Email sent successfully! Check your inbox.']);
                     } else {
