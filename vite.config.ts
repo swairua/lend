@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default defineConfig({
   optimizeDeps: {
@@ -11,11 +12,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api.php': {
-        target: 'https://lending.wayrus.co.ke',
+        target: 'https://bureau.jecrilogistics.com',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'https://lending.wayrus.co.ke',
+        target: 'https://bureau.jecrilogistics.com',
         changeOrigin: true,
       },
     },
@@ -33,6 +34,30 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: "public",
+          dest: ".",
+        },
+        {
+          src: "api.php",
+          dest: ".",
+        },
+        {
+          src: "api-server.js",
+          dest: ".",
+        },
+        {
+          src: "utils",
+          dest: ".",
+        },
+        {
+          src: "*.db",
+          dest: ".",
+        },
+      ],
+    }),
   ],
   resolve: {
     alias: {
