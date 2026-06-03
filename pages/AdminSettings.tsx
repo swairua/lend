@@ -122,6 +122,7 @@ export default function AdminSettings() {
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
   const [smtpPassChanged, setSmtpPassChanged] = useState(false);
+  const [passwordRequired, setPasswordRequired] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
   const [config, setConfig] = useState<SystemConfig>({
     company_name: '',
@@ -231,6 +232,7 @@ export default function AdminSettings() {
           smtp_from: response.data.smtp_from || '',
         });
         setSmtpPassChanged(false);
+        setPasswordRequired(pass !== '********');
       }
     } catch (error: any) {
       if (error.status === 404) {
@@ -363,6 +365,10 @@ export default function AdminSettings() {
       showAlert({ type: 'warning', message: 'SMTP host, port, username, and from address are required' });
       return;
     }
+    if (passwordRequired && !emailSettings.smtp_pass) {
+      showAlert({ type: 'warning', message: 'SMTP password is required for initial setup' });
+      return;
+    }
 
     setEmailSaving(true);
     try {
@@ -376,6 +382,7 @@ export default function AdminSettings() {
         emailSettings.smtp_from
       );
       setSmtpPassChanged(false);
+      setPasswordRequired(false);
       toast.success('Email settings saved successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to save email settings');
@@ -990,14 +997,15 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div>
-                  <Label>Password/App Password</Label>
+                  <Label>Password/App Password {passwordRequired && <span className="text-red-500">*</span>}</Label>
                   <Input
                     type="password"
                     value={emailSettings.smtp_pass}
                     onChange={(e) => { setEmailSettings({ ...emailSettings, smtp_pass: e.target.value }); setSmtpPassChanged(true); }}
-                    placeholder={smtpPassChanged ? '' : '(unchanged - enter new value to change)'}
+                    placeholder={passwordRequired ? 'SMTP password is required' : (smtpPassChanged ? '' : '(unchanged — enter new value to change)')}
+                    required={passwordRequired}
                   />
-                  {!smtpPassChanged && emailSettings.smtp_host && (
+                  {!smtpPassChanged && emailSettings.smtp_host && !passwordRequired && (
                     <p className="text-xs text-muted-foreground mt-1">Leave empty to keep existing password</p>
                   )}
                 </div>

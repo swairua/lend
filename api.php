@@ -2631,6 +2631,13 @@ try {
                 error_log("[email-debug] POST email-settings: host={$fields['smtp_host']} port={$fields['smtp_port']} user={$fields['smtp_user']} from={$fields['smtp_from']} pass_changed=" . ($passChanged ? 'yes' : 'no'));
                 // If password sentinel sent, keep existing; otherwise encrypt
                 if ($fields['smtp_pass'] === '********') {
+                    // Check if a password was ever saved — reject if none exists
+                    $existing = one("SELECT key_value FROM settings WHERE key_name = 'smtp_pass' AND key_value != ''");
+                    if (!$existing) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Password is required for initial SMTP setup']);
+                        exit;
+                    }
                     unset($fields['smtp_pass']);
                 } elseif (!empty($fields['smtp_pass'])) {
                     $fields['smtp_pass'] = encryptSmtpPass($fields['smtp_pass']);
