@@ -201,7 +201,7 @@ export default function AdminRepayments() {
         companyName,
         companyLogoUrl: companyLogoUrl || undefined,
       });
-      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
       toast.success('Receipt downloaded successfully');
     } catch (error: any) {

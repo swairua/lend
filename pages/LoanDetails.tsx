@@ -238,7 +238,7 @@ export default function LoanDetails() {
         companyName,
         companyLogoUrl: companyLogoUrl || undefined,
       });
-      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
     } catch (err: any) {
       console.error('Failed to download invoice:', err);
@@ -266,7 +266,7 @@ export default function LoanDetails() {
         companyName,
         companyLogoUrl: companyLogoUrl || undefined,
       });
-      const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
     } catch (err: any) {
       console.error('Failed to download receipt:', err);

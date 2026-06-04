@@ -117,7 +117,7 @@ export default function AdminQuotations() {
   };
 
   const handleDelete = (id: number, num: string) => {
-    alert.show({ title: 'Delete Quotation', message: `Delete ${num}?`, confirmText: 'Delete', variant: 'destructive',
+    alert.showAlert({ title: 'Delete Quotation', message: `Delete ${num}?`, confirmText: 'Delete', variant: 'destructive',
       onConfirm: async () => { try { await adminApi.deleteQuotation(id); toast.success('Quotation deleted'); load(page); } catch (e: any) { toast.error(e.message || 'Delete failed'); } } });
   };
 

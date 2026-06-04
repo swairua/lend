@@ -415,7 +415,7 @@ export async function downloadLoanAgreementPDF(data: LoanAgreementData): Promise
     const opt: any = {
       margin: 0.5,
       filename: `Loan-Agreement-${data.loanId}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'png' as const, quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { orientation: 'portrait', unit: 'in', format: 'letter' }
     };
