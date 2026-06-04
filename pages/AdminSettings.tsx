@@ -187,7 +187,10 @@ export default function AdminSettings() {
       if (settingsList.length > 0) {
         const configObj: any = {};
         settingsList.forEach((s: any) => {
-          if (s.key_name) configObj[s.key_name] = s.key_value ?? "";
+          if (!s.key_name) return;
+          configObj[s.key_name] = s.key_name === 'company_logo'
+            ? getFileUrl(s.key_value ?? "")
+            : s.key_value ?? "";
         });
         setConfig(prev => ({ ...prev, ...configObj }));
       }

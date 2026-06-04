@@ -3,7 +3,8 @@ import { secureStorage } from './secureStorage';
 
 // API base URL — set VITE_API_BASE env var at build time (Render) or defaults to production
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://bureau.jecrilogistics.com/api.php';
-const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || '/uploads';
+const API_ORIGIN = API_BASE.replace(/\/api\.php.*$/, '');
+const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || API_ORIGIN + '/uploads';
 
 // Helper to construct full file URL
 export function getFileUrl(path: string): string {
