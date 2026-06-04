@@ -30,7 +30,7 @@
     "@capacitor/share": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^11.5.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "html2pdf.js": "^0.14.0",
