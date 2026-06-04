@@ -11,7 +11,7 @@ export function getFileUrl(path: string): string {
   if (!path) return '';
   if (path.startsWith('http')) return path; // Already a full URL
   // Check if path already contains the domain (e.g., from API response)
-  if (path.includes('lending.wayrus.co.ke')) return path;
+  if (path.includes('bureau.jecrilogistics.com')) return path;
   // Remove duplicate /uploads if it's already in the path
   const cleanPath = path.replace(/^\/uploads\//, '');
   return UPLOADS_URL + (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath);
