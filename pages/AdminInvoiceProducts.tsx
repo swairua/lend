@@ -78,7 +78,7 @@ export default function AdminInvoiceProducts() {
   };
 
   const handleDelete = (id: number, name: string) => {
-    alert.show({
+    alert.showAlert({
       title: 'Delete Product',
       message: `Delete "${name}"? This cannot be undone.`,
       confirmText: 'Delete',
