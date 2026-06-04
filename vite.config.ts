@@ -1,7 +1,29 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { viteStaticCopy } from "vite-plugin-static-copy";
+
+function tsPlugin() {
+  return {
+    name: "vite:ts",
+    enforce: "pre",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = (req.url || "").split("?")[0];
+        if (!url.endsWith(".ts") && !url.endsWith(".tsx")) return next();
+        if (url.endsWith(".d.ts")) return next();
+        try {
+          const result = await server.transformRequest(url);
+          if (!result) return next();
+          res.setHeader("Content-Type", "application/javascript");
+          res.setHeader("X-Content-Type-Options", "nosniff");
+          res.end(result.code);
+        } catch {
+          next();
+        }
+      });
+    },
+  };
+}
 
 export default defineConfig({
   optimizeDeps: {
@@ -13,11 +35,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api.php': {
-        target: 'https://bureau.jecrilogistics.com',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'https://bureau.jecrilogistics.com',
+        target: 'https://lending.wayrus.co.ke',
         changeOrigin: true,
       },
     },
@@ -34,7 +56,7 @@ export default defineConfig({
     },
   },
   plugins: [
-    react(),
+    tsPlugin(),
     viteStaticCopy({
       targets: [
         {

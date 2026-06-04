@@ -135,7 +135,11 @@ if (container) {
   setTimeout(() => {
     initializeCapacitor();
 
-    if ('serviceWorker' in navigator) {
+    if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(r => r.forEach(reg => reg.unregister()));
+    }
+
+    if (import.meta.env.PROD && 'serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
           const registration = await navigator.serviceWorker.register('/sw.js');

@@ -46,7 +46,7 @@ function generateSchedule(loan: any) {
   return schedule;
 }
 
-function getTimelineSteps(loan: any) {
+function getTimelineSteps(loan: any): { label: string; status: 'completed' | 'current' | 'pending' | 'rejected'; date?: string }[] {
   const steps = [
     {
       label: 'Applied',
@@ -55,26 +55,26 @@ function getTimelineSteps(loan: any) {
     },
     {
       label: 'Under Review',
-      status: loan.status === 'pending' ? 'current' : loan.status === 'rejected' ? 'rejected' : 'completed' as const,
+      status: (loan.status === 'pending' ? 'current' : loan.status === 'rejected' ? 'rejected' : 'completed') as 'completed' | 'current' | 'pending' | 'rejected',
       date: loan.status === 'pending' ? undefined : formatDate(loan.approved_at || loan.created_at),
     },
     {
       label: 'Approved',
-      status: ['approved', 'disbursing', 'active', 'completed'].includes(loan.status) ? 'completed' : loan.status === 'rejected' ? 'rejected' : 'pending' as const,
+      status: (['approved', 'disbursing', 'active', 'completed'].includes(loan.status) ? 'completed' : loan.status === 'rejected' ? 'rejected' : 'pending') as 'completed' | 'current' | 'pending' | 'rejected',
       date: loan.approved_at ? formatDate(loan.approved_at) : undefined,
     },
     {
       label: 'Disbursed',
-      status: ['disbursing', 'active', 'completed'].includes(loan.status) ? 'completed' : 'pending' as const,
+      status: (['disbursing', 'active', 'completed'].includes(loan.status) ? 'completed' : 'pending') as 'completed' | 'current' | 'pending' | 'rejected',
       date: loan.disbursed_at ? formatDate(loan.disbursed_at) : undefined,
     },
     {
       label: 'Repayment',
-      status: loan.status === 'active' ? 'current' : loan.status === 'completed' ? 'completed' : 'pending' as const,
+      status: (loan.status === 'active' ? 'current' : loan.status === 'completed' ? 'completed' : 'pending') as 'completed' | 'current' | 'pending' | 'rejected',
     },
     {
       label: 'Completed',
-      status: loan.status === 'completed' ? 'completed' : 'pending' as const,
+      status: (loan.status === 'completed' ? 'completed' : 'pending') as 'completed' | 'current' | 'pending' | 'rejected',
     },
   ];
   return steps;
@@ -238,35 +238,23 @@ export default function LoanDetails() {
         companyName,
         companyLogoUrl: companyLogoUrl || undefined,
       });
-      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
     } catch (err: any) {
       console.error('Failed to download invoice:', err);
       setErrorDialog({ open: true, title: 'Invoice Failed', message: err?.message || 'Failed to generate invoice. Please try again.' });
     } finally {
-      setDownloadingInvoice(false);
     }
   };
 
   const handleDownloadReceipt = async () => {
+    if (!loan) return;
+    setDownloadingReceipt(true);
     try {
-      setDownloadingReceipt(true);
-      if (!loan.repayments?.length) {
-        setErrorDialog({ open: true, title: 'No Records', message: 'No repayment records available.' });
-        return;
-      }
-      const latestRepayment = loan.repayments[loan.repayments.length - 1];
+      const element = document.getElementById('invoice-content');
+      if (!element) { setErrorDialog({ open: true, title: 'Receipt Failed', message: 'Invoice content not found' }); setDownloadingReceipt(false); return; }
       const html2pdf = (await import('html2pdf.js')).default;
-      const element = document.createElement('div');
-      element.innerHTML = generateReceiptHTML({
-        repayment: { ...latestRepayment, loan_id: loan.id },
-        loan,
-        borrowerName: user.name || loan.borrower_name || 'N/A',
-        borrowerEmail: user.email || loan.borrower_email || 'N/A',
-        companyName,
-        companyLogoUrl: companyLogoUrl || undefined,
-      });
-      const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
     } catch (err: any) {
       console.error('Failed to download receipt:', err);

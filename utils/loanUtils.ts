@@ -7,6 +7,7 @@ interface Loan {
   category_name?: string;
   principal_amount: number;
   due_date?: string;
+  created_at?: string;
 }
 
 export function getLoanStatusLabel(status: string): string {

@@ -271,7 +271,7 @@ export default function AdminLoans() {
         companyName,
         companyLogoUrl: companyLogoUrl || undefined,
       });
-      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
       toast.success('Invoice downloaded successfully');
     } catch (error: any) {
@@ -317,7 +317,7 @@ export default function AdminLoans() {
     setActionLoading(true);
     try {
       const result = await adminApi.syncMpesaPayments(loanId);
-      toast.success(result.data.message || `Applied: ${result.data.applied}, Created: ${result.data.created}`);
+      toast.success(`Applied: ${result.data.applied}, Created: ${result.data.created}`);
       await refreshAfterUpdate();
     } catch (error: any) {
       toast.error(error.message || 'Failed to sync payments');

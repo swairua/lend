@@ -2,7 +2,7 @@ import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, Custo
 import { secureStorage } from './secureStorage';
 
 // API base URL — set VITE_API_BASE env var at build time (Render) or defaults to production
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://bureau.jecrilogistics.com/api.php';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://lending.wayrus.co.ke/api.php';
 const API_ORIGIN = API_BASE.replace(/\/api\.php.*$/, '');
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || API_ORIGIN + '/uploads';
 
@@ -11,7 +11,7 @@ export function getFileUrl(path: string): string {
   if (!path) return '';
   if (path.startsWith('http')) return path; // Already a full URL
   // Check if path already contains the domain (e.g., from API response)
-  if (path.includes('bureau.jecrilogistics.com')) return path;
+  if (path.includes('lending.wayrus.co.ke')) return path;
   // Remove duplicate /uploads if it's already in the path
   const cleanPath = path.replace(/^\/uploads\//, '');
   return UPLOADS_URL + (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath);
@@ -92,7 +92,7 @@ export const authApi = {
 
   getMe: () => request<{ success: boolean; user: User }>('/auth/me'),
 
-  updateProfile: (data: { name?: string; phone?: string; photo_url?: string; address?: string; business_name?: string; business_type?: string; monthly_income?: number }) =>
+  updateProfile: (data: { name?: string; phone?: string; photo_url?: string; address?: string; business_name?: string; business_type?: string; monthly_income?: number; national_id?: string; kra_pin?: string; tcc_number?: string }) =>
     request<{ success: boolean; user: User }>('/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -567,7 +567,7 @@ export const adminApi = {
 
   // ---- Quotations ----
   getQuotations: (params?: { page?: number; limit?: number }) => {
-    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null));
     const query = new URLSearchParams(filtered as any).toString();
     return request<{ success: boolean; data: { quotations: Quotation[]; pagination: any } }>(
       `/admin/quotations${query ? `?${query}` : ''}`
@@ -583,12 +583,6 @@ export const adminApi = {
       body: JSON.stringify(data),
     }),
 
-  updateQuotation: (id: number, data: any) =>
-    request<{ success: boolean }>(`/admin/quotations/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
   deleteQuotation: (id: number) =>
     request<{ success: boolean }>(`/admin/quotations/${id}`, {
       method: 'DELETE',
@@ -601,13 +595,13 @@ export const adminApi = {
     }),
 
   convertQuotation: (id: number) =>
-    request<{ success: boolean; data: { invoice_id: number; invoice_number: string } }>(`/admin/quotations/${id}/convert`, {
+    request<{ success: boolean; data: { invoice_number: string } }>(`/admin/quotations/${id}/convert`, {
       method: 'POST',
     }),
 
   // ---- Invoices ----
   getInvoices: (params?: { page?: number; limit?: number }) => {
-    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null));
     const query = new URLSearchParams(filtered as any).toString();
     return request<{ success: boolean; data: { invoices: Invoice[]; pagination: any } }>(
       `/admin/invoices${query ? `?${query}` : ''}`

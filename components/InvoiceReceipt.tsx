@@ -46,7 +46,7 @@ export default function InvoiceReceipt({ open, onClose, type, loan, repayment, u
             <div>
               <h1 className="text-2xl font-bold text-amber-900">JECRI BUREAU</h1>
               <p className="text-sm text-gray-500">Lending Institution</p>
-              <p className="text-sm text-gray-500">jecribureau.co.ke</p>
+              <p className="text-sm text-gray-500">lending.wayrus.co.ke</p>
             </div>
             <div className="text-right">
               <p className="text-xl font-bold text-gray-700">{title}</p>

@@ -45,9 +45,9 @@ export default function DocumentPreviewModal({
             <p className="text-xs text-muted-foreground mt-1">
               {document.original_name}
             </p>
-            {document.created_at && (
+            {document.uploaded_at && (
               <p className="text-xs text-muted-foreground">
-                Uploaded: {getFormattedDate(document.created_at)}
+                Uploaded: {getFormattedDate(document.uploaded_at)}
               </p>
             )}
           </div>

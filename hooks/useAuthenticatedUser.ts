@@ -7,6 +7,9 @@ interface User {
   name: string;
   email: string;
   role: string;
+  phone?: string | null;
+  borrower_id?: number | null;
+  photo_url?: string;
 }
 
 interface UseAuthenticatedUserReturn {

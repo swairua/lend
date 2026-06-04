@@ -85,7 +85,7 @@ export default function BorrowerLoans() {
               <LoanCard loan={loan} onClick={() => navigate(`/loans/${loan.id}`)} />
               {loan.status === 'pending' && (
                 <div className="text-xs text-yellow-600 p-1.5 bg-yellow-50 rounded -mt-2 mb-3">
-                  ⏳ Pending review · Expected decision by {formatDate(new Date(new Date(loan.created_at).getTime() + 3 * 24 * 60 * 60 * 1000))}
+                  ⏳ Pending review · Expected decision by {formatDate(new Date(new Date(String(loan.created_at)).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString())}
                 </div>
               )}
               {loan.status === 'active' && (

@@ -17,9 +17,10 @@ interface RepaymentWithLoan {
   principal_paid: number;
   interest_paid: number;
   penalty_paid: number;
-  payment_method: string;
+  payment_method: 'cash' | 'mpesa' | 'bank' | 'other';
   reference_number: string | null;
   paid_at: string;
+  paid_by: number | null;
   loan_name?: string;
 }
 
@@ -60,14 +61,14 @@ export default function BorrowerPayments() {
     setError(null);
     try {
       const response = await loansApi.getMyLoans();
-      const loans = response.data?.data?.loans || response.data?.loans || [];
+      const loans = (response as any)?.data?.loans || (response as any)?.loans || [];
 
       // Extract all repayments from all loans
       const allRepayments: RepaymentWithLoan[] = [];
 
       for (const loan of loans) {
         const loanDetails = await loansApi.getMyLoan(loan.id);
-        const loanData = loanDetails.data?.data || loanDetails.data;
+        const loanData = (loanDetails as any)?.data || loanDetails;
         const loanRepayments = loanData?.repayments || [];
 
         // Add loan_name to each repayment
@@ -103,7 +104,7 @@ export default function BorrowerPayments() {
         companyName,
         companyLogoUrl: companyLogoUrl || undefined,
       });
-      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
       toast.success('Receipt downloaded successfully');
     } catch (err: any) {

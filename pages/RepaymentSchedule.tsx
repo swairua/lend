@@ -12,7 +12,7 @@ import { Loader2, ChevronLeft, AlertCircle, Smartphone } from 'lucide-react';
 
 interface LoanDetail {
   id: number;
-  product_name: string;
+  product_name?: string;
   principal_amount: number;
   interest_amount: number;
   processing_fee: number;

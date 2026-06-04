@@ -20,7 +20,7 @@ interface Quotation { id: number; quote_number: string; customer_id: number | nu
 
 interface QuotationItem { id?: number; invoice_product_id: number | null; description: string; quantity: number; unit_price: number; tax_rate: number; amount: number; product_name?: string; }
 
-interface InvoiceProduct { id: number; name: string; unit_price: number; tax_rate: number; }
+interface InvoiceProduct { id: number; name: string; unit_price: number; tax_rate: number; is_active?: number | boolean; }
 
 interface Customer { id: number; name: string; email: string; phone: string; address: string; company: string; }
 
