@@ -60,7 +60,7 @@ export default function AdminCustomers() {
   };
 
   const handleDelete = (id: number, name: string) => {
-    alert.show({
+    alert.showAlert({
       title: 'Delete Customer', message: `Delete "${name}"? This cannot be undone.`, confirmText: 'Delete', variant: 'destructive',
       onConfirm: async () => { try { await adminApi.deleteCustomer(id); toast.success('Customer deleted'); load(search); } catch (e: any) { toast.error(e.message || 'Delete failed'); } },
     });

@@ -19,7 +19,7 @@ interface Invoice { id: number; invoice_number: string; quotation_id: number | n
 
 interface InvoiceItem { id?: number; invoice_product_id: number | null; description: string; quantity: number; unit_price: number; tax_rate: number; amount: number; product_name?: string; }
 
-interface InvoiceProduct { id: number; name: string; unit_price: number; tax_rate: number; }
+interface InvoiceProduct { id: number; name: string; unit_price: number; tax_rate: number; is_active?: number | boolean; }
 
 interface Customer { id: number; name: string; email: string; phone: string; address: string; company: string; }
 
@@ -115,7 +115,7 @@ export default function AdminInvoices() {
   };
 
   const handleDelete = (id: number, num: string) => {
-    alert.show({ title: 'Delete Invoice', message: `Delete ${num}?`, confirmText: 'Delete', variant: 'destructive',
+    alert.showAlert({ title: 'Delete Invoice', message: `Delete ${num}?`, confirmText: 'Delete', variant: 'destructive',
       onConfirm: async () => { try { await adminApi.deleteInvoice(id); toast.success('Invoice deleted'); load(page); } catch (e: any) { toast.error(e.message || 'Delete failed'); } } });
   };
 
