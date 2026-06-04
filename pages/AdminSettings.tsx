@@ -320,25 +320,15 @@ export default function AdminSettings() {
 
     setTestingMpesa(true);
     try {
-      // Call a test endpoint to validate credentials
-      const token = await secureStorage.getToken();
-      const response = await fetch('/api/admin/mpesa/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          consumer_key: config.mpesa_consumer_key,
-          consumer_secret: config.mpesa_consumer_secret,
-          business_shortcode: config.mpesa_business_shortcode,
-          passkey: config.mpesa_passkey,
-          environment: config.mpesa_environment,
-        }),
+      const response = await adminApi.mpesaTestCredentials({
+        consumer_key: config.mpesa_consumer_key || '',
+        consumer_secret: config.mpesa_consumer_secret || '',
+        business_shortcode: config.mpesa_business_shortcode || '',
+        passkey: config.mpesa_passkey || '',
+        environment: config.mpesa_environment || 'sandbox',
       });
 
-      const data = await response.json();
-      if (data.success) {
+      if (response.success) {
         showAlert({
           type: 'success',
           message: 'M-Pesa credentials are valid! ✓ Successfully authenticated with ' + (config.mpesa_environment === 'sandbox' ? 'Sandbox' : 'Production') + ' environment.'
@@ -346,7 +336,7 @@ export default function AdminSettings() {
       } else {
         showAlert({
           type: 'error',
-          message: data.error || 'Failed to validate M-Pesa credentials. Check your settings and try again.'
+          message: response.error || 'Failed to validate M-Pesa credentials. Check your settings and try again.'
         });
       }
     } catch (error: any) {

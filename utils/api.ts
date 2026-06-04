@@ -424,6 +424,12 @@ export const adminApi = {
     }),
 
   // M-Pesa Payment Endpoints
+  mpesaTestCredentials: (config: { consumer_key: string; consumer_secret: string; business_shortcode: string; passkey: string; environment: string }) =>
+    request<{ success: boolean; error?: string }>('/admin/mpesa/test', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+
   mpesaInitiatePayment: (loan_id: number, phone_number: string, amount?: number) =>
     request<{ success: boolean; checkout_request_id?: string; error?: string }>('/admin/mpesa/payment', {
       method: 'POST',
