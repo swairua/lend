@@ -270,7 +270,7 @@ export const adminApi = {
     }),
 
   getConfig: () =>
-    request<{ success: boolean; data: any[] }>('/admin/settings'),
+    request<{ success: boolean; data: Record<string, any> }>('/admin/settings'),
 
   saveConfig: (config: any) =>
     request<{ success: boolean; message: string }>('/admin/settings/bulk', {

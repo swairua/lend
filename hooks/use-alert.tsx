@@ -4,8 +4,11 @@ interface AlertOptions {
   title?: string;
   message: string;
   type?: 'success' | 'error' | 'warning' | 'info';
-  onConfirm?: () => void;
+  onConfirm?: () => void | Promise<void>;
   showCancel?: boolean;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: 'default' | 'destructive';
 }
 
 export function useAlert() {
@@ -53,13 +56,14 @@ export function useAlert() {
               hideAlert();
             }}
             className={`px-4 py-2 rounded-md text-white ${
+              alert.variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' :
               alert.type === 'error' ? 'bg-red-500 hover:bg-red-600' :
               alert.type === 'warning' ? 'bg-yellow-500 hover:bg-yellow-600' :
               alert.type === 'success' ? 'bg-green-500 hover:bg-green-600' :
               'bg-blue-500 hover:bg-blue-600'
             }`}
           >
-            {alert.onConfirm ? 'Confirm' : 'OK'}
+            {alert.confirmText || (alert.onConfirm ? 'Confirm' : 'OK')}
           </button>
         </div>
       </div>

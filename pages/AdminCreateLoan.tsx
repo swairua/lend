@@ -224,7 +224,7 @@ export default function AdminCreateLoan() {
         // Redirect to the new loan's repayment schedule or admin loans page
         navigate(`/admin/loans/${response.data?.id || ''}`);
       } else {
-        showAlert({ type: 'error', message: response.error || 'Failed to create loan' });
+        showAlert({ type: 'error', message: response.message || 'Failed to create loan' });
       }
     } catch (err: any) {
       showAlert({ type: 'error', message: err.message || 'Failed to create loan' });
