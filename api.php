@@ -750,7 +750,7 @@ function bootstrap() {
 
         // Seed default settings
         $defaults = [
-            'company_name' => 'Wayrus Lending',
+            'company_name' => 'Jecri Bureau',
             'company_email' => '',
             'company_phone' => '',
             'company_address' => '',
@@ -902,7 +902,7 @@ try {
             $token = bin2hex(random_bytes(32));
             $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
             q("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [$token, $expires, $user['id']]);
-            $resetLink = "https://lending.wayrus.co.ke/reset-password/$token";
+            $resetLink = "https://bureau.jecrilogistics.com/reset-password/$token";
             $subject = "Password Reset - Lending System";
             $body = "<h2>Password Reset</h2><p>Dear {$user['name']},</p><p>We received a request to reset your password.</p>";
             $body .= "<p>Click the link below to reset your password (valid for 1 hour):</p>";
