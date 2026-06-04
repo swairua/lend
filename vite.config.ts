@@ -6,6 +6,7 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 export default defineConfig({
   optimizeDeps: {
     include: ['html2pdf.js'],
+    exclude: ['better-sqlite3'],
   },
   server: {
     host: "localhost",
