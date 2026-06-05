@@ -1,0 +1,1404 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { adminApi, emailApi, uploadCompanyLogo, getFileUrl } from '../utils/api';
+import { secureStorage } from '@/utils/secureStorage';
+import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail, Upload, Image } from 'lucide-react';
+import { useAlert } from '@/hooks/use-alert';
+import { toast } from 'sonner';
+
+interface SystemConfig {
+  company_name: string;
+  company_email: string;
+  company_phone: string;
+  company_address: string;
+  company_logo: string;
+  default_interest_rate: string;
+  late_fee_percentage: string;
+  processing_fee_percentage: string;
+  max_loan_amount: string;
+  min_loan_amount: string;
+  default_loan_term: string;
+  allow_online_applications: string;
+  require_id_verification: string;
+  require_income_verification: string;
+  enable_notifications: string;
+  enable_email_notifications: string;
+  enable_sms_notifications: string;
+  maintenance_mode: string;
+  collateral_required: string;
+  guarantor_required: string;
+  auto_approve_threshold: string;
+  default_currency: string;
+  grace_period_days: string;
+  penalty_rate_daily: string;
+  max_loan_duration_months: string;
+  min_credit_score: string;
+  require_guarantor_collateral: string;
+  allow_early_repayment: string;
+  early_repayment_penalty: string;
+  mpesa_consumer_key?: string;
+  mpesa_consumer_secret?: string;
+  mpesa_business_shortcode?: string;
+  mpesa_passkey?: string;
+  mpesa_c2b_validation_url?: string;
+  mpesa_c2b_confirmation_url?: string;
+  mpesa_c2b_timeout_url?: string;
+  mpesa_stk_callback_url?: string;
+  mpesa_b2c_result_url?: string;
+  mpesa_b2c_timeout_url?: string;
+  mpesa_environment?: string;
+  enable_mpesa?: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface Product {
+  id: number;
+  category_id: number;
+  name: string;
+  code: string;
+  description: string;
+  min_amount: number;
+  max_amount: number;
+  min_term_months: number;
+  max_term_months: number;
+  interest_rate: number;
+  interest_type: string;
+  processing_fee_percent: number;
+  is_active: boolean;
+}
+
+export default function AdminSettings() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', code: '', description: '' });
+  const [productForm, setProductForm] = useState({
+    category_id: '',
+    name: '',
+    code: '',
+    description: '',
+    min_amount: '',
+    max_amount: '',
+    min_term_months: '',
+    max_term_months: '',
+    interest_rate: '',
+    interest_type: 'flat',
+    processing_fee_percent: '',
+  });
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [productSaving, setProductSaving] = useState(false);
+  const [mpesaCopied, setMpesaCopied] = useState(false);
+  const [testingMpesa, setTestingMpesa] = useState(false);
+  const [emailSettings, setEmailSettings] = useState({
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_user: '',
+    smtp_pass: '',
+    smtp_from: '',
+  });
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailTesting, setEmailTesting] = useState(false);
+  const [smtpPassChanged, setSmtpPassChanged] = useState(false);
+  const [passwordRequired, setPasswordRequired] = useState(false);
+  const { showAlert, confirm, AlertComponent } = useAlert();
+  const [config, setConfig] = useState<SystemConfig>({
+    company_name: '',
+    company_email: '',
+    company_phone: '',
+    company_address: '',
+    company_logo: '',
+    default_interest_rate: '10',
+    late_fee_percentage: '5',
+    processing_fee_percentage: '2',
+    max_loan_amount: '500000',
+    min_loan_amount: '5000',
+    default_loan_term: '12',
+    allow_online_applications: '1',
+    require_id_verification: '1',
+    require_income_verification: '1',
+    enable_notifications: '1',
+    enable_email_notifications: '1',
+    enable_sms_notifications: '1',
+    maintenance_mode: '0',
+    collateral_required: '0',
+    guarantor_required: '0',
+    auto_approve_threshold: '10000',
+    default_currency: 'KES',
+    grace_period_days: '7',
+    penalty_rate_daily: '0.5',
+    max_loan_duration_months: '60',
+    min_credit_score: '550',
+    require_guarantor_collateral: '0',
+    allow_early_repayment: '1',
+    early_repayment_penalty: '0',
+    mpesa_consumer_key: '',
+    mpesa_consumer_secret: '',
+    mpesa_business_shortcode: '',
+    mpesa_passkey: '',
+    mpesa_environment: 'sandbox',
+    mpesa_c2b_validation_url: '',
+    mpesa_c2b_confirmation_url: '',
+    mpesa_c2b_timeout_url: '',
+    mpesa_stk_callback_url: '',
+    mpesa_b2c_result_url: '',
+    mpesa_b2c_timeout_url: '',
+    enable_mpesa: '0',
+  });
+
+  useEffect(() => {
+    loadSettings();
+    loadCategories();
+    loadProducts();
+    loadEmailSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const response: any = await adminApi.getConfig();
+      const settingsList = Array.isArray(response.data) ? response.data
+        : Array.isArray(response.data?.data) ? response.data.data
+        : Array.isArray(response.data?.settings) ? response.data.settings
+        : (response.data && typeof response.data === 'object' && !Array.isArray(response.data))
+          ? Object.entries(response.data).map(([key_name, key_value]) => ({ key_name, key_value: String(key_value ?? '') }))
+        : [];
+      if (settingsList.length > 0) {
+        const configObj: any = {};
+        settingsList.forEach((s: any) => {
+          if (!s.key_name) return;
+          configObj[s.key_name] = s.key_name === 'company_logo'
+            ? getFileUrl(s.key_value ?? "")
+            : s.key_value ?? "";
+        });
+        setConfig(prev => ({ ...prev, ...configObj }));
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const response: any = await adminApi.getCategories();
+      console.log('Categories response:', response);
+      const cats = response.data || response || [];
+      console.log('Setting categories:', cats);
+      setCategories(cats);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
+  const loadProducts = async () => {
+    try {
+      const response: any = await adminApi.getProducts();
+      setProducts(response.data?.data || response.data || []);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+    }
+  };
+
+  const loadEmailSettings = async () => {
+    try {
+      const response: any = await emailApi.getEmailSettings();
+      if (response.success && response.data) {
+        const pass = response.data.smtp_pass || '';
+        setEmailSettings({
+          smtp_host: response.data.smtp_host || '',
+          smtp_port: response.data.smtp_port || '587',
+          smtp_user: response.data.smtp_user || '',
+          smtp_pass: pass === '********' ? '' : pass,
+          smtp_from: response.data.smtp_from || '',
+        });
+        setSmtpPassChanged(false);
+        setPasswordRequired(pass !== '********');
+      }
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log('Email settings endpoint not available');
+      } else {
+        console.error('Failed to load email settings:', error);
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await adminApi.saveConfig(config);
+      toast.success('Settings saved successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const res = await uploadCompanyLogo(file);
+      if (res.success && res.data?.file_url) {
+        const url = getFileUrl(res.data.file_url);
+        setConfig({ ...config, company_logo: url });
+        toast.success('Logo uploaded successfully');
+      } else {
+        toast.error('Failed to upload logo');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload logo');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setConfig({ ...config, company_logo: '' });
+  };
+
+  const handleChange = (key: keyof SystemConfig, value: string) => {
+    setConfig({ ...config, [key]: value });
+  };
+
+  const validateMpesaConfig = (): string | null => {
+    if (config.enable_mpesa !== '1') return null;
+
+    const required = [
+      { key: 'mpesa_consumer_key', label: 'Consumer Key' },
+      { key: 'mpesa_consumer_secret', label: 'Consumer Secret' },
+      { key: 'mpesa_business_shortcode', label: 'Business Short Code' },
+      { key: 'mpesa_passkey', label: 'Passkey' },
+      { key: 'mpesa_c2b_validation_url', label: 'C2B Validation URL' },
+      { key: 'mpesa_c2b_confirmation_url', label: 'C2B Confirmation URL' },
+      { key: 'mpesa_c2b_timeout_url', label: 'C2B Timeout URL' },
+      { key: 'mpesa_stk_callback_url', label: 'STK Callback URL' },
+      { key: 'mpesa_b2c_result_url', label: 'B2C Result URL' },
+      { key: 'mpesa_b2c_timeout_url', label: 'B2C Timeout URL' },
+    ];
+
+    for (const field of required) {
+      if (!config[field.key as keyof SystemConfig] || !String(config[field.key as keyof SystemConfig]).trim()) {
+        return `${field.label} is required`;
+      }
+    }
+    return null;
+  };
+
+  const testMpesaCredentials = async () => {
+    const validationError = validateMpesaConfig();
+    if (validationError) {
+      showAlert({ type: 'error', message: validationError });
+      return;
+    }
+
+    setTestingMpesa(true);
+    try {
+      const response = await adminApi.mpesaTestCredentials({
+        consumer_key: config.mpesa_consumer_key || '',
+        consumer_secret: config.mpesa_consumer_secret || '',
+        business_shortcode: config.mpesa_business_shortcode || '',
+        passkey: config.mpesa_passkey || '',
+        environment: config.mpesa_environment || 'sandbox',
+      });
+
+      if (response.success) {
+        showAlert({
+          type: 'success',
+          message: 'M-Pesa credentials are valid! ✓ Successfully authenticated with ' + (config.mpesa_environment === 'sandbox' ? 'Sandbox' : 'Production') + ' environment.'
+        });
+      } else {
+        showAlert({
+          type: 'error',
+          message: response.error || 'Failed to validate M-Pesa credentials. Check your settings and try again.'
+        });
+      }
+    } catch (error: any) {
+      showAlert({
+        type: 'error',
+        message: 'Connection error: ' + (error.message || 'Unable to test M-Pesa credentials')
+      });
+    } finally {
+      setTestingMpesa(false);
+    }
+  };
+
+  const handleToggle = (key: keyof SystemConfig, checked: boolean) => {
+    setConfig({ ...config, [key]: checked ? '1' : '0' });
+  };
+
+  const handleSaveEmailSettings = async () => {
+    if (!emailSettings.smtp_host || !emailSettings.smtp_port || !emailSettings.smtp_user || !emailSettings.smtp_from) {
+      showAlert({ type: 'warning', message: 'SMTP host, port, username, and from address are required' });
+      return;
+    }
+    if (passwordRequired && !emailSettings.smtp_pass) {
+      showAlert({ type: 'warning', message: 'SMTP password is required for initial setup' });
+      return;
+    }
+
+    setEmailSaving(true);
+    try {
+      // If user didn't modify the password field, send sentinel to keep existing
+      const passToSend = smtpPassChanged ? emailSettings.smtp_pass : '********';
+      await emailApi.updateEmailSettings(
+        emailSettings.smtp_host,
+        parseInt(emailSettings.smtp_port),
+        emailSettings.smtp_user,
+        passToSend,
+        emailSettings.smtp_from
+      );
+      setSmtpPassChanged(false);
+      setPasswordRequired(false);
+      toast.success('Email settings saved successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save email settings');
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const handleTestEmailSettings = async () => {
+    setEmailTesting(true);
+    try {
+      const result = await emailApi.testEmailSettings();
+      if (result.success) {
+        toast.success(result.message || 'Email connection successful!');
+      } else {
+        toast.error(result.message || 'Email connection failed');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to test email settings');
+    } finally {
+      setEmailTesting(false);
+    }
+  };
+
+  // Category handlers
+  const openCategoryDialog = (category?: Category) => {
+    if (category) {
+      setEditingCategory(category);
+      setCategoryForm({ name: category.name, code: category.code, description: category.description || '' });
+    } else {
+      setEditingCategory(null);
+      setCategoryForm({ name: '', code: '', description: '' });
+    }
+    setCategoryDialogOpen(true);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name || !categoryForm.code) {
+      showAlert({ type: 'warning', message: 'Name and code are required' });
+      return;
+    }
+    setCategorySaving(true);
+    try {
+      if (editingCategory) {
+        await adminApi.updateCategory(editingCategory.id, categoryForm);
+        toast.success(`Category "${categoryForm.name}" updated successfully`);
+      } else {
+        await adminApi.createCategory(categoryForm);
+        toast.success(`Category "${categoryForm.name}" created successfully`);
+      }
+      await loadCategories();
+      setCategoryDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save category');
+    } finally {
+      setCategorySaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: number) => {
+    confirm('Delete this category?', async () => {
+      try {
+        await adminApi.deleteCategory(id);
+        toast.success('Category deleted successfully');
+        await loadCategories();
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to delete category');
+      }
+    });
+  };
+
+  const handleToggleCategory = async (id: number, currentStatus: boolean) => {
+    try {
+      await adminApi.toggleCategory(id, !currentStatus);
+      const newStatus = !currentStatus ? 'activated' : 'deactivated';
+      toast.success(`Category ${newStatus} successfully`);
+      await loadCategories();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to toggle category');
+    }
+  };
+
+  // Product handlers
+  const openProductDialog = (product?: Product) => {
+    if (product) {
+      setEditingProduct(product);
+      setProductForm({
+        category_id: String(product.category_id) || '',
+        name: product.name,
+        code: product.code,
+        description: product.description || '',
+        min_amount: String(product.min_amount),
+        max_amount: String(product.max_amount),
+        min_term_months: String(product.min_term_months),
+        max_term_months: String(product.max_term_months),
+        interest_rate: String(product.interest_rate),
+        interest_type: product.interest_type,
+        processing_fee_percent: String(product.processing_fee_percent),
+      });
+    } else {
+      setEditingProduct(null);
+      setProductForm({
+        category_id: '',
+        name: '',
+        code: '',
+        description: '',
+        min_amount: '',
+        max_amount: '',
+        min_term_months: '',
+        max_term_months: '',
+        interest_rate: '',
+        interest_type: 'flat',
+        processing_fee_percent: '',
+      });
+    }
+    setProductDialogOpen(true);
+  };
+
+  const handleSaveProduct = async () => {
+    if (!productForm.name || !productForm.min_amount || !productForm.max_amount) {
+      showAlert({ type: 'warning', message: 'Name and amount range are required' });
+      return;
+    }
+    setProductSaving(true);
+    try {
+      const data: any = {
+        category_id: productForm.category_id ? parseInt(productForm.category_id) : null,
+        name: productForm.name,
+        code: productForm.code,
+        description: productForm.description,
+        min_amount: parseFloat(productForm.min_amount),
+        max_amount: parseFloat(productForm.max_amount),
+        min_term_months: parseInt(productForm.min_term_months) || 1,
+        max_term_months: parseInt(productForm.max_term_months) || 12,
+        interest_rate: parseFloat(productForm.interest_rate) || 10,
+        interest_type: productForm.interest_type,
+        processing_fee_percent: parseFloat(productForm.processing_fee_percent) || 2,
+      };
+      if (editingProduct) {
+        await adminApi.updateProduct(editingProduct.id, data);
+        toast.success(`Product "${productForm.name}" updated successfully`);
+      } else {
+        await adminApi.createProduct(data);
+        toast.success(`Product "${productForm.name}" created successfully`);
+      }
+      await loadProducts();
+      setProductDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save product');
+    } finally {
+      setProductSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: number) => {
+    confirm('Delete this loan product?', async () => {
+      try {
+        await adminApi.deleteProduct(id);
+        toast.success('Product deleted successfully');
+        await loadProducts();
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to delete product');
+      }
+    });
+  };
+
+  const handleToggleProduct = async (id: number, currentStatus: boolean) => {
+    try {
+      await adminApi.updateProduct(id, { is_active: !currentStatus });
+      const newStatus = !currentStatus ? 'activated' : 'deactivated';
+      toast.success(`Product ${newStatus} successfully`);
+      await loadProducts();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to toggle product');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto py-6 px-4 max-w-5xl">
+      <div className="flex items-center gap-2 mb-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">System Settings</h1>
+      </div>
+
+      {message && (
+        <div className={`p-3 rounded-lg mb-4 ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {message.text}
+        </div>
+      )}
+
+      <Tabs defaultValue="company" className="w-full">
+        <div className="overflow-x-auto">
+          <TabsList className="flex w-max gap-1 p-1">
+            <TabsTrigger value="company" className="text-xs md:text-sm whitespace-nowrap"><Building className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Company</span></TabsTrigger>
+            <TabsTrigger value="loans" className="text-xs md:text-sm whitespace-nowrap"><DollarSign className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Defaults</span></TabsTrigger>
+            <TabsTrigger value="categories" className="text-xs md:text-sm whitespace-nowrap"><Package className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Categories</span></TabsTrigger>
+            <TabsTrigger value="products" className="text-xs md:text-sm whitespace-nowrap"><CreditCard className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
+            <TabsTrigger value="requirements" className="text-xs md:text-sm whitespace-nowrap"><Shield className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Requirements</span></TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs md:text-sm whitespace-nowrap"><Bell className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Notifications</span></TabsTrigger>
+            <TabsTrigger value="email" className="text-xs md:text-sm whitespace-nowrap"><Mail className="h-4 w-4 mr-1" /><span className="hidden sm:inline">Email</span></TabsTrigger>
+            <TabsTrigger value="mpesa" className="text-xs md:text-sm whitespace-nowrap"><Smartphone className="h-4 w-4 mr-1" /><span className="hidden sm:inline">M-Pesa</span></TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="company" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Building className="h-5 w-5" />Company Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Company Name</Label>
+                  <Input value={config.company_name} onChange={(e) => handleChange('company_name', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input type="email" value={config.company_email} onChange={(e) => handleChange('company_email', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input value={config.company_phone} onChange={(e) => handleChange('company_phone', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Address</Label>
+                  <Input value={config.company_address} onChange={(e) => handleChange('company_address', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Currency</Label>
+                  <Input value={config.default_currency} onChange={(e) => handleChange('default_currency', e.target.value)} />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <Label className="mb-2 block">Company Logo</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center overflow-hidden bg-muted/20">
+                    {config.company_logo ? (
+                      <img src={config.company_logo} alt="Company logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <Image className="h-8 w-8 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={logoUploading}
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                    >
+                      {logoUploading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4 mr-2" />
+                      )}
+                      {logoUploading ? 'Uploading...' : 'Upload Logo'}
+                    </Button>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                    />
+                    {config.company_logo && (
+                      <Button variant="ghost" size="sm" onClick={handleRemoveLogo} className="text-destructive">
+                        Remove
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground">Recommended: PNG or JPG, max 500KB</p>
+                  </div>
+                </div>
+              </div>
+
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Changes
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="loans" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />Loan Default Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Min Loan Amount</Label>
+                  <Input type="number" value={config.min_loan_amount} onChange={(e) => handleChange('min_loan_amount', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Max Loan Amount</Label>
+                  <Input type="number" value={config.max_loan_amount} onChange={(e) => handleChange('max_loan_amount', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Default Loan Term (months)</Label>
+                  <Input type="number" value={config.default_loan_term} onChange={(e) => handleChange('default_loan_term', e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Default Interest Rate (%)</Label>
+                  <Input type="number" step="0.1" value={config.default_interest_rate} onChange={(e) => handleChange('default_interest_rate', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Processing Fee (%)</Label>
+                  <Input type="number" step="0.1" value={config.processing_fee_percentage} onChange={(e) => handleChange('processing_fee_percentage', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Late Fee (%)</Label>
+                  <Input type="number" step="0.1" value={config.late_fee_percentage} onChange={(e) => handleChange('late_fee_percentage', e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Grace Period (days)</Label>
+                  <Input type="number" value={config.grace_period_days} onChange={(e) => handleChange('grace_period_days', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Daily Penalty Rate (%)</Label>
+                  <Input type="number" step="0.1" value={config.penalty_rate_daily} onChange={(e) => handleChange('penalty_rate_daily', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Max Loan Duration (months)</Label>
+                  <Input type="number" value={config.max_loan_duration_months} onChange={(e) => handleChange('max_loan_duration_months', e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <Label className="font-medium">Allow Online Applications</Label>
+                    <p className="text-sm text-muted-foreground">Enable borrowers to apply for loans online</p>
+                  </div>
+                  <Switch checked={config.allow_online_applications === '1'} onCheckedChange={(c) => handleToggle('allow_online_applications', c)} />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <Label className="font-medium">Allow Early Repayment</Label>
+                    <p className="text-sm text-muted-foreground"> Borrowers can repay early</p>
+                  </div>
+                  <Switch checked={config.allow_early_repayment === '1'} onCheckedChange={(c) => handleToggle('allow_early_repayment', c)} />
+                </div>
+              </div>
+              <div>
+                <Label>Early Repayment Penalty (%)</Label>
+                <Input type="number" step="0.1" value={config.early_repayment_penalty} onChange={(e) => handleChange('early_repayment_penalty', e.target.value)} className="w-48" />
+              </div>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Changes
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="categories" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" />Loan Categories</CardTitle>
+              <Button size="sm" onClick={() => openCategoryDialog()}>
+                <Plus className="h-4 w-4 mr-1" /> Add Category
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {categories.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No categories found. Add your first category.</p>
+              ) : (
+                <div className="border rounded-lg divide-y">
+                  {categories.map((cat) => (
+                    <div key={cat.id} className="flex items-center justify-between p-3 hover:bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Package className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{cat.name}</p>
+                          <p className="text-xs text-muted-foreground">Code: {cat.code} | {cat.description || 'No description'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={cat.is_active} onCheckedChange={() => handleToggleCategory(cat.id, cat.is_active)} />
+                        <Button size="sm" variant="ghost" onClick={() => openCategoryDialog(cat)}><Edit className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="products" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" />Loan Products</CardTitle>
+              <Button size="sm" onClick={() => openProductDialog()}>
+                <Plus className="h-4 w-4 mr-1" /> Add Product
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {products.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No products found. Add your first loan product.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs md:text-sm">
+                    <thead className="border-b bg-muted/50">
+                      <tr>
+                        <th className="text-left p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[140px]">Product</th>
+                        <th className="hidden sm:table-cell text-left p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[120px]">Category</th>
+                        <th className="text-right p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[100px]">Amount</th>
+                        <th className="hidden md:table-cell text-center p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[100px]">Term</th>
+                        <th className="text-right p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[80px]">Interest</th>
+                        <th className="text-center p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[80px]">Status</th>
+                        <th className="text-center p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[100px]">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {products.map((prod) => {
+                        const cat = categories.find(c => c.id === prod.category_id);
+                        return (
+                          <tr key={prod.id} className="hover:bg-muted/50">
+                            <td className="p-2 md:p-3 min-w-[140px]">
+                              <p className="font-medium text-xs md:text-sm">{prod.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{prod.code}</p>
+                            </td>
+                            <td className="hidden sm:table-cell p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[120px]">{cat?.name || '-'}</td>
+                            <td className="p-2 md:p-3 text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">KSh {prod.min_amount.toLocaleString()}</td>
+                            <td className="hidden md:table-cell p-2 md:p-3 text-center text-xs md:text-sm whitespace-nowrap min-w-[100px]">{prod.min_term_months}-{prod.max_term_months}mo</td>
+                            <td className="p-2 md:p-3 text-right text-xs md:text-sm whitespace-nowrap min-w-[80px]">{prod.interest_rate}%</td>
+                            <td className="p-2 md:p-3 text-center min-w-[80px]">
+                              <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${prod.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {prod.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="p-2 md:p-3 min-w-[100px]">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleToggleProduct(prod.id, prod.is_active)} title={prod.is_active ? 'Deactivate' : 'Activate'}>
+                                  {prod.is_active ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openProductDialog(prod)}><Edit className="h-3 w-3" /></Button>
+                                <Button size="sm" variant="ghost" className="text-red-600 h-7 w-7 p-0" onClick={() => handleDeleteProduct(prod.id)}><Trash2 className="h-3 w-3" /></Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="requirements" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />Borrower Requirements</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Minimum Credit Score</Label>
+                  <Input type="number" value={config.min_credit_score} onChange={(e) => handleChange('min_credit_score', e.target.value)} />
+                </div>
+                <div>
+                  <Label>Auto-Approve Threshold (KES)</Label>
+                  <Input type="number" value={config.auto_approve_threshold} onChange={(e) => handleChange('auto_approve_threshold', e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <Label className="font-medium">Require ID Verification</Label>
+                    <p className="text-sm text-muted-foreground">Borrowers must verify their national ID</p>
+                  </div>
+                  <Switch checked={config.require_id_verification === '1'} onCheckedChange={(c) => handleToggle('require_id_verification', c)} />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <Label className="font-medium">Require Income Verification</Label>
+                    <p className="text-sm text-muted-foreground">Verify borrower income documents</p>
+                  </div>
+                  <Switch checked={config.require_income_verification === '1'} onCheckedChange={(c) => handleToggle('require_income_verification', c)} />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <Label className="font-medium">Collateral Required</Label>
+                    <p className="text-sm text-muted-foreground">Require collateral for all loans</p>
+                  </div>
+                  <Switch checked={config.collateral_required === '1'} onCheckedChange={(c) => handleToggle('collateral_required', c)} />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <Label className="font-medium">Guarantor Required</Label>
+                    <p className="text-sm text-muted-foreground">Require guarantor for all loans</p>
+                  </div>
+                  <Switch checked={config.guarantor_required === '1'} onCheckedChange={(c) => handleToggle('guarantor_required', c)} />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <Label className="font-medium">Require Guarantor/Collateral</Label>
+                    <p className="text-sm text-muted-foreground">At least one of guarantor or collateral required</p>
+                  </div>
+                  <Switch checked={config.require_guarantor_collateral === '1'} onCheckedChange={(c) => handleToggle('require_guarantor_collateral', c)} />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                  <div>
+                    <Label className="font-medium">Maintenance Mode</Label>
+                    <p className="text-sm text-muted-foreground">Put system in maintenance mode</p>
+                  </div>
+                  <Switch checked={config.maintenance_mode === '1'} onCheckedChange={(c) => handleToggle('maintenance_mode', c)} />
+                </div>
+              </div>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Changes
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" />Notification Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <Label className="font-medium">Enable Notifications</Label>
+                  <p className="text-sm text-muted-foreground">Enable in-app notifications</p>
+                </div>
+                <Switch checked={config.enable_notifications === '1'} onCheckedChange={(c) => handleToggle('enable_notifications', c)} />
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <Label className="font-medium">Email Notifications</Label>
+                  <p className="text-sm text-muted-foreground">Send email notifications to users</p>
+                </div>
+                <Switch checked={config.enable_email_notifications === '1'} onCheckedChange={(c) => handleToggle('enable_email_notifications', c)} />
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <Label className="font-medium">SMS Notifications</Label>
+                  <p className="text-sm text-muted-foreground">Send SMS notifications to users</p>
+                </div>
+                <Switch checked={config.enable_sms_notifications === '1'} onCheckedChange={(c) => handleToggle('enable_sms_notifications', c)} />
+              </div>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Changes
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" />Email Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <strong>SMTP Setup:</strong> Configure your email settings to send receipts, invoices, and notifications to borrowers. Common providers: Gmail, Outlook, SendGrid.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>SMTP Host *</Label>
+                  <Input
+                    value={emailSettings.smtp_host}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_host: e.target.value })}
+                    placeholder="e.g., smtp.gmail.com"
+                  />
+                </div>
+                <div>
+                  <Label>SMTP Port *</Label>
+                  <Input
+                    type="number"
+                    value={emailSettings.smtp_port}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_port: e.target.value })}
+                    placeholder="e.g., 587 or 465"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Username/Email *</Label>
+                  <Input
+                    type="email"
+                    value={emailSettings.smtp_user}
+                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_user: e.target.value })}
+                    placeholder="e.g., your-email@gmail.com"
+                  />
+                </div>
+                <div>
+                  <Label>Password/App Password {passwordRequired && <span className="text-red-500">*</span>}</Label>
+                  <Input
+                    type="password"
+                    value={emailSettings.smtp_pass}
+                    onChange={(e) => { setEmailSettings({ ...emailSettings, smtp_pass: e.target.value }); setSmtpPassChanged(true); }}
+                    placeholder={passwordRequired ? 'SMTP password is required' : (smtpPassChanged ? '' : '(unchanged — enter new value to change)')}
+                    required={passwordRequired}
+                  />
+                  {!smtpPassChanged && emailSettings.smtp_host && !passwordRequired && (
+                    <p className="text-xs text-muted-foreground mt-1">Leave empty to keep existing password</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label>From Address *</Label>
+                <Input
+                  type="email"
+                  value={emailSettings.smtp_from}
+                  onChange={(e) => setEmailSettings({ ...emailSettings, smtp_from: e.target.value })}
+                  placeholder="e.g., noreply@lendingapp.com"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button onClick={handleSaveEmailSettings} disabled={emailSaving}>
+                  {emailSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Email Settings
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleTestEmailSettings}
+                  disabled={emailTesting || !emailSettings.smtp_host || !emailSettings.smtp_user || !emailSettings.smtp_pass}
+                >
+                  {emailTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                  Test Connection
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="mpesa" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Smartphone className="h-5 w-5" />M-Pesa Daraja Integration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <strong>M-Pesa Setup:</strong> Get your credentials from <a href="https://developer.safaricom.co.ke" target="_blank" rel="noopener noreferrer" className="underline font-medium">Safaricom Developer Portal</a>.
+                  Choose <strong>Sandbox</strong> for testing, <strong>Production</strong> for live transactions.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <Label className="font-medium">Enable M-Pesa</Label>
+                  <p className="text-sm text-muted-foreground">Allow borrowers to pay via M-Pesa & admins to disburse funds</p>
+                </div>
+                <Switch checked={config.enable_mpesa === '1'} onCheckedChange={(c) => handleToggle('enable_mpesa', c)} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Environment</Label>
+                  <select className="w-full p-2 border rounded-md" value={config.mpesa_environment || 'sandbox'} onChange={(e) => handleChange('mpesa_environment', e.target.value)}>
+                    <option value="sandbox">Sandbox (Testing)</option>
+                    <option value="production">Production (Live)</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Business Short Code</Label>
+                  <Input
+                    type="password"
+                    value={config.mpesa_business_shortcode || ''}
+                    onChange={(e) => handleChange('mpesa_business_shortcode', e.target.value)}
+                    placeholder="e.g., 174379"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Consumer Key</Label>
+                  <Input
+                    type="password"
+                    value={config.mpesa_consumer_key || ''}
+                    onChange={(e) => handleChange('mpesa_consumer_key', e.target.value)}
+                    placeholder="From Safaricom API"
+                  />
+                </div>
+                <div>
+                  <Label>Consumer Secret</Label>
+                  <Input
+                    type="password"
+                    value={config.mpesa_consumer_secret || ''}
+                    onChange={(e) => handleChange('mpesa_consumer_secret', e.target.value)}
+                    placeholder="From Safaricom API"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Passkey</Label>
+                <Input
+                  type="password"
+                  value={config.mpesa_passkey || ''}
+                  onChange={(e) => handleChange('mpesa_passkey', e.target.value)}
+                  placeholder="From Safaricom for STK Push"
+                />
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                <p className="font-medium mb-4 text-sm">Callback URLs (Register in Safaricom API Console)</p>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>C2B Validation URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_c2b_validation_url || `${window.location.origin}/api/mpesa/c2b/validate`}
+                        onChange={(e) => handleChange('mpesa_c2b_validation_url', e.target.value)}
+                        placeholder="Customer validation endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_c2b_validation_url || `${window.location.origin}/api/mpesa/c2b/validate`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs here to validate customer data</p>
+                  </div>
+
+                  <div>
+                    <Label>C2B Confirmation URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_c2b_confirmation_url || `${window.location.origin}/api/mpesa/c2b/confirm`}
+                        onChange={(e) => handleChange('mpesa_c2b_confirmation_url', e.target.value)}
+                        placeholder="Transaction confirmation endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_c2b_confirmation_url || `${window.location.origin}/api/mpesa/c2b/confirm`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs confirmed transactions here</p>
+                  </div>
+
+                  <div>
+                    <Label>C2B Timeout URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_c2b_timeout_url || `${window.location.origin}/api/mpesa/c2b/timeout`}
+                        onChange={(e) => handleChange('mpesa_c2b_timeout_url', e.target.value)}
+                        placeholder="Timeout/cancellation endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_c2b_timeout_url || `${window.location.origin}/api/mpesa/c2b/timeout`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs timeouts/cancellations here</p>
+                  </div>
+
+                  <div>
+                    <Label>STK Push Callback URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_stk_callback_url || `${window.location.origin}/api/mpesa/stk/callback`}
+                        onChange={(e) => handleChange('mpesa_stk_callback_url', e.target.value)}
+                        placeholder="STK response endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_stk_callback_url || `${window.location.origin}/api/mpesa/stk/callback`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs STK results here (borrower payment)</p>
+                  </div>
+
+                  <div>
+                    <Label>B2C Result URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_b2c_result_url || `${window.location.origin}/api/mpesa/b2c/result`}
+                        onChange={(e) => handleChange('mpesa_b2c_result_url', e.target.value)}
+                        placeholder="B2C result endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_b2c_result_url || `${window.location.origin}/api/mpesa/b2c/result`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs disbursement results here</p>
+                  </div>
+
+                  <div>
+                    <Label>B2C Timeout URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={config.mpesa_b2c_timeout_url || `${window.location.origin}/api/mpesa/b2c/timeout`}
+                        onChange={(e) => handleChange('mpesa_b2c_timeout_url', e.target.value)}
+                        placeholder="B2C timeout endpoint"
+                        className="flex-1 text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.mpesa_b2c_timeout_url || `${window.location.origin}/api/mpesa/b2c/timeout`);
+                          setMpesaCopied(true);
+                          setTimeout(() => setMpesaCopied(false), 2000);
+                        }}
+                      >
+                        {mpesaCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Safaricom POSTs B2C timeouts here</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-900 font-medium mb-2">URL Registration Checklist:</p>
+                <ul className="text-xs text-yellow-800 space-y-1 list-disc list-inside">
+                  <li>Copy each URL above (use copy buttons)</li>
+                  <li>Register C2B URLs in Safaricom for Paybill/Till</li>
+                  <li>Register STK URL for STK Push callback</li>
+                  <li>Register B2C URLs for disbursement results</li>
+                  <li>All URLs must be HTTPS and publicly accessible</li>
+                  <li>Test in Sandbox before registering Production URLs</li>
+                </ul>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={testMpesaCredentials}
+                  disabled={testingMpesa || !config.enable_mpesa}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  {testingMpesa ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckIcon className="h-4 w-4 mr-2" />}
+                  Test Credentials
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full sm:w-auto"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save M-Pesa Settings
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Category Dialog */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Name *</Label>
+              <Input value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} placeholder="e.g., Personal Loans" />
+            </div>
+            <div>
+              <Label>Code *</Label>
+              <Input value={categoryForm.code} onChange={(e) => setCategoryForm({ ...categoryForm, code: e.target.value })} placeholder="e.g., PERSONAL" />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} placeholder="Optional description" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveCategory} disabled={categorySaving}>
+              {categorySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (editingCategory ? 'Update' : 'Create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Dialog */}
+      <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingProduct ? 'Edit Product' : 'Add Loan Product'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Category</Label>
+                <select className="w-full p-2 border rounded-md" value={productForm.category_id} onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })}>
+                  <option value="">Select category</option>
+                  {categories.filter(c => c.is_active).map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Name *</Label>
+                <Input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} placeholder="e.g., Quick Loan" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Code</Label>
+                <Input value={productForm.code} onChange={(e) => setProductForm({ ...productForm, code: e.target.value })} placeholder="e.g., QUICK" />
+              </div>
+              <div>
+                <Label>Interest Type</Label>
+                <select className="w-full p-2 border rounded-md" value={productForm.interest_type} onChange={(e) => setProductForm({ ...productForm, interest_type: e.target.value })}>
+                  <option value="flat">Flat</option>
+                  <option value="reducing">Reducing Balance</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} placeholder="Optional description" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Min Amount *</Label>
+                <Input type="number" value={productForm.min_amount} onChange={(e) => setProductForm({ ...productForm, min_amount: e.target.value })} />
+              </div>
+              <div>
+                <Label>Max Amount *</Label>
+                <Input type="number" value={productForm.max_amount} onChange={(e) => setProductForm({ ...productForm, max_amount: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Min Term (months)</Label>
+                <Input type="number" value={productForm.min_term_months} onChange={(e) => setProductForm({ ...productForm, min_term_months: e.target.value })} />
+              </div>
+              <div>
+                <Label>Max Term (months)</Label>
+                <Input type="number" value={productForm.max_term_months} onChange={(e) => setProductForm({ ...productForm, max_term_months: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Interest Rate (%)</Label>
+                <Input type="number" step="0.1" value={productForm.interest_rate} onChange={(e) => setProductForm({ ...productForm, interest_rate: e.target.value })} />
+              </div>
+              <div>
+                <Label>Processing Fee (%)</Label>
+                <Input type="number" step="0.1" value={productForm.processing_fee_percent} onChange={(e) => setProductForm({ ...productForm, processing_fee_percent: e.target.value })} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProductDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveProduct} disabled={productSaving}>
+              {productSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (editingProduct ? 'Update' : 'Create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Custom Alert */}
+      {AlertComponent}
+    </div>
+  );
+}
