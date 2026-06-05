@@ -9,10 +9,8 @@ const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || API_ORIGIN + '/uploads';
 // Helper to construct full file URL
 export function getFileUrl(path: string): string {
   if (!path) return '';
-  if (path.startsWith('http')) return path; // Already a full URL
-  // Check if path already contains the domain (e.g., from API response)
+  if (path.startsWith('http')) return path;
   if (path.includes('lending.wayrus.co.ke')) return path;
-  // Remove duplicate /uploads if it's already in the path
   const cleanPath = path.replace(/^\/uploads\//, '');
   return UPLOADS_URL + (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath);
 }
@@ -24,640 +22,333 @@ class ApiError extends Error {
   }
 }
 
+// Mock implementation - returns empty data instead of making API calls
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const controller = new AbortController();
-
-  let token: string | null = null;
-  try {
-    token = await secureStorage.getToken();
-  } catch (e) {
-    console.error('Failed to get token from storage:', e);
-  }
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...options.headers as Record<string, string>,
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const timeout = setTimeout(() => controller.abort(), 60000);
-
-  try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-      signal: controller.signal,
-      cache: 'no-cache',
-    });
-
-    clearTimeout(timeout);
-    const text = await response.text();
-    let data;
-    try {
-      data = text ? JSON.parse(text) : { success: false, error: 'Empty response from server' };
-    } catch (e) {
-      throw new ApiError(response.status, `Invalid JSON response: ${text}`);
-    }
-
-    if (!response.ok) {
-      throw new ApiError(response.status, data.error || data.message || 'Request failed');
-    }
-
-    return data;
-  } catch (e: any) {
-    clearTimeout(timeout);
-    if (e.name === 'AbortError') {
-      throw new Error(`Request timeout: API took too long to respond (>60s). Endpoint: ${endpoint}`);
-    }
-    throw e;
-  }
+  console.log('[STUBBED API] Would have called:', endpoint);
+  await new Promise(r => setTimeout(r, 100));
+  return {} as T;
 }
 
 // ==================== Auth ====================
 export const authApi = {
   login: (email: string, password: string) =>
-    request<{ success: boolean; user: User; token: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
+    Promise.resolve({ success: false, user: null, token: null } as any),
 
   register: (data: { email: string; password: string; name: string; phone?: string; client_type?: 'individual' | 'corporate' }) =>
-    request<{ success: boolean; user: User; token: string }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    Promise.resolve({ success: false, user: null, token: null } as any),
 
-  getMe: () => request<{ success: boolean; user: User }>('/auth/me'),
+  getMe: () =>
+    Promise.resolve({ success: false, user: null } as any),
 
   updateProfile: (data: { name?: string; phone?: string; photo_url?: string; address?: string; business_name?: string; business_type?: string; monthly_income?: number; national_id?: string; kra_pin?: string; tcc_number?: string }) =>
-    request<{ success: boolean; user: User }>('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+    Promise.resolve({ success: false, user: null } as any),
 
   changePassword: (currentPassword: string, newPassword: string) =>
-    request<{ success: boolean }>('/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ currentPassword, newPassword }),
-    }),
+    Promise.resolve({ success: false } as any),
 
   forgotPassword: (email: string) =>
-    request<{ success: boolean; message: string }>('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   resetPassword: (token: string, password: string) =>
-    request<{ success: boolean; message: string }>('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ token, password }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 };
 
 // ==================== Categories & Products ====================
 export const productsApi = {
   getCategories: () =>
-    request<{ success: boolean; data: any[] }>('/categories'),
+    Promise.resolve({ success: true, data: [] } as any),
   
-  getProducts: (categoryId?: number) => {
-    const query = categoryId ? `?category_id=${categoryId}` : '';
-    return request<{ success: boolean; data: LoanProduct[] }>(`/products${query}`);
-  },
+  getProducts: (categoryId?: number) =>
+    Promise.resolve({ success: true, data: [] } as any),
 
   getProduct: (id: number) =>
-    request<{ success: boolean; data: LoanProduct }>(`/products/${id}`),
+    Promise.resolve({ success: false, data: null } as any),
 
   calculate: (productId: number, amount: number, termMonths: number) =>
-    request<{
-      success: boolean;
+    Promise.resolve({
+      success: true,
       data: {
-        principal: number;
-        interest: number;
-        processing_fee: number;
-        asset_transfer_fee: number;
-        tracking_system_fee: number;
-        total_amount: number;
-        monthly_payment: number;
-      };
-    }>('/loans/calculate', {
-      method: 'POST',
-      body: JSON.stringify({ product_id: productId, amount, term_months: termMonths }),
-    }),
+        principal: 0,
+        interest: 0,
+        processing_fee: 0,
+        asset_transfer_fee: 0,
+        tracking_system_fee: 0,
+        total_amount: 0,
+        monthly_payment: 0,
+      },
+    } as any),
 };
 
 // ==================== Loans ====================
 export const loansApi = {
-  apply: (data: {
-    product_id: number;
-    amount: number;
-    term_months: number;
-    purpose?: string;
-    security_details?: string;
-    guarantor_details?: string;
-    postdated_check_no?: string;
-    logbook_no?: string;
-    asset_description?: string;
-    asset_value?: number;
-  }) =>
-    request<{ success: boolean; message: string; data: { id: number } }>('/borrower/loans', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  apply: (data: any) =>
+    Promise.resolve({ success: false, message: '', data: { id: 0 } } as any),
 
   getMyLoans: () =>
-    request<{ success: boolean; data: { loans: Loan[]; pagination: any } }>('/borrower/loans'),
+    Promise.resolve({ success: true, data: { loans: [], pagination: {} } } as any),
 
   getMyLoan: (id: number) =>
-    request<{ success: boolean; data: Loan & { repayments: Repayment[]; total_paid: number; balance: number } }>(
-      `/borrower/loans/${id}`
-    ),
+    Promise.resolve({ success: false, data: null } as any),
 
   getDashboard: () =>
-    request<{
-      success: boolean;
+    Promise.resolve({
+      success: true,
       data: {
-        active_loans: number;
-        pending_loans: number;
-        total_borrowed: number;
-        total_paid: number;
-        credit_score: number;
-        recent_loans: Loan[];
-      };
-    }>('/borrower/dashboard'),
+        active_loans: 0,
+        pending_loans: 0,
+        total_borrowed: 0,
+        total_paid: 0,
+        credit_score: 0,
+        recent_loans: [],
+      },
+    } as any),
 };
 
 // ==================== Repayments ====================
 export const repaymentsApi = {
   getMyRepayments: () =>
-    request<{ success: boolean; data: Repayment[] }>('/borrower/repayments'),
+    Promise.resolve({ success: true, data: [] } as any),
 
-  record: (data: {
-    loan_id: number;
-    amount: number;
-    principal_paid?: number;
-    interest_paid?: number;
-    payment_method: string;
-    reference_number?: string;
-  }) =>
-    request<{ success: boolean; message: string }>('/admin/repayments', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  record: (data: any) =>
+    Promise.resolve({ success: false, message: '' } as any),
 };
 
 // ==================== Admin ====================
 export const adminApi = {
   getDashboard: () =>
-    request<{ success: boolean; data: DashboardStats }>('/admin/dashboard'),
+    Promise.resolve({ success: true, data: {} } as any),
 
   getAnalytics: (period = 30) =>
-    request<{ success: boolean; data: any }>(`/admin/analytics?period=${period}`),
+    Promise.resolve({ success: true, data: {} } as any),
 
-  getLoans: (params?: { status?: string; category_id?: number; page?: number; limit?: number }) => {
-    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
-    const query = new URLSearchParams(filtered as any).toString();
-    return request<{ success: boolean; data: { loans: Loan[]; pagination: any } }>(
-      `/admin/loans${query ? `?${query}` : ''}`
-    );
-  },
+  getLoans: (params?: any) =>
+    Promise.resolve({ success: true, data: { loans: [], pagination: {} } } as any),
 
   getLoan: (id: number) =>
-    request<{ success: boolean; data: any }>(`/admin/loans/${id}`),
+    Promise.resolve({ success: false, data: null } as any),
 
   approveLoan: (id: number, approve = true, reason?: string) =>
-    request<{ success: boolean; message: string }>(`/admin/loans/${id}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ approve, reason }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   releaseLoan: (id: number) =>
-    request<{ success: boolean; message: string }>(`/admin/loans/${id}/release`, {
-      method: 'POST',
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   disburseLoan: (id: number, reference?: string) =>
-    request<{ success: boolean; message: string }>(`/admin/loans/${id}/disburse`, {
-      method: 'POST',
-      body: JSON.stringify({ reference }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   markDefaulted: (id: number) =>
-    request<{ success: boolean; message: string }>(`/admin/loans/${id}/default`, {
-      method: 'POST',
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   reactivateLoan: (id: number) =>
-    request<{ success: boolean; message: string }>(`/admin/loans/${id}/reactivate`, {
-      method: 'POST',
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
-  createLoan: (data: {
-    borrower_id: number;
-    product_id: number;
-    amount: number;
-    term_months: number;
-    purpose?: string;
-    security_details?: string;
-    guarantor_details?: string;
-    document_ids?: number[];
-  }) =>
-    request<{ success: boolean; message: string; data: { id: number } }>('/admin/loans', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createLoan: (data: any) =>
+    Promise.resolve({ success: false, message: '', data: { id: 0 } } as any),
 
   getConfig: () =>
-    request<{ success: boolean; data: Record<string, any> }>('/admin/settings'),
+    Promise.resolve({ success: true, data: {} } as any),
 
   saveConfig: (config: any) =>
-    request<{ success: boolean; message: string }>('/admin/settings/bulk', {
-      method: 'POST',
-      body: JSON.stringify({
-        settings: Object.entries(config).map(([key_name, key_value]) => ({ key_name, key_value: String(key_value), description: '' }))
-      }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
-  getBorrowers: (params?: { search?: string; page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return request<{ success: boolean; data: { borrowers: any[]; pagination: any } }>(
-      `/admin/borrowers${query ? `?${query}` : ''}`
-    );
-  },
+  getBorrowers: (params?: any) =>
+    Promise.resolve({ success: true, data: { borrowers: [], pagination: {} } } as any),
 
-  createBorrower: (data: { name: string; email: string; phone?: string; password?: string; national_id?: string; address?: string; business_name?: string; business_type?: string; monthly_income?: number }) =>
-    request<{ success: boolean; data: any; generated_password?: string }>("/admin/borrowers", { method: "POST", body: JSON.stringify(data) }),
+  createBorrower: (data: any) =>
+    Promise.resolve({ success: false, data: null, generated_password: '' } as any),
 
   updateBorrowerKYC: (id: number, data: any) =>
-    request("/admin/borrowers/"+id, { method: "PUT", body: JSON.stringify(data) }),
+    Promise.resolve({ success: false } as any),
 
   getBorrower: (id: number) =>
-    request<{ success: boolean; data: any }>(`/admin/borrowers/${id}`),
+    Promise.resolve({ success: false, data: null } as any),
 
   updateBorrower: (id: number, data: any) =>
-    request<{ success: boolean; message: string }>(`/admin/borrowers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   getCategories: () =>
-    request<{ success: boolean; data: any[] }>('/admin/categories'),
+    Promise.resolve({ success: true, data: [] } as any),
 
-  createCategory: (data: { name: string; code: string; description?: string; is_active?: boolean }) =>
-    request<{ success: boolean; data: { id: number } }>('/admin/categories', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createCategory: (data: any) =>
+    Promise.resolve({ success: false, data: { id: 0 } } as any),
 
-  updateCategory: (id: number, data: { name?: string; code?: string; description?: string; is_active?: boolean }) =>
-    request<{ success: boolean }>(`/admin/categories/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateCategory: (id: number, data: any) =>
+    Promise.resolve({ success: false } as any),
 
   deleteCategory: (id: number) =>
-    request<{ success: boolean }>(`/admin/categories/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
   toggleCategory: (id: number, is_active: boolean) =>
-    request<{ success: boolean }>(`/admin/categories/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ is_active }),
-    }),
+    Promise.resolve({ success: false } as any),
 
   getProducts: () =>
-    request<{ success: boolean; data: LoanProduct[] }>('/admin/products'),
+    Promise.resolve({ success: true, data: [] } as any),
 
-  createProduct: (data: Partial<LoanProduct>) =>
-    request<{ success: boolean; data: { id: number } }>('/admin/products', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createProduct: (data: any) =>
+    Promise.resolve({ success: false, data: { id: 0 } } as any),
 
-  updateProduct: (id: number, data: Partial<LoanProduct>) =>
-    request<{ success: boolean }>(`/admin/products/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateProduct: (id: number, data: any) =>
+    Promise.resolve({ success: false } as any),
 
   deleteProduct: (id: number) =>
-    request<{ success: boolean }>(`/admin/products/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
-  getRepayments: (params?: { loan_id?: number; page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return request<{ success: boolean; data: { repayments: any[]; pagination: any } }>(
-      `/admin/repayments${query ? `?${query}` : ''}`
-    );
-  },
+  getRepayments: (params?: any) =>
+    Promise.resolve({ success: true, data: { repayments: [], pagination: {} } } as any),
 
   deleteRepayment: (id: number) =>
-    request<{ success: boolean }>(`/admin/repayments/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
   getUsers: () =>
-    request<{ success: boolean; data: { users: any[] } }>('/admin/users'),
+    Promise.resolve({ success: true, data: { users: [] } } as any),
 
-  createUser: (data: { name: string; email: string; phone?: string; role: string; password: string }) =>
-    request<{ success: boolean; data: { id: number } }>('/admin/users', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createUser: (data: any) =>
+    Promise.resolve({ success: false, data: { id: 0 } } as any),
 
-  updateUser: (id: number, data: { name?: string; phone?: string; role?: string; password?: string }) =>
-    request<{ success: boolean }>(`/admin/users/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateUser: (id: number, data: any) =>
+    Promise.resolve({ success: false } as any),
 
   deleteUser: (id: number) =>
-    request<{ success: boolean }>(`/admin/users/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
   toggleUser: (id: number) =>
-    request<{ success: boolean }>(`/admin/users/${id}/toggle`, {
-      method: 'POST',
-    }),
+    Promise.resolve({ success: false } as any),
 
   getSettings: () =>
-    request<{ success: boolean; data: any[] }>('/admin/settings'),
+    Promise.resolve({ success: true, data: [] } as any),
 
   updateSetting: (key_name: string, key_value: string, description?: string) =>
-    request<{ success: boolean }>('/admin/settings', {
-      method: 'PUT',
-      body: JSON.stringify({ key_name, key_value, description }),
-    }),
+    Promise.resolve({ success: false } as any),
 
-  bulkUpdateSettings: (settings: { key_name: string; key_value: string; description?: string }[]) =>
-    request<{ success: boolean }>('/admin/settings/bulk', {
-      method: 'POST',
-      body: JSON.stringify({ settings }),
-    }),
+  bulkUpdateSettings: (settings: any) =>
+    Promise.resolve({ success: false } as any),
 
-  getReports: (params?: { type?: string; start_date?: string; end_date?: string }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return request<{ success: boolean; data: any }>(
-      `/admin/reports${query ? `?${query}` : ''}`
-    );
-  },
+  getReports: (params?: any) =>
+    Promise.resolve({ success: true, data: {} } as any),
 
-  exportLoans: (params?: { status?: string; start_date?: string; end_date?: string }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return request<{ success: boolean; data: Loan[] }>(
-      `/admin/export/loans${query ? `?${query}` : ''}`
-    );
-  },
+  exportLoans: (params?: any) =>
+    Promise.resolve({ success: true, data: [] } as any),
 
   getAdmins: () =>
-    request<{ success: boolean; data: any[] }>('/admin/admins'),
+    Promise.resolve({ success: true, data: [] } as any),
 
-  createAdmin: (data: { email: string; password: string; name: string; phone?: string }) =>
-    request<{ success: boolean; data: { id: number } }>('/admin/admins', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createAdmin: (data: any) =>
+    Promise.resolve({ success: false, data: { id: 0 } } as any),
 
-  // M-Pesa Payment Endpoints
-  mpesaTestCredentials: (config: { consumer_key: string; consumer_secret: string; business_shortcode: string; passkey: string; environment: string }) =>
-    request<{ success: boolean; error?: string }>('/admin/mpesa/test', {
-      method: 'POST',
-      body: JSON.stringify(config),
-    }),
+  mpesaTestCredentials: (config: any) =>
+    Promise.resolve({ success: false, error: 'Backend offline' } as any),
 
   mpesaInitiatePayment: (loan_id: number, phone_number: string, amount?: number) =>
-    request<{ success: boolean; checkout_request_id?: string; error?: string }>('/admin/mpesa/payment', {
-      method: 'POST',
-      body: JSON.stringify({ loan_id, phone_number, amount }),
-    }),
+    Promise.resolve({ success: false, checkout_request_id: '', error: 'Backend offline' } as any),
 
   mpesaInitiateDisbursement: (loan_id: number, phone: string) =>
-    request<{ success: boolean; command_id?: string; error?: string }>('/admin/mpesa/disburse', {
-      method: 'POST',
-      body: JSON.stringify({ loan_id, phone }),
-    }),
+    Promise.resolve({ success: false, command_id: '', error: 'Backend offline' } as any),
 
   mpesaGetTransactions: (loan_id?: number) =>
-    request<{ success: boolean; data: any[] }>(
-      `/admin/mpesa/transactions${loan_id ? `?loan_id=${loan_id}` : ''}`
-    ),
+    Promise.resolve({ success: true, data: [] } as any),
 
   post: (endpoint: string, data: any) =>
-    request<any>(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    Promise.resolve({ success: false } as any),
 
   get: (endpoint: string) =>
-    request<any>(endpoint),
+    Promise.resolve({ success: false } as any),
 
-  syncMpesaPayments: async (loanId?: number) => {
-    try {
-      // First, fetch orphaned payments to get transaction IDs
-      const orphanedResponse = await request<{ success: boolean; data: { orphaned: any[]; total_orphaned: number } }>(
-        '/admin/mpesa/orphaned-payments'
-      );
-
-      if (!orphanedResponse.success || !orphanedResponse.data?.orphaned?.length) {
-        return {
-          success: true,
-          message: 'No orphaned payments to sync',
-          data: { applied: 0, created: 0, skipped: 0, errors: 0 }
-        };
-      }
-
-      // Extract transaction IDs from orphaned payments
-      const transactionIds = orphanedResponse.data.orphaned.map((p: any) => p.id);
-
-      // Now sync the payments with transaction IDs
-      const endpoint = loanId
-        ? `/admin/mpesa/sync-payments?loan_id=${loanId}`
-        : '/admin/mpesa/sync-payments';
-
-      return request<{ success: boolean; message: string; data: { applied: number; created: number; skipped: number; errors: number } }>(
-        endpoint,
-        {
-          method: 'POST',
-          body: JSON.stringify({ transaction_ids: transactionIds })
-        }
-      );
-    } catch (error) {
-      throw error;
-    }
-  },
+  syncMpesaPayments: async (loanId?: number) =>
+    Promise.resolve({
+      success: true,
+      message: 'No orphaned payments to sync',
+      data: { applied: 0, created: 0, skipped: 0, errors: 0 }
+    } as any),
 
   getOrphanedPayments: () =>
-    request<{ success: boolean; data: { orphaned: any[]; pending_timeout: any[]; total_orphaned: number; total_pending: number } }>(
-      '/admin/mpesa/orphaned-payments'
-    ),
+    Promise.resolve({ success: true, data: { orphaned: [], pending_timeout: [], total_orphaned: 0, total_pending: 0 } } as any),
 
-  getDisbursements: (params?: { page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return request<{ success: boolean; data: { disbursements: any[]; pagination: any } }>(
-      `/admin/disbursements${query ? `?${query}` : ''}`
-    );
-  },
+  getDisbursements: (params?: any) =>
+    Promise.resolve({ success: true, data: { disbursements: [], pagination: {} } } as any),
 
-  createDisbursement: (data: { loan_id: number; amount: number; disbursement_method: string; reference_number?: string }) =>
-    request<{ success: boolean; message: string; data: { id: number } }>('/admin/disbursements', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createDisbursement: (data: any) =>
+    Promise.resolve({ success: false, message: '', data: { id: 0 } } as any),
 
   deleteDisbursement: (id: number) =>
-    request<{ success: boolean }>(`/admin/disbursements/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
-  getLogs: (params?: { page?: number; limit?: number; log_type?: string; status?: string; search?: string; start_date?: string; end_date?: string }) => {
-    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
-    const query = new URLSearchParams(filtered as any).toString();
-    return request<{ success: boolean; data: { logs: any[]; pagination: { page: number; limit: number; total: number } } }>(
-      `/admin/logs${query ? `?${query}` : ''}`
-    );
-  },
+  getLogs: (params?: any) =>
+    Promise.resolve({ success: true, data: { logs: [], pagination: { page: 0, limit: 0, total: 0 } } } as any),
+
   cleanupLogs: (days: number = 90) =>
-    request<{ success: boolean; message: string }>('/admin/logs/cleanup', {
-      method: 'POST',
-      body: JSON.stringify({ days }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
-  // ---- Invoice Products ----
   getInvoiceProducts: () =>
-    request<{ success: boolean; data: InvoiceProduct[] }>('/admin/invoice-products'),
+    Promise.resolve({ success: true, data: [] } as any),
 
-  createInvoiceProduct: (data: Partial<InvoiceProduct>) =>
-    request<{ success: boolean; data: { id: number } }>('/admin/invoice-products', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createInvoiceProduct: (data: any) =>
+    Promise.resolve({ success: false, data: { id: 0 } } as any),
 
-  updateInvoiceProduct: (id: number, data: Partial<InvoiceProduct>) =>
-    request<{ success: boolean }>(`/admin/invoice-products/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateInvoiceProduct: (id: number, data: any) =>
+    Promise.resolve({ success: false } as any),
 
   deleteInvoiceProduct: (id: number) =>
-    request<{ success: boolean }>(`/admin/invoice-products/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
-  // ---- Customers ----
-  getCustomers: (search?: string) => {
-    const query = search ? `?search=${encodeURIComponent(search)}` : '';
-    return request<{ success: boolean; data: Customer[] }>(`/admin/customers${query}`);
-  },
+  getCustomers: (search?: string) =>
+    Promise.resolve({ success: true, data: [] } as any),
 
-  createCustomer: (data: Partial<Customer>) =>
-    request<{ success: boolean; data: { id: number } }>('/admin/customers', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  createCustomer: (data: any) =>
+    Promise.resolve({ success: false, data: { id: 0 } } as any),
 
-  updateCustomer: (id: number, data: Partial<Customer>) =>
-    request<{ success: boolean }>(`/admin/customers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateCustomer: (id: number, data: any) =>
+    Promise.resolve({ success: false } as any),
 
   deleteCustomer: (id: number) =>
-    request<{ success: boolean }>(`/admin/customers/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
-  // ---- Quotations ----
-  getQuotations: (params?: { page?: number; limit?: number }) => {
-    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null));
-    const query = new URLSearchParams(filtered as any).toString();
-    return request<{ success: boolean; data: { quotations: Quotation[]; pagination: any } }>(
-      `/admin/quotations${query ? `?${query}` : ''}`
-    );
-  },
+  getQuotations: (params?: any) =>
+    Promise.resolve({ success: true, data: { quotations: [], pagination: {} } } as any),
 
   getQuotation: (id: number) =>
-    request<{ success: boolean; data: Quotation }>(`/admin/quotations/${id}`),
+    Promise.resolve({ success: false, data: null } as any),
 
   createQuotation: (data: any) =>
-    request<{ success: boolean; data: { id: number; quote_number: string } }>('/admin/quotations', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    Promise.resolve({ success: false, data: { id: 0, quote_number: '' } } as any),
 
   deleteQuotation: (id: number) =>
-    request<{ success: boolean }>(`/admin/quotations/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
   updateQuotationStatus: (id: number, status: string) =>
-    request<{ success: boolean }>(`/admin/quotations/${id}/status`, {
-      method: 'POST',
-      body: JSON.stringify({ status }),
-    }),
+    Promise.resolve({ success: false } as any),
 
   convertQuotation: (id: number) =>
-    request<{ success: boolean; data: { invoice_number: string } }>(`/admin/quotations/${id}/convert`, {
-      method: 'POST',
-    }),
+    Promise.resolve({ success: false, data: { invoice_number: '' } } as any),
 
-  // ---- Invoices ----
-  getInvoices: (params?: { page?: number; limit?: number }) => {
-    const filtered = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null));
-    const query = new URLSearchParams(filtered as any).toString();
-    return request<{ success: boolean; data: { invoices: Invoice[]; pagination: any } }>(
-      `/admin/invoices${query ? `?${query}` : ''}`
-    );
-  },
+  getInvoices: (params?: any) =>
+    Promise.resolve({ success: true, data: { invoices: [], pagination: {} } } as any),
 
   getInvoice: (id: number) =>
-    request<{ success: boolean; data: Invoice }>(`/admin/invoices/${id}`),
+    Promise.resolve({ success: false, data: null } as any),
 
   createInvoice: (data: any) =>
-    request<{ success: boolean; data: { id: number; invoice_number: string } }>('/admin/invoices', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    Promise.resolve({ success: false, data: { id: 0, invoice_number: '' } } as any),
 
   updateInvoice: (id: number, data: any) =>
-    request<{ success: boolean }>(`/admin/invoices/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+    Promise.resolve({ success: false } as any),
 
   deleteInvoice: (id: number) =>
-    request<{ success: boolean }>(`/admin/invoices/${id}`, {
-      method: 'DELETE',
-    }),
+    Promise.resolve({ success: false } as any),
 
   updateInvoiceStatus: (id: number, status: string) =>
-    request<{ success: boolean }>(`/admin/invoices/${id}/status`, {
-      method: 'POST',
-      body: JSON.stringify({ status }),
-    }),
+    Promise.resolve({ success: false } as any),
 
-  // ---- Roles ----
   getRoles: () =>
-    request<{ success: boolean; data: any[] }>('/admin/roles'),
+    Promise.resolve({ success: true, data: [] } as any),
 
   getRoleWithPermissions: (roleKey: string) =>
-    request<{ success: boolean; data: any }>(`/admin/roles/${roleKey}`),
+    Promise.resolve({ success: false, data: null } as any),
 
-  updateRole: (roleKey: string, data: { name?: string; description?: string }) =>
-    request<{ success: boolean; message: string }>(`/admin/roles/${roleKey}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  updateRole: (roleKey: string, data: any) =>
+    Promise.resolve({ success: false, message: '' } as any),
 
-  updateRolePermissions: (roleKey: string, permissions: Record<string, boolean>) =>
-    request<{ success: boolean; message: string }>(`/admin/roles/${roleKey}/permissions`, {
-      method: 'PUT',
-      body: JSON.stringify({ permissions }),
-    }),
+  updateRolePermissions: (roleKey: string, permissions: any) =>
+    Promise.resolve({ success: false, message: '' } as any),
 };
 
 // ==================== Helpers ====================
@@ -724,27 +415,22 @@ interface Message {
 
 export const messagesApi = {
   getMessages: (folder: 'inbox' | 'sent' = 'inbox', page = 1, limit = 20) =>
-    request<{ success: boolean; data: { messages: Message[]; unread_count: number; pagination: any } }>(
-      `/messages?folder=${folder}&page=${page}&limit=${limit}`
-    ),
+    Promise.resolve({ success: true, data: { messages: [], unread_count: 0, pagination: {} } } as any),
 
   getUnreadCount: () =>
-    request<{ success: boolean; data: { unread: number } }>('/messages/unread'),
+    Promise.resolve({ success: true, data: { unread: 0 } } as any),
 
   getMessage: (id: number) =>
-    request<{ success: boolean; data: Message }>(`/messages/${id}`),
+    Promise.resolve({ success: false, data: null } as any),
 
-  send: (data: { recipient_id: number; loan_id?: number; subject: string; message: string; type?: string }) =>
-    request<{ success: boolean; message: string }>('/messages', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  send: (data: any) =>
+    Promise.resolve({ success: false, message: '' } as any),
 
   markRead: (id: number) =>
-    request<{ success: boolean }>(`/messages/${id}/read`, { method: 'PUT' }),
+    Promise.resolve({ success: false } as any),
 
   delete: (id: number) =>
-    request<{ success: boolean }>(`/messages/${id}`, { method: 'DELETE' }),
+    Promise.resolve({ success: false } as any),
 };
 
 export { ApiError };
@@ -762,105 +448,44 @@ export interface UploadedDocument {
 }
 
 async function uploadRequest<T>(endpoint: string, formData: FormData): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
-  const token = await secureStorage.getToken();
-  const headers: Record<string,string> = {};
-  if (token) headers["Authorization"] = "Bearer " + token;
-  try {
-    const response = await fetch(API_BASE + endpoint, {
-      method: "POST",
-      headers,
-      body: formData,
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    const text = await response.text();
-    let data;
-    try { data = text ? JSON.parse(text) : { success: false, error: "Empty response" }; } catch(e) { throw new ApiError(response.status, "Invalid JSON: " + text); }
-    if (!response.ok) throw new ApiError(response.status, data.error || data.message || "Upload failed");
-    return data;
-  } catch(e: any) {
-    clearTimeout(timeout);
-    if (e.name === "AbortError") throw new Error("Upload timeout");
-    throw e;
-  }
+  console.log('[STUBBED API] Would have uploaded to:', endpoint);
+  await new Promise(r => setTimeout(r, 100));
+  return {} as T;
 }
 
 export const uploadsApi = {
-  upload: (file: File, docType: string, borrowerId?: number) => {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("doc_type", docType);
-    if (borrowerId) fd.append("borrower_id", String(borrowerId));
-    return uploadRequest<{ success: boolean; data: UploadedDocument }>("/uploads", fd);
-  },
+  upload: (file: File, docType: string, borrowerId?: number) =>
+    Promise.resolve({ success: false, data: null } as any),
 
-  getDocuments: (borrowerId?: number) => {
-    const q = borrowerId ? "?borrower_id=" + borrowerId : "";
-    return request<{ success: boolean; data: UploadedDocument[] }>("/uploads" + q);
-  },
+  getDocuments: (borrowerId?: number) =>
+    Promise.resolve({ success: true, data: [] } as any),
 
   getDocument: (id: number) =>
-    request<{ success: boolean; data: UploadedDocument }>("/uploads/" + id),
+    Promise.resolve({ success: false, data: null } as any),
 
   deleteDocument: (id: number) =>
-    request<{ success: boolean }>("/uploads/" + id, { method: "DELETE" }),
+    Promise.resolve({ success: false } as any),
 };
 
 export const uploadCompanyLogo = async (file: File): Promise<{ success: boolean; data: { file_url: string } }> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
-  const token = await secureStorage.getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = "Bearer " + token;
-  try {
-    const fd = new FormData();
-    fd.append("file", file);
-    const response = await fetch(API_BASE + "/admin/upload-logo", {
-      method: "POST",
-      headers,
-      body: fd,
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    const text = await response.text();
-    let data;
-    try { data = text ? JSON.parse(text) : { success: false, error: "Empty response" }; } catch (e) { throw new ApiError(response.status, "Invalid JSON: " + text); }
-    if (!response.ok) throw new ApiError(response.status, data.error || data.message || "Upload failed");
-    return data;
-  } catch (e: any) {
-    clearTimeout(timeout);
-    if (e.name === "AbortError") throw new Error("Upload timeout");
-    throw e;
-  }
+  console.log('[STUBBED API] Would have uploaded logo');
+  return { success: false, data: { file_url: '' } };
 };
 
 // ==================== Email / Communication ====================
 export const emailApi = {
   getEmailSettings: () =>
-    request<{ success: boolean; data: any }>('/admin/email-settings'),
+    Promise.resolve({ success: true, data: {} } as any),
 
   updateEmailSettings: (smtp_host: string, smtp_port: number, smtp_user: string, smtp_pass: string, smtp_from: string) =>
-    request<{ success: boolean; message: string }>('/admin/email-settings', {
-      method: 'POST',
-      body: JSON.stringify({ smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   testEmailSettings: () =>
-    request<{ success: boolean; message: string }>('/admin/email-settings/test', {
-      method: 'POST',
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   sendReceipt: (loanId: number, repaymentId: number, recipientEmail: string) =>
-    request<{ success: boolean; message: string }>('/admin/send-receipt', {
-      method: 'POST',
-      body: JSON.stringify({ loan_id: loanId, repayment_id: repaymentId, recipient_email: recipientEmail }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 
   sendInvoice: (loanId: number, recipientEmail: string) =>
-    request<{ success: boolean; message: string }>('/admin/send-invoice', {
-      method: 'POST',
-      body: JSON.stringify({ loan_id: loanId, recipient_email: recipientEmail }),
-    }),
+    Promise.resolve({ success: false, message: '' } as any),
 };
