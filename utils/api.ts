@@ -115,14 +115,14 @@ export const productsApi = {
   getProducts: (categoryId?: number) => get('/public/products', { category_id: categoryId }),
   getProduct: (id: number) => get(`/public/products/${id}`),
   calculate: (productId: number, amount: number, termMonths: number) =>
-    post('/public/calculate', { product_id: productId, amount, term_months: termMonths }),
+    post('/public/loans/calculate', { product_id: productId, amount, term_months: termMonths }),
 };
 
 // ==================== Loans ====================
 export const loansApi = {
-  apply: (data: any) => post('/loans/apply', data),
-  getMyLoans: () => get('/loans/mine'),
-  getMyLoan: (id: number) => get(`/loans/${id}`),
+  apply: (data: any) => post('/borrower/loans', data),
+  getMyLoans: () => get('/borrower/loans'),
+  getMyLoan: (id: number) => get(`/borrower/loans/${id}`),
   getDashboard: () => get('/borrower/dashboard'),
 };
 
@@ -147,8 +147,8 @@ export const adminApi = {
   reactivateLoan: (id: number) => post(`/admin/loans/${id}/reactivate`),
   createLoan: (data: any) => post('/admin/loans', data),
 
-  getConfig: () => get('/admin/config'),
-  saveConfig: (config: any) => post('/admin/config', config),
+  getConfig: () => get('/admin/settings'),
+  saveConfig: (config: any) => put('/admin/settings', config),
 
   getBorrowers: (params?: any) => get('/admin/borrowers', params),
   createBorrower: (data: any) => post('/admin/borrowers', data),
@@ -245,7 +245,7 @@ export const messagesApi = {
   getUnreadCount: () => get('/messages/unread-count'),
   getMessage: (id: number) => get(`/messages/${id}`),
   send: (data: any) => post('/messages', data),
-  markRead: (id: number) => patch(`/messages/${id}/read`),
+  markRead: (id: number) => put(`/messages/${id}/read`),
   delete: (id: number) => del(`/messages/${id}`),
 };
 
@@ -287,9 +287,9 @@ export const emailApi = {
     put('/admin/email/settings', { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from }),
   testEmailSettings: () => post('/admin/email/test'),
   sendReceipt: (loanId: number, repaymentId: number, recipientEmail: string) =>
-    post('/admin/email/receipt', { loan_id: loanId, repayment_id: repaymentId, recipient_email: recipientEmail }),
+    post('/admin/send-receipt', { loan_id: loanId, repayment_id: repaymentId, recipient_email: recipientEmail }),
   sendInvoice: (loanId: number, recipientEmail: string) =>
-    post('/admin/email/invoice', { loan_id: loanId, recipient_email: recipientEmail }),
+    post('/admin/send-invoice', { loan_id: loanId, recipient_email: recipientEmail }),
 };
 
 // ==================== Helpers ====================

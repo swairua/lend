@@ -1195,6 +1195,30 @@ try {
             ]]);
             exit;
         }
+        // Alias: /public/calculate → /public/loans/calculate
+        if ($method === 'POST' && strpos($uri, 'public/calculate') !== false) {
+            $d = input();
+            $product = one("SELECT * FROM loan_products WHERE id = ?", [$d['product_id'] ?? 0]);
+            if (!$product) {
+                log_error("Product not found", ['product_id' => $d['product_id'] ?? 'unknown']);
+                echo json_encode(['success' => false, 'error' => 'Product not found']); exit;
+            }
+            $amount = floatval($d['amount'] ?? 0);
+            $term = intval($d['term_months'] ?? 1);
+            $interest = ($amount * floatval($product['interest_rate']) / 100) * ($term / 12);
+            $procFee = $amount * floatval($product['processing_fee_percent']) / 100;
+            $assetFee = floatval($product['asset_transfer_fee']);
+            $trackFee = floatval($product['tracking_system_fee']);
+            $total = $amount + $interest + $procFee + $assetFee + $trackFee;
+            log_access('POST', 'public/calculate', 200);
+            echo json_encode(['success' => true, 'data' => [
+                'principal' => $amount, 'interest' => $interest,
+                'processing_fee' => $procFee, 'asset_transfer_fee' => $assetFee,
+                'tracking_system_fee' => $trackFee, 'total_amount' => $total,
+                'monthly_payment' => $total / max($term, 1),
+            ]]);
+            exit;
+        }
         http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Not found']);
         exit;
@@ -1358,6 +1382,130 @@ try {
             echo json_encode(['success' => true, 'data' => ['loans' => $loans,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $finalTotalCount]]]);
             exit;
+        }
+
+        // Aliases for old /loans/* paths → /borrower/loans/*
+        if (preg_match('#loans/(\d+)#', $uri, $m) && !strpos($uri, 'borrower')) {
+            $loan = one("SELECT l.*, u.phone as borrower_phone, lp.name as product_name, lp.description as product_description
+                         FROM loans l LEFT JOIN users u ON l.borrower_id = u.id LEFT JOIN loan_products lp ON l.product_id = lp.id
+                         WHERE l.id = ? AND l.borrower_id = ?", [$m[1], $bid]);
+            if (!$loan) {
+                log_error("Loan not found", ['loan_id' => $m[1], 'borrower_id' => $bid]);
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Not found']);
+                exit;
+            }
+            $reps = all("SELECT * FROM repayments WHERE loan_id = ? ORDER BY paid_at DESC", [$loan['id']]);
+            $paid = array_sum(array_map(fn($r) => floatval($r['amount']), $reps));
+            $loan['repayments'] = $reps;
+            $loan['total_paid'] = $paid;
+            $loan['balance'] = floatval($loan['total_amount']) - $paid;
+            log_access('GET', 'loans/' . $m[1], 200);
+            echo json_encode(['success' => true, 'data' => $loan]);
+            exit;
+        }
+
+        if (strpos($uri, 'loans') !== false && !strpos($uri, 'borrower') && !strpos($uri, 'admin')) {
+            if ($method === 'POST' && strpos($uri, 'loans/apply') !== false) {
+                $d = input();
+                try {
+                    $product = one("SELECT * FROM loan_products WHERE id = ? AND is_active = 1", [$d['product_id'] ?? 0]);
+                    if (!$product) {
+                        log_error("Invalid product for loan", ['product_id' => $d['product_id'] ?? 'unknown']);
+                        echo json_encode(['success' => false, 'error' => 'Invalid product']);
+                        exit;
+                    }
+                    $amount = floatval($d['amount'] ?? 0);
+                    $term   = intval($d['term_months'] ?? 1);
+                    if ($amount < $product['min_amount'] || $amount > $product['max_amount']) {
+                        log_error("Loan amount out of range", ['amount' => $amount, 'min' => $product['min_amount'], 'max' => $product['max_amount']]);
+                        echo json_encode(['success' => false, 'error' => 'Amount out of range']);
+                        exit;
+                    }
+                    if ($term < $product['min_term_months'] || $term > $product['max_term_months']) {
+                        log_error("Loan term out of range", ['term' => $term, 'min' => $product['min_term_months'], 'max' => $product['max_term_months']]);
+                        echo json_encode(['success' => false, 'error' => 'Term out of range']);
+                        exit;
+                    }
+                    $interest = 0;
+                    if (strtolower($product['interest_type'] ?? 'flat') === 'flat') {
+                        $interest = ($amount * floatval($product['interest_rate']) / 100) * ($term / 12);
+                    } else {
+                        $r = floatval($product['interest_rate'] ?? 0) / 100 / 12;
+                        $n = $term;
+                        if ($r == 0) {
+                            $interest = 0;
+                        } else {
+                            $monthly = $amount * $r / (1 - pow(1 + $r, -$n));
+                            $interest = $monthly * $n - $amount;
+                        }
+                    }
+                    $procFee  = $amount * floatval($product['processing_fee_percent']) / 100;
+                    $assetFee = floatval($product['asset_transfer_fee']);
+                    $trackFee = floatval($product['tracking_system_fee']);
+                    $total    = $amount + $interest + $procFee + $assetFee + $trackFee;
+                    $due      = date('Y-m-d', strtotime("+{$term} months"));
+                    q("INSERT INTO loans (borrower_id, product_id, principal_amount, interest_amount, processing_fee,
+                        asset_transfer_fee, tracking_system_fee, late_fee_rate, total_amount, term_months, status,
+                        security_details, guarantor_details, due_date)
+                       VALUES (?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?, ?)",
+                       [$bid, $product['id'], $amount, $interest, $procFee, $assetFee, $trackFee,
+                        floatval($product['late_fee_percent']), $total, $term,
+                        $d['security_details'] ?? null, $d['guarantor_details'] ?? null, $due]);
+                    $loanId = pdo()->lastInsertId();
+                    if ($procFee > 0) {
+                        q("INSERT INTO payments (loan_id, type, amount, method, status) VALUES (?,'processing_fee',?,'bank','pending')", [$loanId, $procFee]);
+                    }
+                    foreach (all("SELECT id FROM users WHERE role='admin' AND is_active=1") as $a) {
+                        q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type)
+                           VALUES (?,?,?,?,?,'loan_update')",
+                           [$user['id'], $a['id'], $loanId, 'New Loan Application',
+                            "New loan application #$loanId. Amount: $amount, Term: $term months."]);
+                    }
+                    logAudit($user['id'], 'loan_created', 'loan', $loanId, [
+                        'loan_amount' => $amount,
+                        'annual_interest_rate' => $product['interest_rate'],
+                        'term_months' => $term,
+                        'product_id' => $product['id'],
+                        'product_name' => $product['name']
+                    ]);
+                    log_access('POST', 'loans/apply', 201);
+                    echo json_encode(['success' => true, 'data' => ['id' => $loanId]]);
+                    exit;
+                } catch (Exception $e) {
+                    log_error("Loan creation exception", ['borrower_id' => $bid, 'error' => $e->getMessage()]);
+                    throw $e;
+                }
+            }
+
+            if (strpos($uri, 'loans/mine') !== false) {
+                $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
+                if ($DEV_MODE) {
+                    $loans = [
+                        ['id' => 1, 'borrower_id' => 1, 'product_id' => 1, 'principal_amount' => 100000, 'interest_amount' => 12500, 'processing_fee' => 2500, 'asset_transfer_fee' => 500, 'tracking_system_fee' => 200, 'total_amount' => 115700, 'term_months' => 12, 'status' => 'active', 'created_at' => date('Y-m-d H:i:s', time() - 86400 * 30), 'product_name' => 'Vehicle Loan', 'interest_rate' => 12.5, 'category_name' => 'Asset-Based Lending', 'category_code' => 'ABL', 'total_paid' => 20000, 'balance' => 95700],
+                    ];
+                    $tot = ['c' => 1];
+                } else {
+                    $loans = all("SELECT l.*, lp.name as product_name, lp.interest_rate,
+                                         lc.name as category_name, lc.code as category_code
+                                  FROM loans l
+                                  LEFT JOIN loan_products lp ON l.product_id = lp.id
+                                  LEFT JOIN loan_categories lc ON lp.category_id = lc.id
+                                  WHERE l.borrower_id = ? ORDER BY l.created_at DESC LIMIT $limit OFFSET $off", [$bid]);
+                    $tot = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
+                    $totalCount = isset($tot['c']) ? intval($tot['c']) : 0;
+                    foreach ($loans as &$l) {
+                        $p = one("SELECT COALESCE(SUM(amount),0) t FROM repayments WHERE loan_id = ?", [$l['id']]);
+                        $l['total_paid'] = $p['t'];
+                        $l['balance'] = floatval($l['total_amount']) - floatval($p['t']);
+                    }
+                }
+                log_access('GET', 'loans/mine', 200);
+                $finalTotalCount = isset($tot['c']) ? $tot['c'] : 0;
+                echo json_encode(['success' => true, 'data' => ['loans' => $loans,
+                    'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $finalTotalCount]]]);
+                exit;
+            }
         }
     }
 
@@ -2561,6 +2709,38 @@ try {
             exit;
         }
 
+        // Alias: /admin/config → /admin/settings
+        if (strpos($uri, 'admin/config') !== false) {
+            if ($method === 'PUT' || $method === 'POST') {
+                requireRole($user, 'admin');
+                $d = input();
+                $settings = [];
+                if (isset($d['settings']) && is_array($d['settings'])) {
+                    $settings = $d['settings'];
+                } elseif (is_array($d)) {
+                    $settings = $d;
+                }
+                foreach ($settings as $s) {
+                    $key_name = $s['key_name'] ?? $s['key'] ?? '';
+                    $key_value = $s['key_value'] ?? $s['value'] ?? '';
+                    if ($key_name !== '') {
+                        q("INSERT INTO settings (key_name, key_value) VALUES (?, ?)
+                           ON DUPLICATE KEY UPDATE key_value = ?, updated_at = CURRENT_TIMESTAMP", [$key_name, $key_value, $key_value]);
+                    }
+                }
+                logSystem('admin_action', 'settings_updated', ['count' => count($settings)], $user['id'], 'success', 'settings', null);
+                log_access($method, 'admin/config', 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            $rows = all("SELECT * FROM settings");
+            $out = [];
+            foreach ($rows as $r) $out[$r['key_name']] = $r['key_value'];
+            log_access('GET', 'admin/config', 200);
+            echo json_encode(['success' => true, 'data' => $out]);
+            exit;
+        }
+
         // Settings
         if (strpos($uri, 'admin/settings') !== false) {
             if ($method === 'PUT' || $method === 'POST') {
@@ -2663,6 +2843,62 @@ try {
                 log_access('POST', 'admin/email-settings/test', $sent ? 200 : 400);
                 exit;
             }
+        }
+
+        // Alias: /admin/email/receipt → /admin/send-receipt
+        if ($method === 'POST' && strpos($uri, 'admin/email/receipt') !== false) {
+            requireRole($user, 'admin');
+            $d = input();
+            $loanId = intval($d['loan_id'] ?? 0);
+            $repaymentId = intval($d['repayment_id'] ?? 0);
+            $recipientEmail = $d['recipient_email'] ?? '';
+            if (!$loanId || !$recipientEmail) {
+                echo json_encode(['success' => false, 'error' => 'loan_id and recipient_email required']);
+                exit;
+            }
+            $loan = one("SELECT l.*, u.name borrower_name, u.email borrower_email FROM loans l LEFT JOIN users u ON l.user_id = u.id WHERE l.id = ?", [$loanId]);
+            if (!$loan) { echo json_encode(['success' => false, 'error' => 'Loan not found']); exit; }
+            $borrowerName = $loan['borrower_name'] ?? 'Borrower';
+            $subject = "Payment Receipt - Loan #$loanId";
+            $body = "<h2>Payment Receipt</h2><p>Dear $borrowerName,</p><p>Thank you for your payment on Loan #$loanId.</p>";
+            if ($repaymentId) {
+                $rep = one("SELECT * FROM repayments WHERE id = ?", [$repaymentId]);
+                if ($rep) $body .= "<p><strong>Amount:</strong> " . number_format($rep['amount'], 2) . "</p><p><strong>Date:</strong> {$rep['paid_at']}</p>";
+            }
+            $body .= "<p>If you have any questions, please contact our support team.</p><p>Best regards,<br/>Lending System</p>";
+            $sent = sendMail($recipientEmail, $subject, $body, true);
+            logSystem('payment', 'receipt_sent', ['loan_id' => $loanId, 'recipient' => $recipientEmail, 'sent' => $sent], $user['id'], $sent ? 'success' : 'failed', 'loan', $loanId);
+            log_access('POST', 'admin/email/receipt', $sent ? 200 : 400);
+            echo json_encode(['success' => $sent, 'message' => $sent ? 'Receipt sent successfully' : 'Failed to send receipt']);
+            exit;
+        }
+
+        // Alias: /admin/email/invoice → /admin/send-invoice
+        if ($method === 'POST' && strpos($uri, 'admin/email/invoice') !== false) {
+            requireRole($user, 'admin');
+            $d = input();
+            $loanId = intval($d['loan_id'] ?? 0);
+            $recipientEmail = $d['recipient_email'] ?? '';
+            if (!$loanId || !$recipientEmail) {
+                echo json_encode(['success' => false, 'error' => 'loan_id and recipient_email required']);
+                exit;
+            }
+            $loan = one("SELECT l.*, u.name borrower_name, u.email borrower_email FROM loans l LEFT JOIN users u ON l.user_id = u.id WHERE l.id = ?", [$loanId]);
+            if (!$loan) { echo json_encode(['success' => false, 'error' => 'Loan not found']); exit; }
+            $borrowerName = $loan['borrower_name'] ?? 'Borrower';
+            $balance = floatval($loan['total_amount'] ?? 0) - floatval($loan['total_paid'] ?? 0);
+            $subject = "Loan Invoice - Loan #$loanId";
+            $body = "<h2>Loan Invoice</h2><p>Dear $borrowerName,</p><p>Please find your updated loan invoice for Loan #$loanId.</p>";
+            $body .= "<p><strong>Principal:</strong> " . number_format($loan['principal_amount'] ?? 0, 2) . "</p>";
+            $body .= "<p><strong>Total Amount:</strong> " . number_format($loan['total_amount'] ?? 0, 2) . "</p>";
+            $body .= "<p><strong>Paid:</strong> " . number_format($loan['total_paid'] ?? 0, 2) . "</p>";
+            $body .= "<p><strong>Balance:</strong> " . number_format($balance, 2) . "</p>";
+            $body .= "<p>If you have any questions, please contact our support team.</p><p>Best regards,<br/>Lending System</p>";
+            $sent = sendMail($recipientEmail, $subject, $body, true);
+            logSystem('payment', 'invoice_sent', ['loan_id' => $loanId, 'recipient' => $recipientEmail, 'sent' => $sent], $user['id'], $sent ? 'success' : 'failed', 'loan', $loanId);
+            log_access('POST', 'admin/email/invoice', $sent ? 200 : 400);
+            echo json_encode(['success' => $sent, 'message' => $sent ? 'Invoice sent successfully' : 'Failed to send invoice']);
+            exit;
         }
 
         // Send receipt via email (admin only)
