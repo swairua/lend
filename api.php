@@ -174,9 +174,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // MySQL Production Database Configuration
 $DB_TYPE = 'mysql';
 $DB_HOST = 'localhost';
-$DB_NAME = 'jecrilog_bureau';
-$DB_USER = 'jecrilog_jecrilog';
-$DB_PASS = 'Bureau@2026';
+$DB_NAME = 'wayrusc1_lending';
+$DB_USER = 'wayrusc1_lending';
+$DB_PASS = 'Sirgeorge.12';
 $DB_FILE = __DIR__ . '/lending.db'; // Used only if DB_TYPE is 'sqlite'
 
 $PDO_INSTANCE = null;
