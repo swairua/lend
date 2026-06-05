@@ -96,13 +96,14 @@ export function MpesaDisbursementUI({
           }
         }
       } catch (e) {
-        // Silent fail for polling
+        console.error(`M-Pesa disbursement status check attempt ${i + 1} failed:`, e);
       }
 
       if (i < maxAttempts - 1) {
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
+    console.warn(`M-Pesa disbursement status polling completed without confirmation after ${maxAttempts} attempts. Command ID: ${commandId}`);
   };
 
   if (!enabled || !isApproved) {

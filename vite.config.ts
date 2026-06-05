@@ -34,13 +34,45 @@ export default defineConfig({
     host: "localhost",
     port: 5173,
     proxy: {
-      '/api.php': {
-        target: 'https://lending.wayrus.co.ke',
+      '/auth': {
+        target: 'http://localhost:3001',
         changeOrigin: true,
+        rewrite: (path) => path,
+      },
+      '/borrower': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path,
+      },
+      '/admin': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path,
+      },
+      '/categories': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path,
+      },
+      '/products': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path,
+      },
+      '/loans': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path,
       },
       '/uploads': {
-        target: 'https://lending.wayrus.co.ke',
+        target: 'http://localhost:3001',
         changeOrigin: true,
+        rewrite: (path) => path,
+      },
+      '/messages': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path,
       },
     },
   },

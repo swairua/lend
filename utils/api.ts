@@ -1,7 +1,7 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, Customer, InvoiceProduct, Quotation, Invoice } from '../types/api';
 import { secureStorage } from './secureStorage';
 
-// API base URL — set VITE_API_BASE env var at build time (Render) or defaults to production
+// API base URL — use VITE_API_BASE env var, production backend for all environments
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://lending.wayrus.co.ke/api.php';
 const API_ORIGIN = API_BASE.replace(/\/api\.php.*$/, '');
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || API_ORIGIN + '/uploads';
@@ -424,6 +424,12 @@ export const adminApi = {
     }),
 
   // M-Pesa Payment Endpoints
+  mpesaTestCredentials: (config: { consumer_key: string; consumer_secret: string; business_shortcode: string; passkey: string; environment: string }) =>
+    request<{ success: boolean; error?: string }>('/admin/mpesa/test', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+
   mpesaInitiatePayment: (loan_id: number, phone_number: string, amount?: number) =>
     request<{ success: boolean; checkout_request_id?: string; error?: string }>('/admin/mpesa/payment', {
       method: 'POST',

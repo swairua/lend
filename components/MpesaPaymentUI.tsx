@@ -72,7 +72,7 @@ export function MpesaPaymentUI({ loanId, borrowerPhone, totalAmount, paidAmount,
           }
         }
       } catch (e) {
-        // Silent fail for polling
+        console.error(`M-Pesa payment status check attempt ${i + 1} failed:`, e);
       }
 
       // Wait 5 seconds before next attempt
@@ -80,6 +80,7 @@ export function MpesaPaymentUI({ loanId, borrowerPhone, totalAmount, paidAmount,
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
+    console.warn(`M-Pesa payment status polling completed without confirmation after ${maxAttempts} attempts. Checkout ID: ${checkoutId}`);
   };
 
   if (!enabled) {
