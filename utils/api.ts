@@ -1,8 +1,8 @@
 import { User, Loan, LoanProduct, LoanCategory, Repayment, DashboardStats, Customer, InvoiceProduct, Quotation, Invoice } from '../types/api';
 import { secureStorage } from './secureStorage';
 
-// API base URL — use local dev server in development, or VITE_API_BASE env var, or production PHP backend
-const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:3001' : 'https://lending.wayrus.co.ke/api.php');
+// API base URL — use VITE_API_BASE env var or production PHP backend
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://lending.wayrus.co.ke/api.php';
 const API_ORIGIN = API_BASE.replace(/\/api\.php.*$/, '');
 const UPLOADS_URL = import.meta.env.VITE_UPLOADS_URL || API_ORIGIN + '/uploads';
 
