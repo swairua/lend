@@ -1075,6 +1075,84 @@ try {
                 exit;
             }
         }
+        if ($method === 'POST' && strpos($uri, 'auth/register') !== false) {
+            $d = input();
+            $email = $d['email'] ?? '';
+            $password = $d['password'] ?? '';
+            $name = $d['name'] ?? '';
+            $phone = $d['phone'] ?? null;
+            $client_type = $d['client_type'] ?? 'individual';
+
+            if (!$email || !$password || !$name) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Email, password, and name are required']);
+                exit;
+            }
+
+            if (strlen($password) < 6) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Password must be at least 6 characters']);
+                exit;
+            }
+
+            $existing = one("SELECT id FROM users WHERE email = ?", [$email]);
+            if ($existing) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Email already registered']);
+                exit;
+            }
+
+            try {
+                $hashed = password_hash($password, PASSWORD_BCRYPT);
+                q("INSERT INTO users (email, password, name, phone, role, is_active) VALUES (?, ?, ?, ?, 'borrower', 1)",
+                  [$email, $hashed, $name, $phone]);
+                $userId = pdo()->lastInsertId();
+
+                q("INSERT INTO borrowers (user_id, client_type) VALUES (?, ?)", [$userId, $client_type]);
+
+                logSystem('user_mgmt', 'user_registered', ['email' => $email, 'client_type' => $client_type], $userId, 'success', 'user', $userId);
+                log_access('POST', 'auth/register', 201);
+                echo json_encode(['success' => true, 'message' => 'Registration successful']);
+                exit;
+            } catch (Exception $e) {
+                log_error("Registration exception", ['email' => $email, 'error' => $e->getMessage()]);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Registration failed']);
+                exit;
+            }
+        }
+        if ($method === 'POST' && strpos($uri, 'auth/change-password') !== false) {
+            $u = auth();
+            $d = input();
+            $currentPassword = $d['current_password'] ?? '';
+            $newPassword = $d['new_password'] ?? '';
+
+            if (!$currentPassword || !$newPassword) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Current and new passwords are required']);
+                exit;
+            }
+
+            if (strlen($newPassword) < 6) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'New password must be at least 6 characters']);
+                exit;
+            }
+
+            $user = one("SELECT id, password FROM users WHERE id = ?", [$u['id']]);
+            if (!$user || !password_verify($currentPassword, $user['password'])) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'Current password is incorrect']);
+                exit;
+            }
+
+            $hashed = password_hash($newPassword, PASSWORD_BCRYPT);
+            q("UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [$hashed, $u['id']]);
+            logSystem('user_mgmt', 'password_changed', [], $u['id'], 'success', 'user', $u['id']);
+            log_access('POST', 'auth/change-password', 200);
+            echo json_encode(['success' => true, 'message' => 'Password changed successfully']);
+            exit;
+        }
         http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Not found']);
         exit;
@@ -1509,6 +1587,44 @@ try {
         }
     }
 
+    // -------------------- REPAYMENTS --------------------
+    if ($resource === 'repayments') {
+        $user = auth();
+
+        if (strpos($uri, 'repayments/mine') !== false) {
+            $borrower = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
+            if (!$borrower) {
+                echo json_encode(['success' => true, 'data' => []]);
+                exit;
+            }
+
+            $page = intval($_GET['page'] ?? 1);
+            $limit = intval($_GET['limit'] ?? 20);
+            $off = ($page - 1) * $limit;
+
+            $reps = all("SELECT r.*, l.id as loan_id, lp.name as product_name, l.principal_amount, l.total_amount
+                         FROM repayments r
+                         JOIN loans l ON r.loan_id = l.id
+                         WHERE l.borrower_id = ?
+                         ORDER BY r.paid_at DESC LIMIT $limit OFFSET $off", [$borrower['id']]);
+
+            $tot = one("SELECT COUNT(*) c FROM repayments r
+                       JOIN loans l ON r.loan_id = l.id
+                       WHERE l.borrower_id = ?", [$borrower['id']]);
+
+            log_access('GET', 'repayments/mine', 200);
+            echo json_encode(['success' => true, 'data' => [
+                'repayments' => $reps,
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c'] ?? 0]
+            ]]);
+            exit;
+        }
+
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Endpoint not found']);
+        exit;
+    }
+
     // -------------------- MESSAGES --------------------
     if ($resource === 'messages') {
         if (strpos($uri, 'messages/unread') !== false) {
@@ -1635,6 +1751,38 @@ try {
                 'default_rate' => $defaultRate, 'approval_rate' => $approvalRate,
                 'monthly_disbursements' => $monthly, 'category_distribution' => $catDist,
                 'recent_loans' => $recentLoans, 'recent_repayments' => $recentRep,
+            ]]);
+            exit;
+        }
+
+        if (strpos($uri, 'admin/analytics') !== false) {
+            $period = intval($_GET['period'] ?? 30);
+
+            $startDate = date('Y-m-d', strtotime("-$period days"));
+
+            $periodLoans = one("SELECT COUNT(*) c, COALESCE(SUM(principal_amount),0) total FROM loans WHERE created_at >= ?", [$startDate]);
+            $periodReps = one("SELECT COUNT(*) c, COALESCE(SUM(amount),0) total FROM repayments WHERE paid_at >= ?", [$startDate]);
+
+            $statusBreakdown = all("SELECT status, COUNT(*) count, COALESCE(SUM(principal_amount),0) total FROM loans GROUP BY status");
+
+            $dailyStats = all("SELECT DATE(created_at) day, COUNT(*) loan_count, COALESCE(SUM(principal_amount),0) total
+                              FROM loans WHERE created_at >= ?
+                              GROUP BY DATE(created_at) ORDER BY day DESC", [$startDate]);
+
+            $borrowerStats = [
+                'total_borrowers' => one("SELECT COUNT(*) c FROM users WHERE role='borrower'")['c'],
+                'active_borrowers' => one("SELECT COUNT(DISTINCT borrower_id) c FROM loans WHERE status IN ('active','completed')")['c'],
+                'new_borrowers' => one("SELECT COUNT(*) c FROM users WHERE role='borrower' AND created_at >= ?", [$startDate])['c'],
+            ];
+
+            log_access('GET', 'admin/analytics', 200);
+            echo json_encode(['success' => true, 'data' => [
+                'period' => $period,
+                'period_loans' => ['count' => $periodLoans['c'], 'total' => $periodLoans['total']],
+                'period_repayments' => ['count' => $periodReps['c'], 'total' => $periodReps['total']],
+                'status_breakdown' => $statusBreakdown,
+                'daily_stats' => $dailyStats,
+                'borrower_stats' => $borrowerStats,
             ]]);
             exit;
         }
