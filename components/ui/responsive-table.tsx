@@ -23,10 +23,10 @@ const ResponsiveTableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead 
-    ref={ref} 
-    className={cn("[&_tr]:border-b hidden md:table-header-group", className)} 
-    {...props} 
+  <thead
+    ref={ref}
+    className={cn("[&_tr]:border-b hidden md:table-header-group", className)}
+    {...props}
   />
 ));
 ResponsiveTableHeader.displayName = "ResponsiveTableHeader";
@@ -81,19 +81,14 @@ const ResponsiveTableCell = React.forwardRef<
   <td
     ref={ref}
     className={cn(
-      "align-middle [&:has([role=checkbox])]:pr-0",
-      "block md:table-cell mb-1 md:mb-0 relative md:static px-2 py-1 md:px-3 md:py-2 lg:px-4",
-      label ? "pl-20 md:pl-3 lg:pl-4" : "",
+      "p-4 align-middle before:font-semibold before:block md:before:hidden before:content-[attr(data-label)]",
+      "block before:absolute before:left-2 before:top-0.5 md:table-cell md:relative md:before:hidden pl-24 md:pl-4",
       className,
     )}
+    data-label={label}
     {...props}
   >
-    {label && (
-      <span className="absolute left-2 top-1 md:hidden font-bold text-xs text-muted-foreground">
-        {label}:
-      </span>
-    )}
-    <span className="block md:inline">{children}</span>
+    {children}
   </td>
 ));
 ResponsiveTableCell.displayName = "ResponsiveTableCell";
@@ -102,11 +97,7 @@ const ResponsiveTableCaption = React.forwardRef<
   HTMLTableCaptionElement,
   React.HTMLAttributes<HTMLTableCaptionElement>
 >(({ className, ...props }, ref) => (
-  <caption
-    ref={ref}
-    className={cn("mt-4 text-sm text-muted-foreground", className)}
-    {...props}
-  />
+  <caption ref={ref} className={cn("mt-4 text-sm text-muted-foreground", className)} {...props} />
 ));
 ResponsiveTableCaption.displayName = "ResponsiveTableCaption";
 
@@ -114,8 +105,8 @@ export {
   ResponsiveTable,
   ResponsiveTableHeader,
   ResponsiveTableBody,
-  ResponsiveTableRow,
   ResponsiveTableHead,
+  ResponsiveTableRow,
   ResponsiveTableCell,
   ResponsiveTableCaption,
 };
