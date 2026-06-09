@@ -79,6 +79,7 @@ export default function AdminRepayments() {
   useEffect(() => {
     loadRepayments();
     loadOrphanedPaymentsCount();
+    loadAllLoans();
   }, []);
 
   useEffect(() => {
@@ -111,20 +112,23 @@ export default function AdminRepayments() {
     }
   };
 
-  useEffect(() => {
-    if (loanPopoverOpen) {
-      searchLoans(loanSearchTerm);
+  const loadAllLoans = async () => {
+    setLoadingLoans(true);
+    try {
+      const response = await adminApi.getLoans({ limit: 200 });
+      const loansData = Array.isArray(response.data?.loans) ? response.data.loans : [];
+      setLoans(loansData.map((loan: any) => ({
+        id: loan.id,
+        borrower_name: loan.borrower_name || 'Unknown',
+        principal_amount: loan.principal_amount,
+      })));
+    } catch (error: any) {
+      console.error('Failed to load loans:', error);
+      setLoans([]);
+    } finally {
+      setLoadingLoans(false);
     }
-  }, [loanPopoverOpen]);
-
-  useEffect(() => {
-    if (loanSearchTerm.trim()) {
-      const debounce = setTimeout(() => {
-        searchLoans(loanSearchTerm);
-      }, 300);
-      return () => clearTimeout(debounce);
-    }
-  }, [loanSearchTerm]);
+  };
 
   const loadRepayments = async () => {
     setLoading(true);
@@ -158,33 +162,6 @@ export default function AdminRepayments() {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const searchLoans = async (query: string) => {
-    setLoadingLoans(true);
-    try {
-      const response = await adminApi.getLoans({ status: 'active', limit: 50 });
-      const loansData = Array.isArray(response.data?.loans) ? response.data.loans : [];
-
-      const filtered = loansData.filter(loan => {
-        const searchStr = query.toLowerCase();
-        return (
-          String(loan.id).includes(searchStr) ||
-          (loan.borrower_name && loan.borrower_name.toLowerCase().includes(searchStr))
-        );
-      });
-
-      setLoans(filtered.map(loan => ({
-        id: loan.id,
-        borrower_name: loan.borrower_name || 'Unknown',
-        principal_amount: loan.principal_amount,
-      })));
-    } catch (error: any) {
-      console.error('Failed to search loans:', error);
-      setLoans([]);
-    } finally {
-      setLoadingLoans(false);
     }
   };
 
@@ -222,9 +199,21 @@ export default function AdminRepayments() {
     });
   };
 
+  useEffect(() => {
+    if (!addPaymentDialogOpen) {
+      setPaymentForm({ loan_id: '', amount: '', payment_method: 'cash', reference_number: '' });
+      setLoanSearchTerm('');
+    }
+  }, [addPaymentDialogOpen]);
+
   const handleAddPayment = async () => {
-    if (!paymentForm.loan_id || !paymentForm.amount) {
-      showAlert({ type: 'error', message: 'Please fill in loan ID and amount' });
+    if (!paymentForm.loan_id) {
+      showAlert({ type: 'error', message: 'Please select a loan' });
+      return;
+    }
+    const amount = parseFloat(paymentForm.amount);
+    if (!amount || amount <= 0) {
+      showAlert({ type: 'error', message: 'Please enter a valid amount greater than 0' });
       return;
     }
 
@@ -232,12 +221,12 @@ export default function AdminRepayments() {
     try {
       await repaymentsApi.record({
         loan_id: parseInt(paymentForm.loan_id),
-        amount: parseFloat(paymentForm.amount),
+        amount,
         payment_method: paymentForm.payment_method,
         reference_number: paymentForm.reference_number || undefined,
       });
 
-      toast.success(`Payment of ${formatKES(parseFloat(paymentForm.amount))} recorded successfully`);
+      toast.success(`Payment of ${formatKES(amount)} recorded successfully`);
 
       setPaymentForm({
         loan_id: '',
@@ -620,24 +609,21 @@ export default function AdminRepayments() {
           </DialogHeader>
           <div className="space-y-3 md:space-y-4">
             <div>
-              <Label htmlFor="loan_id" className="text-xs md:text-sm">
-                Loan ID *
+              <Label className="text-xs md:text-sm">
+                Select Loan *
               </Label>
               <Popover open={loanPopoverOpen} onOpenChange={setLoanPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={loanPopoverOpen}
-                    className="w-full justify-between text-xs md:text-sm"
-                  >
-                    {paymentForm.loan_id
-                      ? loans.find(l => String(l.id) === paymentForm.loan_id)?.borrower_name
-                        ? `#${paymentForm.loan_id} - ${loans.find(l => String(l.id) === paymentForm.loan_id)?.borrower_name}`
-                        : `#${paymentForm.loan_id}`
-                      : "Select loan..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
+                <PopoverTrigger
+                  role="combobox"
+                  aria-expanded={loanPopoverOpen}
+                  className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs md:text-sm hover:bg-accent"
+                >
+                  {paymentForm.loan_id
+                    ? loans.find(l => String(l.id) === paymentForm.loan_id)?.borrower_name
+                      ? `#${paymentForm.loan_id} - ${loans.find(l => String(l.id) === paymentForm.loan_id)?.borrower_name}`
+                      : `#${paymentForm.loan_id}`
+                    : "Select loan..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
                   <Command>
@@ -647,7 +633,7 @@ export default function AdminRepayments() {
                       onValueChange={setLoanSearchTerm}
                     />
                     <CommandEmpty>
-                      {loadingLoans ? 'Loading loans...' : 'No active loans found.'}
+                      {loadingLoans ? 'Loading loans...' : 'No loans found.'}
                     </CommandEmpty>
                     <CommandList>
                       <CommandGroup>
@@ -686,6 +672,21 @@ export default function AdminRepayments() {
               </Popover>
             </div>
 
+            {paymentForm.loan_id && loans.find(l => String(l.id) === paymentForm.loan_id) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-blue-900 font-medium">Selected Loan</span>
+                  <span className="text-xs text-blue-800">#{paymentForm.loan_id}</span>
+                </div>
+                <p className="text-sm font-semibold text-blue-900 mt-1">
+                  {loans.find(l => String(l.id) === paymentForm.loan_id)?.borrower_name}
+                </p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Principal: {formatKES(loans.find(l => String(l.id) === paymentForm.loan_id)?.principal_amount || 0)}
+                </p>
+              </div>
+            )}
+
             <div>
               <Label htmlFor="amount" className="text-xs md:text-sm">
                 Amount *
@@ -694,6 +695,7 @@ export default function AdminRepayments() {
                 id="amount"
                 type="number"
                 step="0.01"
+                min="0.01"
                 placeholder="Enter amount"
                 value={paymentForm.amount}
                 onChange={(e) =>
@@ -787,20 +789,17 @@ export default function AdminRepayments() {
                   Select Loan *
                 </Label>
                 <Popover open={loanPopoverOpen} onOpenChange={setLoanPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={loanPopoverOpen}
-                      className="w-full justify-between text-xs md:text-sm mt-1"
-                    >
-                      {matchingLoanId
-                        ? loans.find(l => String(l.id) === matchingLoanId)?.borrower_name
-                          ? `#${matchingLoanId} - ${loans.find(l => String(l.id) === matchingLoanId)?.borrower_name}`
-                          : `#${matchingLoanId}`
-                        : "Select a loan..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
+                  <PopoverTrigger
+                    role="combobox"
+                    aria-expanded={loanPopoverOpen}
+                    className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs md:text-sm mt-1 hover:bg-accent"
+                  >
+                    {matchingLoanId
+                      ? loans.find(l => String(l.id) === matchingLoanId)?.borrower_name
+                        ? `#${matchingLoanId} - ${loans.find(l => String(l.id) === matchingLoanId)?.borrower_name}`
+                        : `#${matchingLoanId}`
+                      : "Select a loan..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
                     <Command>
