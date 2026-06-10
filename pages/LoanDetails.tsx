@@ -92,7 +92,7 @@ export default function LoanDetails() {
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [user, setUser] = useState<any>({});
   const [errorDialog, setErrorDialog] = useState<{ open: boolean; title: string; message: string }>({ open: false, title: '', message: '' });
-  const [companyName, setCompanyName] = useState<string>('LENDING PLATFORM');
+  const [companyName, setCompanyName] = useState<string>('Jecri Bureau');
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [companyKraPin, setCompanyKraPin] = useState<string>('');
   const [companyRegNumber, setCompanyRegNumber] = useState<string>('');
@@ -115,7 +115,7 @@ export default function LoanDetails() {
                             Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
           
           const settings = Object.fromEntries(configArray.map(item => [item.key_name, item.key_value]));
-          setCompanyName(settings.company_name || 'LENDING PLATFORM');
+          setCompanyName(settings.company_name || 'Jecri Bureau');
           setCompanyLogoUrl(settings.company_logo || null);
           setCompanyKraPin(settings.company_kra_pin || settings.kra_pin || '');
           setCompanyRegNumber(settings.company_reg_number || settings.registration_number || '');
@@ -201,16 +201,16 @@ export default function LoanDetails() {
         borrowerPhone: user.phone || '',
         borrowerIdNumber: loan.national_id || 'N/A',
         borrowerAddress: loan.address || 'N/A',
-        loanAmount: loan.principal_amount,
-        principalAmount: loan.principal_amount,
-        interestRate: loan.interest_rate,
-        loanTermMonths: loan.term_months,
-        monthlyPayment: loan.total_amount / loan.term_months,
-        processingFee: loan.processing_fee,
-        assetTransferFee: loan.asset_transfer_fee || 0,
-        trackingSystemFee: loan.tracking_system_fee || 0,
-        totalFees: (loan.processing_fee || 0) + (loan.asset_transfer_fee || 0) + (loan.tracking_system_fee || 0),
-        totalRepayableAmount: loan.total_amount,
+        loanAmount: Number(loan.principal_amount),
+        principalAmount: Number(loan.principal_amount),
+        interestRate: Number(loan.interest_rate),
+        loanTermMonths: Number(loan.term_months),
+        monthlyPayment: Number(loan.total_amount) / Number(loan.term_months),
+        processingFee: Number(loan.processing_fee),
+        assetTransferFee: Number(loan.asset_transfer_fee || 0),
+        trackingSystemFee: Number(loan.tracking_system_fee || 0),
+        totalFees: Number(loan.processing_fee || 0) + Number(loan.asset_transfer_fee || 0) + Number(loan.tracking_system_fee || 0),
+        totalRepayableAmount: Number(loan.total_amount),
         disbursementDate: formatDate(loan.disbursed_at || loan.approved_at),
         maturityDate: loan.due_date,
         firstPaymentDueDate: new Date(loan.disbursed_at || loan.approved_at || loan.created_at).toLocaleDateString('en-KE'),

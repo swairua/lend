@@ -42,7 +42,9 @@ export interface LoanAgreementData {
 }
 
 function fmt(n: number): string {
-  return `KES ${n.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const num = Number(n);
+  if (isNaN(num)) return 'KES 0.00';
+  return `KES ${num.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fdate(dateStr: string): string {

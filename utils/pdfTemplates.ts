@@ -37,7 +37,7 @@ function formatDate(dateString: string): string {
 }
 
 export function generateReceiptHTML(data: ReceiptData): string {
-  const { repayment, loan, borrowerName, borrowerEmail, companyName = 'LENDING PLATFORM', companyLogoUrl } = data;
+  const { repayment, loan, borrowerName, borrowerEmail, companyName = 'Jecri Bureau', companyLogoUrl } = data;
   const receiptDate = formatDate(repayment.paid_at);
    
   return `
@@ -135,7 +135,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
 }
 
 export function generateInvoiceHTML(data: InvoiceData): string {
-  const { loan, borrowerName, borrowerEmail, totalPaid, balance, companyName = 'LENDING PLATFORM', companyLogoUrl } = data;
+  const { loan, borrowerName, borrowerEmail, totalPaid, balance, companyName = 'Jecri Bureau', companyLogoUrl } = data;
   const dueDate = loan.due_date ? formatDate(loan.due_date) : 'N/A';
    
   return `
