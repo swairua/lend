@@ -3702,6 +3702,73 @@ try {
                 }
             }
 
+            if ($method === 'PUT') {
+                try {
+                    $parts = explode('/', trim($uri, '/'));
+                    $targetId = intval(end($parts));
+                    if (!$targetId) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'User ID is required']);
+                        exit;
+                    }
+
+                    $existing = one("SELECT id, email FROM users WHERE id = ?", [$targetId]);
+                    if (!$existing) {
+                        http_response_code(404);
+                        echo json_encode(['success' => false, 'error' => 'User not found']);
+                        exit;
+                    }
+
+                    $d = input();
+                    $name = $d['name'] ?? '';
+                    $email = $d['email'] ?? '';
+                    $phone = $d['phone'] ?? null;
+                    $role = $d['role'] ?? null;
+                    $password = $d['password'] ?? null;
+
+                    if (!$name || !$email) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Name and email are required']);
+                        exit;
+                    }
+
+                    // Check email uniqueness (exclude current user)
+                    $dup = one("SELECT id FROM users WHERE email = ? AND id != ?", [$email, $targetId]);
+                    if ($dup) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Email already in use by another user']);
+                        exit;
+                    }
+
+                    $updates = "name = ?, email = ?, phone = ?";
+                    $params = [$name, $email, $phone];
+
+                    if ($role) {
+                        $updates .= ", role = ?";
+                        $params[] = $role;
+                    }
+
+                    if ($password) {
+                        $updates .= ", password = ?";
+                        $params[] = password_hash($password, PASSWORD_BCRYPT);
+                    }
+
+                    $updates .= ", updated_at = CURRENT_TIMESTAMP";
+                    $params[] = $targetId;
+
+                    q("UPDATE users SET $updates WHERE id = ?", $params);
+                    logSystem('user_mgmt', 'user_updated_by_admin', ['user_id' => $targetId, 'email' => $email, 'role' => $role], $user['id'], 'success', 'user', $targetId);
+                    log_access('PUT', 'admin/users', 200);
+                    echo json_encode(['success' => true, 'message' => 'User updated successfully']);
+                    exit;
+                } catch (Exception $e) {
+                    log_error("User update exception", ['user_id' => $targetId ?? 'unknown', 'error' => $e->getMessage()]);
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Failed to update user: ' . $e->getMessage()]);
+                    exit;
+                }
+            }
+
             // GET /admin/users - list users
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
             $rows = all("SELECT id, email, name, phone, role, is_active, created_at FROM users

@@ -161,8 +161,8 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
       <h3>Loan Details</h3>
       <div class="info-row"><span class="label">Product</span><span class="value">${data.loanProductName}</span></div>
       <div class="info-row"><span class="label">Principal Amount</span><span class="value">${fmt(data.principalAmount)}</span></div>
-      <div class="info-row"><span class="label">Interest Rate</span><span class="value">${data.interestRate}% p.a.</span></div>
-      <div class="info-row"><span class="label">APR</span><span class="value highlight">${data.apr.toFixed(1)}%</span></div>
+      <div class="info-row"><span class="label">Interest Rate</span><span class="value">${data.interestRate || 0}% p.a.</span></div>
+      <div class="info-row"><span class="label">APR</span><span class="value highlight">${(data.apr || 0).toFixed(1)}%</span></div>
       <div class="info-row"><span class="label">Term</span><span class="value">${data.loanTermMonths} months</span></div>
       <div class="info-row"><span class="label">Monthly Installment</span><span class="value">${fmt(data.monthlyPayment)}</span></div>
       <div class="info-row"><span class="label">Amount Disbursed</span><span class="value">${fmt(disbursedAmount)}</span></div>
@@ -229,7 +229,7 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
 
     <div class="clause">
       <h4>5. Interest Rates &amp; APR</h4>
-      <p>The loan bears interest at <strong>${data.interestRate}% per annum</strong> on the reducing balance. The Annual Percentage Rate (APR) is <strong>${data.apr.toFixed(1)}%</strong>, which reflects the total cost of credit including interest, processing fees, and other charges expressed as an annualized rate, enabling the Borrower to compare the true cost of this loan with other credit products. The APR is calculated in accordance with the Central Bank of Kenya (Credit Reference Bureau) Regulations, 2013.</p>
+      <p>The loan bears interest at <strong>${data.interestRate || 0}% per annum</strong> on the reducing balance. The Annual Percentage Rate (APR) is <strong>${(data.apr || 0).toFixed(1)}%</strong>, which reflects the total cost of credit including interest, processing fees, and other charges expressed as an annualized rate, enabling the Borrower to compare the true cost of this loan with other credit products. The APR is calculated in accordance with the Central Bank of Kenya (Credit Reference Bureau) Regulations, 2013.</p>
       <div class="highlight-box"><strong>Total Cost of Credit:</strong> The Borrower will pay a total of ${fmt(totalRepayable)} over ${data.loanTermMonths} months, comprising the principal of ${fmt(data.principalAmount)} plus total fees and interest of ${fmt(totalRepayable - data.principalAmount)}.</div>
     </div>
 
