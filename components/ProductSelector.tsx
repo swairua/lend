@@ -1,5 +1,5 @@
 import { FieldGroup } from '@/components/FieldGroup';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 
 interface ProductSelectorProps {
   categories: any[];
@@ -23,7 +23,7 @@ export function ProductSelector({
       <FieldGroup label="Category" id="loan_category">
         <Select value={selectedCategory} onValueChange={onCategoryChange}>
           <SelectTrigger id="loan_category">
-            <SelectValue placeholder="Select category" />
+            {categories.find(c => String(c.id) === selectedCategory)?.name || "Select category"}
           </SelectTrigger>
           <SelectContent>
             {categories.map((c: any) => (
@@ -43,7 +43,11 @@ export function ProductSelector({
         >
           <Select value={selectedProductId ? String(selectedProductId) : ''} onValueChange={onProductChange}>
             <SelectTrigger id="loan_product">
-              <SelectValue placeholder="Select product" />
+              {(() => {
+                if (!selectedProductId) return "Select product";
+                const p = products.find(p => p.id === selectedProductId);
+                return p ? `${p.name} — ${p.interest_rate}% p.a.` : "Select product";
+              })()}
             </SelectTrigger>
             <SelectContent>
               {products.map((p: any) => (
