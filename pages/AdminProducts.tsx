@@ -183,15 +183,15 @@ export default function AdminProducts() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 sm:py-6 px-3 sm:px-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="h-10 px-2">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">Loan Products</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Loan Products</h1>
         </div>
-        <Button onClick={handleOpenNew}>
+        <Button onClick={handleOpenNew} className="w-full sm:w-auto h-10">
           <Plus className="h-4 w-4 mr-2" />
           Add Product
         </Button>
@@ -287,18 +287,19 @@ export default function AdminProducts() {
                     </div>
                   </div>
 
-                  <div className="flex gap-1.5">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => handleEdit(product)}>
-                      <Edit className="h-3 w-3 mr-1" />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 h-10" onClick={() => handleEdit(product)}>
+                      <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
                     <Button
                       size="sm"
                       variant={product.is_active ? 'destructive' : 'default'}
-                      className="flex-1 text-xs h-8"
+                      className="flex-1 h-10"
                       onClick={() => handleToggle(product)}
                     >
-                      {product.is_active ? <X className="h-3 w-3 mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                      {product.is_active ? <X className="h-4 w-4 mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                      {product.is_active ? 'Disable' : 'Enable'}
                     </Button>
                   </div>
                 </CardContent>
@@ -314,12 +315,12 @@ export default function AdminProducts() {
 
       {/* Product Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{isEditing ? 'Edit Product' : 'New Loan Product'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 col-span-2">
                 <Label>Product Name *</Label>
                 <Input

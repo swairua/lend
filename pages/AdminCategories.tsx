@@ -133,22 +133,22 @@ export default function AdminCategories() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 sm:py-6 px-3 sm:px-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="h-10 px-2">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">Loan Categories</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Loan Categories</h1>
         </div>
-        <Button onClick={handleOpenNew}>
+        <Button onClick={handleOpenNew} className="w-full sm:w-auto h-10">
           <Plus className="h-4 w-4 mr-2" />
           Add Category
         </Button>
       </div>
 
       {/* Categories Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {categories.map((category) => (
           <Card key={category.id} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="p-4 pb-2">
@@ -170,15 +170,18 @@ export default function AdminCategories() {
               <p className="text-xs text-muted-foreground mb-2">Code: {category.code}</p>
               <p className="text-sm text-muted-foreground mb-4">{category.description}</p>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleEdit(category)}>
-                  <Edit className="h-3 w-3" />
+                <Button size="sm" variant="outline" className="flex-1 h-10" onClick={() => handleEdit(category)}>
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edit
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant={category.is_active ? 'destructive' : 'default'}
+                  className="flex-1 h-10"
                   onClick={() => handleToggle(category)}
                 >
-                  {category.is_active ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                  {category.is_active ? <X className="h-4 w-4 mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                  {category.is_active ? 'Disable' : 'Enable'}
                 </Button>
               </div>
             </CardContent>
@@ -198,7 +201,7 @@ export default function AdminCategories() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{isEditing ? 'Edit Category' : 'New Category'}</DialogTitle>
           </DialogHeader>
@@ -262,7 +265,7 @@ export default function AdminCategories() {
 
       {/* Delete Confirmation */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Delete Category?</DialogTitle>
           </DialogHeader>

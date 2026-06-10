@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { adminApi, loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
 import { secureStorage } from '@/utils/secureStorage';
-import { Loader2, Download, FileText, Users, Wallet, TrendingUp, BarChart3, Calendar, Filter } from 'lucide-react';
+import { Loader2, Download, FileText, Users, Wallet, TrendingUp, BarChart3, Calendar, Filter, ChevronDown } from 'lucide-react';
 
 interface ReportLoan {
   id: number;
@@ -44,6 +44,7 @@ export default function AdminReports() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     const loadAndValidate = async () => {
@@ -180,70 +181,94 @@ export default function AdminReports() {
   };
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 sm:py-6 px-3 sm:px-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-6 w-6" />
-          <h1 className="text-2xl font-bold">Reports & Analytics</h1>
+          <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6" />
+          <h1 className="text-xl sm:text-2xl font-bold">Reports & Analytics</h1>
         </div>
-        <Button onClick={exportToCSV} variant="outline">
+        <Button onClick={exportToCSV} variant="outline" className="w-full sm:w-auto h-10">
           <Download className="h-4 w-4 mr-2" />
-          Export CSV
+          Export
         </Button>
       </div>
 
       <Tabs value={activeReport} onValueChange={setActiveReport} className="w-full">
-        <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="portfolio" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Loan Portfolio
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full">
+          <TabsTrigger value="portfolio" className="flex items-center gap-1 text-xs sm:text-sm">
+            <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Loan Portfolio</span>
+            <span className="sm:hidden">Portfolio</span>
           </TabsTrigger>
-          <TabsTrigger value="collection" className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            Collection
+          <TabsTrigger value="collection" className="flex items-center gap-1 text-xs sm:text-sm">
+            <Wallet className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Collection</span>
+            <span className="sm:hidden">Collection</span>
           </TabsTrigger>
-          <TabsTrigger value="borrowers" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Borrowers
+          <TabsTrigger value="borrowers" className="flex items-center gap-1 text-xs sm:text-sm">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Borrowers</span>
+            <span className="sm:hidden">Borrowers</span>
           </TabsTrigger>
-          <TabsTrigger value="financial" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Financial
+          <TabsTrigger value="financial" className="flex items-center gap-1 text-xs sm:text-sm">
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Financial</span>
+            <span className="sm:hidden">Financial</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Filters */}
-        <div className="flex gap-4 mt-4 mb-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            <select
-              className="border rounded px-2 py-1"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="defaulted">Defaulted</option>
-            </select>
-          </div>
-          <Input
-            type="date"
-            className="w-40"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            placeholder="From Date"
-          />
-          <Input
-            type="date"
-            className="w-40"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            placeholder="To Date"
-          />
-        </div>
+        <Card className="mt-4 mb-4">
+          <button
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className="w-full flex items-center justify-between px-6 py-4 hover:opacity-75 transition-opacity"
+          >
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <span className="font-medium">Filters</span>
+            </div>
+            <ChevronDown className={`h-5 w-5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {filtersOpen && (
+            <CardContent className="space-y-3 border-t pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs sm:text-sm font-medium">Status</label>
+                  <select
+                    className="w-full mt-1.5 px-2 py-2 text-sm border rounded-md"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="defaulted">Defaulted</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs sm:text-sm font-medium">From Date</label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="mt-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs sm:text-sm font-medium">To Date</label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="mt-1.5 text-sm"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
 
         <TabsContent value="portfolio" className="space-y-4">
           {loading ? (

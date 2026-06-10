@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Download, Eye, Trash2 } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Download, Eye, Trash2, ChevronDown } from 'lucide-react';
 import { adminApi, formatDate } from '../types/api';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeList } from '../utils/normalize';
@@ -33,6 +33,7 @@ export default function AdminSystemLogs() {
   const limit = 20;
   const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [filters, setFilters] = useState({
     logType: '',
@@ -41,6 +42,8 @@ export default function AdminSystemLogs() {
     startDate: '',
     endDate: '',
   });
+
+  const activeFilterCount = Object.values(filters).filter(v => v).length;
 
   const logTypes = ['loan_action', 'payment', 'admin_action', 'user_mgmt', 'api_request', 'mpesa_transaction', 'error'];
   const statusOptions = ['success', 'failed'];
@@ -188,86 +191,94 @@ export default function AdminSystemLogs() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Filter Logs</CardTitle>
+          <button
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className="w-full flex items-center justify-between hover:opacity-75 transition-opacity"
+          >
+            <CardTitle className="m-0">Filter Logs</CardTitle>
+            <ChevronDown className={`w-5 h-5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+          </button>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label className="text-sm font-medium">Log Type</label>
-              <select
-                className="w-full mt-1 px-3 py-2 border rounded-md"
-                value={filters.logType}
-                onChange={(e) => handleFilterChange('logType', e.target.value)}
-              >
-                <option value="">All Types</option>
-                {logTypes.map(type => (
-                  <option key={type} value={type}>{type.replace('_', ' ')}</option>
-                ))}
-              </select>
+        {filtersOpen && (
+          <CardContent className="space-y-4 border-t">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div>
+                <label className="text-xs sm:text-sm font-medium">Log Type</label>
+                <select
+                  className="w-full mt-1.5 px-2 py-2 text-sm border rounded-md"
+                  value={filters.logType}
+                  onChange={(e) => handleFilterChange('logType', e.target.value)}
+                >
+                  <option value="">All Types</option>
+                  {logTypes.map(type => (
+                    <option key={type} value={type}>{type.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs sm:text-sm font-medium">Status</label>
+                <select
+                  className="w-full mt-1.5 px-2 py-2 text-sm border rounded-md"
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                >
+                  <option value="">All Status</option>
+                  {statusOptions.map(status => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs sm:text-sm font-medium">Search</label>
+                <Input
+                  placeholder="Search..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  className="mt-1.5 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs sm:text-sm font-medium">Start Date</label>
+                <Input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  className="mt-1.5 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs sm:text-sm font-medium">End Date</label>
+                <Input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  className="mt-1.5 text-sm"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">Status</label>
-              <select
-                className="w-full mt-1 px-3 py-2 border rounded-md"
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-              >
-                <option value="">All Status</option>
-                {statusOptions.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button onClick={handleApplyFilters} className="bg-blue-600 h-10 sm:h-auto">
+                Apply Filters
+              </Button>
+              <Button onClick={handleClearFilters} variant="outline" className="h-10 sm:h-auto">
+                Clear Filters
+              </Button>
+              <Button onClick={handleExportCsv} variant="outline" className="h-10 sm:h-auto">
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button onClick={handleCleanup} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 h-10 sm:h-auto">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Cleanup
+              </Button>
             </div>
-
-            <div>
-              <label className="text-sm font-medium">Search</label>
-              <Input
-                placeholder="Search action or details..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Start Date</label>
-              <Input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">End Date</label>
-              <Input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button onClick={handleApplyFilters} className="bg-blue-600">
-              Apply Filters
-            </Button>
-            <Button onClick={handleClearFilters} variant="outline">
-              Clear Filters
-            </Button>
-            <Button onClick={handleExportCsv} variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
-            <Button onClick={handleCleanup} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-              <Trash2 className="w-4 h-4 mr-2" />
-              Cleanup Old Logs
-            </Button>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       <Card>
@@ -366,7 +377,7 @@ export default function AdminSystemLogs() {
       </Card>
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-2xl max-h-96 overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Log Details</DialogTitle>
           </DialogHeader>
