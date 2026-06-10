@@ -92,7 +92,7 @@ export default function BorrowerDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <StatCard label="Active Loans" value={dashboard?.active_loans || 0} variant="success" />
           <StatCard label="Pending" value={dashboard?.pending_loans || 0} variant="warning" />
-          <StatCard label="Total Borrowed" value={formatKES(dashboard?.total_borrowed || 0)} />
+          <StatCard label="Total Borrowed" value={formatKES(dashboard?.total_disbursed || 0)} />
         </div>
 
         {/* Active Loans */}
