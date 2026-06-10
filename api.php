@@ -1341,7 +1341,7 @@ try {
         }
 
         if (preg_match('#borrower/loans/(\d+)#', $uri, $m)) {
-            $loan = one("SELECT l.*, u.phone as borrower_phone, lp.name as product_name, lp.description as product_description
+            $loan = one("SELECT l.*, u.phone as borrower_phone, lp.name as product_name, lp.description as product_description, lp.interest_rate
                          FROM loans l LEFT JOIN users u ON l.borrower_id = u.id LEFT JOIN loan_products lp ON l.product_id = lp.id
                          WHERE l.id = ? AND l.borrower_id = ?", [$m[1], $bid]);
             if (!$loan) { 
@@ -2025,7 +2025,7 @@ try {
         // Single loan
         if (preg_match('#admin/loans/(\d+)$#', $uri, $m)) {
             $loan = one("SELECT l.*, u.name borrower_name, u.email borrower_email, u.phone borrower_phone,
-                                lp.name product_name, lp.description product_description
+                                lp.name product_name, lp.description product_description, lp.interest_rate
                          FROM loans l
                          LEFT JOIN borrowers b ON l.borrower_id=b.id
                          LEFT JOIN users u ON b.user_id=u.id
@@ -2051,7 +2051,7 @@ try {
         if (strpos($uri, 'admin/loans') !== false) {
             $status = $_GET['status'] ?? null;
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
-            $sql = "SELECT l.*, u.name borrower_name, u.email borrower_email, lp.name product_name, lc.name category_name,
+            $sql = "SELECT l.*, u.name borrower_name, u.email borrower_email, lp.name product_name, lp.interest_rate, lc.name category_name,
                            COALESCE(SUM(r.amount), 0) as total_paid
                     FROM loans l
                     LEFT JOIN borrowers b ON l.borrower_id=b.id
