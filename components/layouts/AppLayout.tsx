@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { LogOut, Menu, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { secureStorage } from '@/utils/secureStorage';
+import { adminApi, getFileUrl } from '@/utils/api';
 import { getNavItemsForRole, getPortalTitle, UserRole } from '@/config/navigationConfig';
 
 interface User {
@@ -25,10 +26,27 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const role = (user?.role as UserRole) || 'borrower';
   const navItems = getNavItemsForRole(role);
   const portalTitle = getPortalTitle(role);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await adminApi.getConfig();
+        if (res.success && res.data) {
+          const arr = Array.isArray(res.data) ? res.data :
+            res.data.data ? res.data.data :
+            Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
+          const settings = Object.fromEntries(arr.map((item: any) => [item.key_name, item.key_value]));
+          if (settings.company_logo) setLogoUrl(getFileUrl(settings.company_logo));
+        }
+      } catch {}
+    };
+    loadSettings();
+  }, []);
 
   const handleLogout = async () => {
     await secureStorage.clear();
@@ -84,7 +102,7 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
       >
         <div className="p-4 border-b flex items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-2 flex-1">
-            <img src="/icons/icon-192.png" alt="JECRI BUREAU" className="h-8 w-auto" />
+            <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto" />
             {sidebarOpen && <h1 className="font-bold text-lg">{portalTitle}</h1>}
           </Link>
           <Button
@@ -128,13 +146,13 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
           <div className="flex items-center justify-between p-3">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" aria-label="Open menu">
+                <Button variant="ghost" aria-label="Open menu" className="min-h-[44px] min-w-[44px]">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72">
                 <div className="p-4 border-b flex items-center gap-2">
-                  <img src="/icons/icon-192.png" alt="JECRI BUREAU" className="h-8 w-auto" />
+                  <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto" />
                   <h1 className="font-bold text-lg">{portalTitle}</h1>
                 </div>
                 <nav className="p-2 space-y-1">

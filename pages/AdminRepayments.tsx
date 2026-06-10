@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus, Check, ChevronsUpDown, Download } from 'lucide-react';
-import { adminApi, repaymentsApi, formatKES, formatDate } from '../types/api';
-import { generateReceiptHTML } from '../utils/pdfTemplates';
+import { adminApi, repaymentsApi, formatKES, formatDate, getFileUrl } from '../types/api';
+import { generateReceiptHTML, resolveLogoUrl } from '../utils/pdfTemplates';
 import { toast } from 'sonner';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
@@ -92,7 +92,7 @@ export default function AdminRepayments() {
             Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
           const settings = Object.fromEntries(configArray.map((item: any) => [item.key_name, item.key_value]));
           setCompanyName(settings.company_name || 'LENDING PLATFORM');
-          setCompanyLogoUrl(settings.company_logo || null);
+          setCompanyLogoUrl(getFileUrl(settings.company_logo) || null);
         }
       } catch (err) {
         console.warn('Could not load company settings:', err);
@@ -115,7 +115,7 @@ export default function AdminRepayments() {
   const loadAllLoans = async () => {
     setLoadingLoans(true);
     try {
-      const response = await adminApi.getLoans({ limit: 200 });
+      const response = await adminApi.getLoans({ status: 'active', limit: 200 });
       const loansData = Array.isArray(response.data?.loans) ? response.data.loans : [];
       setLoans(loansData.map((loan: any) => ({
         id: loan.id,
@@ -125,6 +125,7 @@ export default function AdminRepayments() {
     } catch (error: any) {
       console.error('Failed to load loans:', error);
       setLoans([]);
+      toast.error('Failed to load loans. Please refresh the page to try again.');
     } finally {
       setLoadingLoans(false);
     }
@@ -168,17 +169,27 @@ export default function AdminRepayments() {
   const handleDownloadReceipt = async (repayment: any) => {
     setDownloadingReceiptId(repayment.id);
     try {
+      const totalAmount = Number(repayment.total_amount) || 0;
+      const totalPaid = Number(repayment.total_paid) || 0;
+      const thisAmount = Number(repayment.amount) || 0;
+      const balance = totalAmount - totalPaid;
       const html2pdf = (await import('html2pdf.js')).default;
       const element = document.createElement('div');
+      const pdfLogoUrl = await resolveLogoUrl(companyLogoUrl);
       element.innerHTML = generateReceiptHTML({
         repayment: { ...repayment, loan_id: repayment.loan_id },
         loan: { id: repayment.loan_id } as any,
         borrowerName: repayment.borrower_name || 'N/A',
         borrowerEmail: repayment.borrower_email || 'N/A',
         companyName,
-        companyLogoUrl: companyLogoUrl || undefined,
+        companyLogoUrl: pdfLogoUrl,
+        loanAmount: totalAmount || undefined,
+        loanStatus: repayment.loan_status || undefined,
+        disbursedAt: repayment.disbursed_at || undefined,
+        remainingBalance: balance > 0 ? balance : 0,
       });
-      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
+      await Promise.all([...element.querySelectorAll('img')].map(img => img.complete ? Promise.resolve() : new Promise<void>(resolve => { img.onload = () => resolve(); img.onerror = () => resolve(); })));
+      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
       toast.success('Receipt downloaded successfully');
     } catch (error: any) {
@@ -294,24 +305,10 @@ export default function AdminRepayments() {
 
     setMatchingLoading(true);
     try {
-      const response = await fetch('/api/admin/mpesa/match-repayment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          repayment_id: selectedRepaymentForMatch.id,
-          loan_id: parseInt(matchingLoanId)
-        })
+      const result = await adminApi.post('/admin/mpesa/match-repayment', {
+        repayment_id: selectedRepaymentForMatch.id,
+        loan_id: parseInt(matchingLoanId)
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to match repayment');
-      }
-
-      const result = await response.json();
       toast.success(result.data.warning ? `Matched with warning: ${result.data.warning}` : 'Repayment matched successfully');
       setMatchingDialogOpen(false);
       setSelectedRepaymentForMatch(null);
@@ -327,7 +324,9 @@ export default function AdminRepayments() {
   const openMatchingDialog = (repayment: Repayment) => {
     setSelectedRepaymentForMatch(repayment);
     setMatchingLoanId('');
+    setLoanSearchTerm('');
     setMatchingDialogOpen(true);
+    loadAllLoans();
   };
 
   const filteredRepayments = repayments.filter(r => {
@@ -640,11 +639,11 @@ export default function AdminRepayments() {
                         {loans.map((loan) => (
                           <CommandItem
                             key={loan.id}
-                            value={String(loan.id)}
-                            onSelect={(currentValue) => {
+                            value={`${loan.id} ${loan.borrower_name}`}
+                            onSelect={() => {
                               setPaymentForm({
                                 ...paymentForm,
-                                loan_id: currentValue,
+                                loan_id: String(loan.id),
                               });
                               setLoanPopoverOpen(false);
                             }}
@@ -809,19 +808,19 @@ export default function AdminRepayments() {
                         onValueChange={setLoanSearchTerm}
                       />
                       <CommandEmpty>
-                        {loadingLoans ? 'Loading loans...' : 'No active loans found.'}
+                        {loadingLoans ? 'Loading loans...' : 'No active loans found. Refresh the page if loans exist.'}
                       </CommandEmpty>
                       <CommandList>
                         <CommandGroup>
                           {loans.map((loan) => (
-                            <CommandItem
-                              key={loan.id}
-                              value={String(loan.id)}
-                              onSelect={(currentValue) => {
-                                setMatchingLoanId(currentValue);
-                                setLoanPopoverOpen(false);
-                              }}
-                            >
+                              <CommandItem
+                                  key={loan.id}
+                                  value={`${loan.id} ${loan.borrower_name}`}
+                                  onSelect={(currentValue) => {
+                                    setMatchingLoanId(String(loan.id));
+                                    setLoanPopoverOpen(false);
+                                  }}
+                                >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",

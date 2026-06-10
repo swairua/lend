@@ -48,6 +48,8 @@ export const navigationItems: NavItem[] = [
   // Admin - Financial
   { label: 'Repayments', href: '/admin/repayments', icon: DollarSign, roles: ['admin', 'manager'] },
   { label: 'Disbursements', href: '/admin/disbursements', icon: Wallet, roles: ['admin', 'releaser'] },
+  { label: 'Receipts', href: '/admin/receipts', icon: Receipt, roles: ['admin', 'manager'] },
+  { label: 'Petty Cash', href: '/admin/petty-cash', icon: Wallet, roles: ['admin', 'manager'] },
   { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin', 'manager'] },
 
   // Admin - Management

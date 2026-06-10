@@ -191,7 +191,7 @@ export default function AdminProducts() {
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Loan Products</h1>
         </div>
-        <Button onClick={handleOpenNew} className="w-full sm:w-auto h-10">
+        <Button onClick={handleOpenNew} className="w-full sm:w-auto min-h-[44px]">
           <Plus className="h-4 w-4 mr-2" />
           Add Product
         </Button>
@@ -288,14 +288,14 @@ export default function AdminProducts() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 h-10" onClick={() => handleEdit(product)}>
+                    <Button size="sm" variant="outline" className="flex-1 min-h-[44px]" onClick={() => handleEdit(product)}>
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
                     <Button
                       size="sm"
                       variant={product.is_active ? 'destructive' : 'default'}
-                      className="flex-1 h-10"
+                      className="flex-1 min-h-[44px]"
                       onClick={() => handleToggle(product)}
                     >
                       {product.is_active ? <X className="h-4 w-4 mr-1" /> : <Check className="h-4 w-4 mr-1" />}
@@ -402,7 +402,7 @@ export default function AdminProducts() {
             
             <div className="space-y-2">
               <Label>Requirements</Label>
-              <div className="flex gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="flex items-center gap-2">
                   <Checkbox checked={form.requires_security} onCheckedChange={(v) => setForm({ ...form, requires_security: !!v })} />
                   <Label>Requires Security</Label>

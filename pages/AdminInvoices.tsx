@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus, Eye, Trash2, Printer, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
-import { adminApi, formatKES, formatDate } from '../types/api';
+import { adminApi, formatKES, formatDate, getFileUrl } from '../types/api';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
 import { normalizeList } from '../utils/normalize';
@@ -128,7 +128,7 @@ export default function AdminInvoices() {
       let invoice = inv;
       if (!inv.items) { const res = await adminApi.getInvoice(inv.id); invoice = res.data; }
       const config = await adminApi.getConfig();
-      const company = { company_name: config.data.company_name || 'Company', company_logo: config.data.company_logo || '', company_email: config.data.company_email || '', company_phone: config.data.company_phone || '', company_address: config.data.company_address || '' };
+      const company = { company_name: config.data.company_name || 'Company', company_logo: getFileUrl(config.data.company_logo) || '', company_email: config.data.company_email || '', company_phone: config.data.company_phone || '', company_address: config.data.company_address || '' };
       const html = buildBrandedDocumentHtml({
         number: invoice.invoice_number, title: 'INVOICE',
         client_name: invoice.client_name, client_email: invoice.client_email, client_phone: invoice.client_phone, client_address: invoice.client_address,

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Loader2, Camera } from "lucide-react";
 import { uploadsApi, getFileUrl } from "@/utils/api";
 
@@ -15,6 +15,10 @@ export default function ProfilePhoto({ name, currentUrl, borrowerId, onUploaded,
   const [uploading, setUploading] = useState(false);
   const [photo, setPhoto] = useState(currentUrl || "");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setPhoto(currentUrl || "");
+  }, [currentUrl]);
 
   const initials = name ? name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) : "?";
   const dim = size === "lg" ? "w-24 h-24" : "w-14 h-14";

@@ -98,7 +98,7 @@ export default function RepaymentSchedule() {
     );
   }
 
-  const totalPaid = loan?.repayments?.reduce((sum, r) => sum + r.amount, 0) || 0;
+  const totalPaid = loan?.repayments?.reduce((sum, r) => sum + Number(r.amount), 0) || 0;
   const upcomingPayments = schedule.filter(p => !p.isPaid && new Date() <= new Date(p.dueDate));
   const overduePayments = schedule.filter(p => !p.isPaid && new Date() > new Date(p.dueDate));
 

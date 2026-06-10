@@ -96,6 +96,14 @@ const put = <T = any>(endpoint: string, body?: any) => request<T>(endpoint, { me
 const patch = <T = any>(endpoint: string, body?: any) => request<T>(endpoint, { method: 'PATCH', body });
 const del = <T = any>(endpoint: string, body?: any) => request<T>(endpoint, { method: 'DELETE', body });
 
+async function getBlob(endpoint: string, query?: Record<string, any>): Promise<Blob> {
+  const url = buildUrl(endpoint, query);
+  const auth = await authHeader();
+  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/pdf', ...auth } });
+  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`);
+  return res.blob();
+}
+
 // ==================== Auth ====================
 export const authApi = {
   login: (email: string, password: string) => post('/auth/login', { email, password }),
@@ -121,7 +129,7 @@ export const productsApi = {
 // ==================== Loans ====================
 export const loansApi = {
   apply: (data: any) => post('/borrower/loans', data),
-  getMyLoans: () => get('/borrower/loans'),
+  getMyLoans: (params?: Record<string, any>) => get('/borrower/loans', params),
   getMyLoan: (id: number) => get(`/borrower/loans/${id}`),
   getDashboard: () => get('/borrower/dashboard'),
 };
@@ -129,6 +137,7 @@ export const loansApi = {
 // ==================== Repayments ====================
 export const repaymentsApi = {
   getMyRepayments: () => get('/repayments/mine'),
+  getMyReceipts: (params?: any) => get('/borrower/receipts', params),
   record: (data: any) => post('/repayments', data),
 };
 
@@ -236,6 +245,25 @@ export const adminApi = {
   updateRole: (roleKey: string, data: any) => put(`/admin/roles/${roleKey}`, data),
   updateRolePermissions: (roleKey: string, permissions: any) =>
     put(`/admin/roles/${roleKey}/permissions`, { permissions }),
+
+  // ---- Receipts ----
+  getReceipts: (params?: any) => get('/admin/receipts', params),
+  getReceipt: (id: number) => get(`/admin/receipts/${id}`),
+  getReceiptPdf: (id: number) => getBlob(`/admin/receipts/${id}/pdf`),
+  generateReceipt: (repaymentId: number) => post('/admin/receipts', { repayment_id: repaymentId }),
+
+  // ---- Petty Cash ----
+  getPettyCashAccounts: () => get('/admin/petty-cash/accounts'),
+  createPettyCashAccount: (data: any) => post('/admin/petty-cash/accounts', data),
+  updatePettyCashAccount: (id: number, data: any) => put(`/admin/petty-cash/accounts/${id}`, data),
+  deletePettyCashAccount: (id: number) => del(`/admin/petty-cash/accounts/${id}`),
+  getPettyCashTransactions: (params?: any) => get('/admin/petty-cash/transactions', params),
+  createPettyCashTransaction: (data: any) => post('/admin/petty-cash/transactions', data),
+  updatePettyCashTransaction: (id: number, data: any) => put(`/admin/petty-cash/transactions/${id}`, data),
+  approvePettyCashTransaction: (id: number, status: string) => put(`/admin/petty-cash/transactions/${id}/approve`, { status }),
+  getPettyCashCashBook: (startDate?: string, endDate?: string) => get('/admin/petty-cash/reports/cash-book', { start_date: startDate, end_date: endDate }),
+  getPettyCashDailySummary: (date?: string) => get('/admin/petty-cash/reports/daily-summary', { date }),
+  getPettyCashStatement: (accountId: number) => get(`/admin/petty-cash/reports/statement/${accountId}`),
 };
 
 // ==================== Messages ====================
@@ -277,7 +305,7 @@ export const uploadsApi = {
 export const uploadCompanyLogo = async (file: File): Promise<{ success: boolean; data: { file_url: string } }> => {
   const fd = new FormData();
   fd.append('file', file);
-  return uploadRequest('/admin/company/logo', fd);
+  return uploadRequest('/admin/upload-logo', fd);
 };
 
 // ==================== Email ====================

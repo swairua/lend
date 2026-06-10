@@ -863,6 +863,18 @@ function requireRole($u, ...$roles) {
     }
 }
 
+/** Auto-generate a receipt after a repayment is recorded */
+function autoGenerateReceipt($repaymentId) {
+    $rep = one("SELECT r.*, l.borrower_id FROM repayments r LEFT JOIN loans l ON r.loan_id=l.id WHERE r.id=?", [$repaymentId]);
+    if (!$rep || !$rep['borrower_id']) return null;
+    $today = date('Ymd');
+    $seq = one("SELECT COALESCE(COUNT(*),0)+1 n FROM receipts WHERE DATE(generated_at)=CURDATE()");
+    $rcpNum = 'RCP-' . $today . '-' . str_pad($seq['n'], 4, '0', STR_PAD_LEFT);
+    q("INSERT INTO receipts (receipt_number, repayment_id, loan_id, borrower_id, amount, receipt_type) VALUES (?,?,?,?,?,?)",
+      [$rcpNum, $rep['id'], $rep['loan_id'], $rep['borrower_id'], floatval($rep['amount']), 'repayment']);
+    return pdo()->lastInsertId();
+}
+
 try {
     $resource = explode('/', $uri)[0] ?? '';
 
@@ -955,6 +967,7 @@ try {
                     'id' => $user['id'], 'email' => $user['email'], 'name' => $user['name'],
                     'phone' => $user['phone'], 'role' => $user['role'],
                     'borrower_id' => $b['id'] ?? null,
+                    'photo_url' => $user['photo_url'] ?? null,
                 ];
                 echo json_encode(['success' => true, 'token' => $tok, 'user' => $payload,
                                   'data' => ['token' => $tok, 'user' => $payload]]);
@@ -1323,7 +1336,7 @@ try {
             error_log("[borrower/dashboard] User={$user['id']}, Borrower={$bid}, All loans: " . json_encode($allLoansData));
 
             $totalLoans  = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ?", [$bid]);
-            $activeLoans = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ? AND status='active'", [$bid]);
+            $activeLoans = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ? AND status IN ('active','approved')", [$bid]);
             $pending     = one("SELECT COUNT(*) c FROM loans WHERE borrower_id = ? AND status='pending'", [$bid]);
             error_log("[borrower/dashboard] User={$user['id']}, Borrower={$bid}, Total={$totalLoans['c']}, Active={$activeLoans['c']}, Pending={$pending['c']}");
             $disbursed   = one("SELECT COALESCE(SUM(total_amount),0) t FROM loans WHERE borrower_id = ? AND status IN ('active','completed')", [$bid]);
@@ -1602,7 +1615,7 @@ try {
             $limit = intval($_GET['limit'] ?? 20);
             $off = ($page - 1) * $limit;
 
-            $reps = all("SELECT r.*, l.id as loan_id, lp.name as product_name, l.principal_amount, l.total_amount
+            $reps = all("SELECT r.*, l.id as loan_id, lp.name as product_name, l.principal_amount, l.total_amount, l.status loan_status, l.disbursed_at
                          FROM repayments r
                          JOIN loans l ON r.loan_id = l.id
                          WHERE l.borrower_id = ?
@@ -1617,6 +1630,38 @@ try {
                 'repayments' => $reps,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c'] ?? 0]
             ]]);
+            exit;
+        }
+
+        // POST /repayments - Admin/manager manual repayment entry
+        if ($method === 'POST') {
+            requireRole($user, 'admin', 'manager');
+            $d = input();
+            $loanId = intval($d['loan_id'] ?? 0);
+            $amount = floatval($d['amount'] ?? 0);
+            $paymentMethod = $d['payment_method'] ?? 'cash';
+            $reference = $d['reference_number'] ?? null;
+
+            if (!$loanId || $amount <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'loan_id and amount are required']);
+                exit;
+            }
+
+            q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number, paid_at, created_at)
+               VALUES (?, ?, ?, 0, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+              [$loanId, $amount, $amount, $paymentMethod, $reference]);
+
+            $repaymentId = pdo()->lastInsertId();
+            q("UPDATE loans SET updated_at=CURRENT_TIMESTAMP WHERE id=?", [$loanId]);
+
+            autoGenerateReceipt($repaymentId);
+
+            logAudit($user['id'], 'payment_received', 'repayment', $loanId, [
+                'amount' => $amount, 'payment_method' => $paymentMethod, 'reference_number' => $reference,
+            ]);
+            log_access('POST', 'repayments', 201);
+            echo json_encode(['success' => true, 'data' => ['repayment_id' => $repaymentId]]);
             exit;
         }
 
@@ -1951,6 +1996,9 @@ try {
                 q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$m[1]]);
                 q("INSERT INTO payments (loan_id, type, amount, method, reference, status)
                    VALUES (?,'disbursement',?,'bank',?,'completed')", [$m[1], $amt, $d['reference'] ?? null]);
+                q("INSERT INTO disbursements (loan_id, amount, disbursement_method, reference_number, status, created_at, updated_at)
+                   VALUES (?,?,?,'bank',?,'completed',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                  [$m[1], $amt, $d['reference'] ?? null]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
                 q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type)
                    VALUES (?,?,?,'Loan Disbursed',?,'disbursement')",
@@ -3339,6 +3387,7 @@ try {
                         q("UPDATE loans SET updated_at=CURRENT_TIMESTAMP WHERE id=?", [$loanId]);
 
                         $repaymentId = pdo()->lastInsertId();
+                        autoGenerateReceipt($repaymentId);
                         $results[] = ['transaction_id' => $txnId, 'repayment_id' => $repaymentId, 'success' => true, 'loan_id' => $loanId];
                         logSystem('mpesa_transaction', 'repayment_created_from_orphaned',
                             ['transaction_id' => $txnId, 'amount' => $txn['amount'], 'loan_id' => $loanId], $u['id']);
@@ -3447,7 +3496,7 @@ try {
         // Repayments
         if (strpos($uri, 'admin/repayments') !== false) {
             $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
-            $rows = all("SELECT r.*, u.name borrower_name, l.principal_amount
+            $rows = all("SELECT r.*, u.name borrower_name, l.principal_amount, l.total_amount, l.status loan_status, l.disbursed_at
                          FROM repayments r
                          LEFT JOIN loans l ON r.loan_id=l.id
                          LEFT JOIN borrowers b ON l.borrower_id=b.id
@@ -4140,6 +4189,242 @@ try {
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
             exit;
         }
+
+        // ---- Receipts ----
+        if (strpos($uri, 'admin/receipts') !== false) {
+            // Get single receipt
+            if ($method === 'GET' && preg_match('#admin/receipts/(\d+)$#', $uri, $m)) {
+                $rct = one("SELECT r.*, u.name borrower_name, l.principal_amount, l.total_amount
+                            FROM receipts r
+                            LEFT JOIN loans l ON r.loan_id=l.id
+                            LEFT JOIN borrowers b ON r.borrower_id=b.id
+                            LEFT JOIN users u ON b.user_id=u.id
+                            WHERE r.id=?", [$m[1]]);
+                if (!$rct) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Receipt not found']); exit; }
+                log_access('GET', 'admin/receipts/' . $m[1], 200);
+                echo json_encode(['success' => true, 'data' => $rct]);
+                exit;
+            }
+            // Download receipt PDF
+            if ($method === 'GET' && preg_match('#admin/receipts/(\d+)/pdf$#', $uri, $m)) {
+                $rct = one("SELECT r.*, u.name borrower_name, u.email borrower_email, l.principal_amount, l.total_amount
+                            FROM receipts r
+                            LEFT JOIN loans l ON r.loan_id=l.id
+                            LEFT JOIN borrowers b ON r.borrower_id=b.id
+                            LEFT JOIN users u ON b.user_id=u.id
+                            WHERE r.id=?", [$m[1]]);
+                if (!$rct) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Receipt not found']); exit; }
+                $repayment = one("SELECT * FROM repayments WHERE id=?", [$rct['repayment_id']]);
+                require_once __DIR__ . '/utils/pdfGenerator.php';
+                $pdfData = [
+                    'receiptNumber' => $rct['receipt_number'],
+                    'repaymentId' => $rct['repayment_id'],
+                    'loanId' => $rct['loan_id'],
+                    'borrowerName' => $rct['borrower_name'] ?? 'N/A',
+                    'borrowerEmail' => $rct['borrower_email'] ?? '',
+                    'amount' => floatval($rct['amount']),
+                    'paymentMethod' => $repayment ? $repayment['payment_method'] : 'mpesa',
+                    'paidAt' => $rct['generated_at'],
+                    'loanAmount' => floatval($rct['total_amount'] ?? 0),
+                    'principalAmount' => floatval($rct['principal_amount'] ?? 0),
+                ];
+                $pdfBuffer = generateReceiptPDF($pdfData);
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: attachment; filename="' . $rct['receipt_number'] . '.pdf"');
+                echo $pdfBuffer;
+                log_access('GET', 'admin/receipts/' . $m[1] . '/pdf', 200);
+                exit;
+            }
+            // Generate receipt for a repayment
+            if ($method === 'POST') {
+                $d = input();
+                $repaymentId = intval($d['repayment_id'] ?? 0);
+                if (!$repaymentId) { http_response_code(400); echo json_encode(['success'=>false,'error'=>'repayment_id required']); exit; }
+                $rep = one("SELECT r.*, l.borrower_id, l.principal_amount, l.total_amount FROM repayments r LEFT JOIN loans l ON r.loan_id=l.id WHERE r.id=?", [$repaymentId]);
+                if (!$rep) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Repayment not found']); exit; }
+                $today = date('Ymd');
+                $seq = one("SELECT COALESCE(COUNT(*),0)+1 n FROM receipts WHERE DATE(generated_at)=CURDATE()");
+                $rcpNum = 'RCP-' . $today . '-' . str_pad($seq['n'], 4, '0', STR_PAD_LEFT);
+                q("INSERT INTO receipts (receipt_number, repayment_id, loan_id, borrower_id, amount, receipt_type) VALUES (?,?,?,?,?,?)",
+                  [$rcpNum, $rep['id'], $rep['loan_id'], $rep['borrower_id'], floatval($rep['amount']), 'repayment']);
+                $rctId = pdo()->lastInsertId();
+                log_access('POST', 'admin/receipts', 201);
+                echo json_encode(['success' => true, 'data' => ['id' => $rctId, 'receipt_number' => $rcpNum]]);
+                exit;
+            }
+            // List receipts
+            $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 50); $off = ($page - 1) * $limit;
+            $rows = all("SELECT r.*, u.name borrower_name FROM receipts r
+                         LEFT JOIN loans l ON r.loan_id=l.id
+                         LEFT JOIN borrowers b ON r.borrower_id=b.id
+                         LEFT JOIN users u ON b.user_id=u.id
+                         ORDER BY r.generated_at DESC LIMIT $limit OFFSET $off");
+            $tot = one("SELECT COUNT(*) c FROM receipts");
+            log_access('GET', 'admin/receipts', 200);
+            echo json_encode(['success' => true, 'data' => ['receipts' => $rows,
+                'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+            exit;
+        }
+
+        // ---- Petty Cash ----
+        if (strpos($uri, 'admin/petty-cash') !== false) {
+            // --- Reports ---
+            if (strpos($uri, 'admin/petty-cash/reports/cash-book') !== false) {
+                $start = $_GET['start_date'] ?? date('Y-m-01');
+                $end = $_GET['end_date'] ?? date('Y-m-t');
+                $accounts = all("SELECT * FROM petty_cash_accounts WHERE is_active=1 ORDER BY name");
+                $txns = all("SELECT pct.*, pca.name account_name FROM petty_cash_transactions pct
+                             LEFT JOIN petty_cash_accounts pca ON pct.account_id=pca.id
+                             WHERE DATE(pct.created_at) BETWEEN ? AND ? ORDER BY pct.created_at", [$start, $end]);
+                $opening = 0;
+                foreach ($accounts as $a) { $opening += floatval($a['balance']); }
+                log_access('GET', 'admin/petty-cash/reports/cash-book', 200);
+                echo json_encode(['success' => true, 'data' => [
+                    'accounts' => $accounts, 'transactions' => $txns,
+                    'opening_balance' => $opening, 'start_date' => $start, 'end_date' => $end,
+                ]]);
+                exit;
+            }
+            if (strpos($uri, 'admin/petty-cash/reports/daily-summary') !== false) {
+                $date = $_GET['date'] ?? date('Y-m-d');
+                $summary = all("SELECT pct.account_id, pca.name account_name, pct.transaction_type,
+                                COUNT(*) count, COALESCE(SUM(pct.amount),0) total
+                                FROM petty_cash_transactions pct
+                                LEFT JOIN petty_cash_accounts pca ON pct.account_id=pca.id
+                                WHERE DATE(pct.created_at)=? AND pct.status='approved'
+                                GROUP BY pct.account_id, pct.transaction_type", [$date]);
+                log_access('GET', 'admin/petty-cash/reports/daily-summary', 200);
+                echo json_encode(['success' => true, 'data' => ['date' => $date, 'summary' => $summary]]);
+                exit;
+            }
+            if (strpos($uri, 'admin/petty-cash/reports/statement') !== false && preg_match('#statement/(\d+)$#', $uri, $m)) {
+                $acct = one("SELECT * FROM petty_cash_accounts WHERE id=?", [$m[1]]);
+                if (!$acct) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Account not found']); exit; }
+                $txns = all("SELECT * FROM petty_cash_transactions WHERE account_id=? ORDER BY created_at DESC", [$m[1]]);
+                log_access('GET', 'admin/petty-cash/reports/statement/' . $m[1], 200);
+                echo json_encode(['success' => true, 'data' => ['account' => $acct, 'transactions' => $txns]]);
+                exit;
+            }
+
+            // --- Transactions ---
+            if (strpos($uri, 'admin/petty-cash/transactions') !== false) {
+                // Approve / reject transaction
+                if ($method === 'PUT' && preg_match('#transactions/(\d+)/approve$#', $uri, $m)) {
+                    $d = input();
+                    $txn = one("SELECT * FROM petty_cash_transactions WHERE id=?", [$m[1]]);
+                    if (!$txn) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Transaction not found']); exit; }
+                    $newStatus = $d['status'] ?? 'approved';
+                    q("UPDATE petty_cash_transactions SET status=?, approved_by=? WHERE id=?", [$newStatus, $user['id'], $m[1]]);
+                    if ($newStatus === 'approved') {
+                        $factor = ($txn['transaction_type'] === 'expense' || $txn['transaction_type'] === 'transfer') ? -1 : 1;
+                        q("UPDATE petty_cash_accounts SET balance = balance + (? * ?) WHERE id=?", [$factor, floatval($txn['amount']), $txn['account_id']]);
+                    }
+                    logAudit($user['id'], 'petty_cash_' . $newStatus, 'petty_cash_transaction', $m[1], ['status' => $newStatus]);
+                    log_access('PUT', 'admin/petty-cash/transactions/' . $m[1] . '/approve', 200);
+                    echo json_encode(['success' => true]);
+                    exit;
+                }
+                // Update transaction
+                if ($method === 'PUT' && preg_match('#transactions/(\d+)$#', $uri, $m)) {
+                    $d = input();
+                    q("UPDATE petty_cash_transactions SET transaction_type=?, amount=?, description=?, category=? WHERE id=?",
+                      [$d['transaction_type'], floatval($d['amount']), $d['description']??null, $d['category']??null, $m[1]]);
+                    log_access('PUT', 'admin/petty-cash/transactions/' . $m[1], 200);
+                    echo json_encode(['success' => true]);
+                    exit;
+                }
+                // Create transaction
+                if ($method === 'POST') {
+                    $d = input();
+                    $acct = one("SELECT * FROM petty_cash_accounts WHERE id=? AND is_active=1", [$d['account_id']]);
+                    if (!$acct) { http_response_code(400); echo json_encode(['success'=>false,'error'=>'Invalid or inactive account']); exit; }
+                    if (!in_array($d['transaction_type'], ['expense','reimbursement','transfer','adjustment'])) {
+                        http_response_code(400); echo json_encode(['success'=>false,'error'=>'Invalid transaction type']); exit;
+                    }
+                    q("INSERT INTO petty_cash_transactions (account_id, transaction_type, amount, description, category, created_by, status)
+                       VALUES (?,?,?,?,?,?,'pending')",
+                      [$d['account_id'], $d['transaction_type'], floatval($d['amount']), $d['description']??null, $d['category']??null, $user['id']]);
+                    $txnId = pdo()->lastInsertId();
+                    logAudit($user['id'], 'petty_cash_created', 'petty_cash_transaction', $txnId, $d);
+                    log_access('POST', 'admin/petty-cash/transactions', 201);
+                    echo json_encode(['success' => true, 'data' => ['id' => $txnId]]);
+                    exit;
+                }
+                // List transactions
+                $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 50); $off = ($page - 1) * $limit;
+                $where = []; $params = [];
+                if (!empty($_GET['account_id'])) { $where[] = 'pct.account_id=?'; $params[] = intval($_GET['account_id']); }
+                if (!empty($_GET['transaction_type'])) { $where[] = 'pct.transaction_type=?'; $params[] = $_GET['transaction_type']; }
+                if (!empty($_GET['status'])) { $where[] = 'pct.status=?'; $params[] = $_GET['status']; }
+                if (!empty($_GET['start_date'])) { $where[] = 'DATE(pct.created_at)>=?'; $params[] = $_GET['start_date']; }
+                if (!empty($_GET['end_date'])) { $where[] = 'DATE(pct.created_at)<=?'; $params[] = $_GET['end_date']; }
+                $ws = count($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+                $rows = all("SELECT pct.*, pca.name account_name, u.name created_by_name
+                             FROM petty_cash_transactions pct
+                             LEFT JOIN petty_cash_accounts pca ON pct.account_id=pca.id
+                             LEFT JOIN users u ON pct.created_by=u.id
+                             $ws ORDER BY pct.created_at DESC LIMIT $limit OFFSET $off", $params);
+                $tot = one("SELECT COUNT(*) c FROM petty_cash_transactions pct $ws", $params);
+                log_access('GET', 'admin/petty-cash/transactions', 200);
+                echo json_encode(['success' => true, 'data' => ['transactions' => $rows,
+                    'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+                exit;
+            }
+
+            // --- Accounts ---
+            // Update account
+            if ($method === 'PUT' && preg_match('#accounts/(\d+)$#', $uri, $m)) {
+                $d = input();
+                q("UPDATE petty_cash_accounts SET name=?, type=?, branch=?, is_active=? WHERE id=?",
+                  [$d['name'], $d['type'], $d['branch']??null, isset($d['is_active'])?intval($d['is_active']):1, $m[1]]);
+                log_access('PUT', 'admin/petty-cash/accounts/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Delete account (deactivate)
+            if ($method === 'DELETE' && preg_match('#accounts/(\d+)#', $uri, $m)) {
+                q("UPDATE petty_cash_accounts SET is_active=0 WHERE id=?", [$m[1]]);
+                log_access('DELETE', 'admin/petty-cash/accounts/' . $m[1], 200);
+                echo json_encode(['success' => true]);
+                exit;
+            }
+            // Create account
+            if ($method === 'POST') {
+                $d = input();
+                if (!in_array($d['type'], ['cash_float','branch_float','mobile_money'])) {
+                    http_response_code(400); echo json_encode(['success'=>false,'error'=>'Invalid account type']); exit;
+                }
+                q("INSERT INTO petty_cash_accounts (name, type, branch, balance, is_active) VALUES (?,?,?,?,1)",
+                  [$d['name'], $d['type'], $d['branch']??null, floatval($d['balance']??0)]);
+                $acctId = pdo()->lastInsertId();
+                logAudit($user['id'], 'petty_cash_account_created', 'petty_cash_account', $acctId, $d);
+                log_access('POST', 'admin/petty-cash/accounts', 201);
+                echo json_encode(['success' => true, 'data' => ['id' => $acctId]]);
+                exit;
+            }
+            // List accounts
+            $rows = all("SELECT * FROM petty_cash_accounts ORDER BY is_active DESC, name ASC");
+            log_access('GET', 'admin/petty-cash/accounts', 200);
+            echo json_encode(['success' => true, 'data' => ['accounts' => $rows]]);
+            exit;
+        }
+    }
+
+    // -------------------- BORROWER RECEIPTS --------------------
+    if (strpos($uri, 'borrower/receipts') !== false) {
+        $borrower = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
+        if (!$borrower) { echo json_encode(['success' => true, 'data' => ['receipts' => []]]); exit; }
+        $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
+        $rows = all("SELECT r.*, l.principal_amount, l.total_amount
+                     FROM receipts r
+                     LEFT JOIN loans l ON r.loan_id=l.id
+                     WHERE r.borrower_id = ?
+                     ORDER BY r.generated_at DESC LIMIT $limit OFFSET $off", [$borrower['id']]);
+        $tot = one("SELECT COUNT(*) c FROM receipts WHERE borrower_id = ?", [$borrower['id']]);
+        log_access('GET', 'borrower/receipts', 200);
+        echo json_encode(['success' => true, 'data' => ['receipts' => $rows,
+            'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
+        exit;
     }
 
     // -------------------- DOCUMENTS (UPLOADS) --------------------
@@ -4481,6 +4766,8 @@ try {
                         q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number)
                            VALUES (?, ?, ?, 0, 'mpesa', ?)",
                           [$txn['loan_id'], $amount, $amount, $receipt]);
+                        $repaymentId = pdo()->lastInsertId();
+                        autoGenerateReceipt($repaymentId);
                         q("UPDATE loans SET updated_at=CURRENT_TIMESTAMP WHERE id=?", [$txn['loan_id']]);
                         $loan = one("SELECT borrower_id FROM loans WHERE id = ?", [$txn['loan_id']]);
                         $borrower = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);

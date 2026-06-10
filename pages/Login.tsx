@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { authApi } from '../utils/api';
+import { authApi, adminApi, getFileUrl } from '../utils/api';
 import { secureStorage } from '../utils/secureStorage';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
@@ -30,6 +30,23 @@ export default function Login() {
     client_type: 'individual',
   });
   const { showAlert, AlertComponent } = useAlert();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await adminApi.getConfig();
+        if (res.success && res.data) {
+          const arr = Array.isArray(res.data) ? res.data :
+            res.data.data ? res.data.data :
+            Object.entries(res.data).map(([k, v]) => ({ key_name: k, key_value: v }));
+          const settings = Object.fromEntries(arr.map((item: any) => [item.key_name, item.key_value]));
+          if (settings.company_logo) setLogoUrl(getFileUrl(settings.company_logo));
+        }
+      } catch {}
+    };
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -72,7 +89,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8 p-0">
-          <img src="/icons/icon-192.png" alt="JECRI BUREAU" className="h-32 w-auto mx-auto mb-6" />
+          <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-32 w-auto mx-auto mb-6" />
           <h1 className="text-4xl font-bold text-white">JECRI BUREAU</h1>
           <p className="text-slate-400 text-sm mt-1">Fast, transparent lending solutions</p>
         </div>

@@ -11,6 +11,8 @@ export function normalizeList<T>(resp: any): T[] {
   if ((d as any).loans && Array.isArray((d as any).loans)) return (d as any).loans as T[];
   if (d?.results && Array.isArray(d.results)) return d.results as T[];
   if (d?.items && Array.isArray(d.items)) return d.items as T[];
+  if (d?.repayments && Array.isArray(d.repayments)) return d.repayments as T[];
+  if (d?.disbursements && Array.isArray(d.disbursements)) return d.disbursements as T[];
   return [];
 }
 

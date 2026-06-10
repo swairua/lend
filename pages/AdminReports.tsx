@@ -40,11 +40,16 @@ export default function AdminReports() {
   const [activeReport, setActiveReport] = useState('portfolio');
   const [loans, setLoans] = useState<any[]>([]);
   const [payments, setPayments] = useState<ReportPayment[]>([]);
+  const [borrowers, setBorrowers] = useState<any[]>([]);
+  const [borrowerLoanCounts, setBorrowerLoanCounts] = useState<Record<number, number>>({});
+  const [borrowerLoanTotals, setBorrowerLoanTotals] = useState<Record<number, number>>({});
   const [stats, setStats] = useState<any>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount = [statusFilter, dateFrom, dateTo].filter(Boolean).length;
 
   useEffect(() => {
     const loadAndValidate = async () => {
@@ -86,35 +91,46 @@ export default function AdminReports() {
           pending_count: loans.filter((l: any) => l?.status === 'pending').length,
           active_count: loans.filter((l: any) => l?.status === 'active' || l?.status === 'disbursing' || l?.status === 'disbursed').length,
           completed_count: loans.filter((l: any) => l?.status === 'completed').length,
+          defaulted_count: loans.filter((l: any) => l?.status === 'defaulted').length,
         });
       }
       
       if (activeReport === 'payments' || activeReport === 'collection') {
-        // Fetch payments from loans
-        const response = await adminApi.getLoans({ limit: 100 });
-        const loansData = response?.data?.loans || response?.data || [];
-        const loans = Array.isArray(loansData) ? loansData : [];
-        const allPayments: ReportPayment[] = [];
-        
-        for (const loan of loans) {
-          const paymentTypes = ['disbursement', 'processing_fee', 'principal', 'interest', 'late_fee'];
-          for (const type of paymentTypes) {
-            // Generate mock payment records based on loan status
-            if (loan.status === 'active' || loan.status === 'completed') {
-              allPayments.push({
-                id: loan.id * 10 + 1,
-                loan_id: loan.id,
-                borrower_name: loan.borrower_name,
-                amount: Number(loan.principal_amount) / Number(loan.term_months || 12),
-                type: 'repayment',
-                method: 'bank',
-                paid_at: loan.created_at,
-              });
-            }
+        const response = await adminApi.getRepayments({ limit: 1000 });
+        const rows = response?.data?.repayments || [];
+        const allPayments: ReportPayment[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          id: r.id,
+          loan_id: r.loan_id,
+          borrower_name: r.borrower_name || 'Unknown',
+          amount: Number(r.amount) || 0,
+          type: 'repayment',
+          method: r.payment_method || 'mpesa',
+          paid_at: r.paid_at,
+        }));
+        setPayments(allPayments);
+      }
+
+      if (activeReport === 'borrowers') {
+        const [bResp, lResp] = await Promise.all([
+          adminApi.getBorrowers({ limit: 500 }),
+          adminApi.getLoans({ limit: 500 }),
+        ]);
+        const bRows = bResp?.data?.borrowers || [];
+        setBorrowers(Array.isArray(bRows) ? bRows : []);
+
+        const loanRows = lResp?.data?.loans || lResp?.data || [];
+        const allLoans = Array.isArray(loanRows) ? loanRows : [];
+        const counts: Record<number, number> = {};
+        const totals: Record<number, number> = {};
+        for (const ln of allLoans) {
+          const bid = ln.borrower_id;
+          if (bid) {
+            counts[bid] = (counts[bid] || 0) + 1;
+            totals[bid] = (totals[bid] || 0) + Number(ln.principal_amount || 0);
           }
         }
-        
-        setPayments(allPayments.slice(0, 50));
+        setBorrowerLoanCounts(counts);
+        setBorrowerLoanTotals(totals);
       }
     } catch (error) {
       console.error('Failed to load report:', error);
@@ -187,7 +203,7 @@ export default function AdminReports() {
           <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6" />
           <h1 className="text-xl sm:text-2xl font-bold">Reports & Analytics</h1>
         </div>
-        <Button onClick={exportToCSV} variant="outline" className="w-full sm:w-auto h-10">
+        <Button onClick={exportToCSV} variant="outline" className="w-full sm:w-auto min-h-[44px]">
           <Download className="h-4 w-4 mr-2" />
           Export
         </Button>
@@ -221,11 +237,16 @@ export default function AdminReports() {
         <Card className="mt-4 mb-4">
           <button
             onClick={() => setFiltersOpen(!filtersOpen)}
-            className="w-full flex items-center justify-between px-6 py-4 hover:opacity-75 transition-opacity"
+            className="w-full flex items-center justify-between px-4 sm:px-6 py-4 hover:opacity-75 transition-opacity"
           >
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
               <span className="font-medium">Filters</span>
+              {activeFilterCount > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs h-5 min-w-[20px] px-1.5">
+                  {activeFilterCount}
+                </Badge>
+              )}
             </div>
             <ChevronDown className={`h-5 w-5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -415,15 +436,23 @@ export default function AdminReports() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loans.map((loan, idx) => (
-                    <TableRow key={`${loan.borrower_email}-${idx}`}>
-                      <TableCell className="text-xs md:text-sm whitespace-nowrap min-w-[130px]">{loan.borrower_name}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-xs md:text-sm truncate min-w-[140px]">{loan.borrower_email}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs md:text-sm whitespace-nowrap min-w-[90px]">{formatDate(loan.created_at)}</TableCell>
-                      <TableCell className="text-right text-xs md:text-sm whitespace-nowrap min-w-[70px]">1</TableCell>
-                      <TableCell className="text-right text-xs md:text-sm whitespace-nowrap min-w-[110px]">{formatKES(loan.principal_amount)}</TableCell>
+                  {borrowers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-xs">
+                        No borrowers found
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    borrowers.map((b: any) => (
+                      <TableRow key={b.id}>
+                        <TableCell className="text-xs md:text-sm whitespace-nowrap min-w-[130px]">{b.name}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-xs md:text-sm truncate min-w-[140px]">{b.email}</TableCell>
+                        <TableCell className="hidden md:table-cell text-xs md:text-sm whitespace-nowrap min-w-[90px]">{formatDate(b.created_at)}</TableCell>
+                        <TableCell className="text-right text-xs md:text-sm whitespace-nowrap min-w-[70px]">{borrowerLoanCounts[b.borrower_id] || 0}</TableCell>
+                        <TableCell className="text-right text-xs md:text-sm whitespace-nowrap min-w-[110px]">{formatKES(borrowerLoanTotals[b.borrower_id] || 0)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -470,12 +499,10 @@ export default function AdminReports() {
                   <div className="text-2xl font-bold">{stats?.completed_count || 0}</div>
                   <div className="text-sm text-muted-foreground">Completed</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold">
-                    {loans.filter((l: any) => l.status === 'defaulted').length}
+                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <div className="text-2xl font-bold">{stats?.defaulted_count || 0}</div>
+                    <div className="text-sm text-muted-foreground">Defaulted</div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Defaulted</div>
-                </div>
               </div>
             </CardContent>
           </Card>

@@ -280,6 +280,46 @@ export interface Invoice {
   items?: InvoiceItem[];
 }
 
+export interface Receipt {
+  id: number;
+  receipt_number: string;
+  repayment_id: number;
+  loan_id: number;
+  borrower_id: number | null;
+  invoice_id: number | null;
+  amount: number;
+  receipt_type: string;
+  generated_at: string;
+  borrower_name?: string;
+  principal_amount?: number;
+  total_amount?: number;
+}
+
+export interface PettyCashAccount {
+  id: number;
+  name: string;
+  type: 'cash_float' | 'branch_float' | 'mobile_money';
+  branch: string | null;
+  balance: number;
+  is_active: number;
+  created_at: string;
+}
+
+export interface PettyCashTransaction {
+  id: number;
+  account_id: number;
+  transaction_type: 'expense' | 'reimbursement' | 'transfer' | 'adjustment';
+  amount: number;
+  description: string | null;
+  category: string | null;
+  approved_by: number | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_by: number;
+  created_at: string;
+  account_name?: string;
+  created_by_name?: string;
+}
+
 // Re-export API functions from utils for backwards compatibility
 export {
   authApi,
@@ -291,6 +331,7 @@ export {
   emailApi,
   formatKES,
   formatDate,
+  getFileUrl,
   getStatusColor,
   getStatusLabel,
   ApiError

@@ -27,6 +27,8 @@ import AdminBorrowers from "./pages/AdminBorrowers";
 import AdminSettings from "./pages/AdminSettings";
 import AdminRepayments from "./pages/AdminRepayments";
 import AdminSystemLogs from "./pages/AdminSystemLogs";
+import AdminReceipts from "./pages/AdminReceipts";
+import AdminPettyCash from "./pages/AdminPettyCash";
 import RepaymentSchedule from "./pages/RepaymentSchedule";
 import AdminRepaymentSchedule from "./pages/AdminRepaymentSchedule";
 import AdminDisbursements from "./pages/AdminDisbursements";
@@ -107,6 +109,8 @@ const AppRoutes = () => {
       <Route path="/admin/quotations" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminQuotations /></AppLayout></PrivateRoute>} />
       <Route path="/admin/invoices" element={<PrivateRoute requiredRole={['admin','manager','releaser','agent']}><AppLayout user={user}><AdminInvoices /></AppLayout></PrivateRoute>} />
       <Route path="/admin/documentation" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminDocumentation /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/receipts" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminReceipts /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/petty-cash" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminPettyCash /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

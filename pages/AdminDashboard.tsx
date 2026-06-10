@@ -105,17 +105,17 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background border-b">
-        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3">
           <div>
             <h1 className="text-xl font-bold">Admin Dashboard</h1>
             <p className="text-xs text-muted-foreground">{user?.name}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={loadDashboard} disabled={isRefreshing} title="Refresh dashboard data">
+            <Button variant="ghost" onClick={loadDashboard} disabled={isRefreshing} title="Refresh dashboard data" className="min-h-[44px]">
               <Activity className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <Button variant="ghost" onClick={handleLogout} className="min-h-[44px]">
               <LogOut className="h-4 w-4 text-red-500 mr-2" />
               Logout
             </Button>
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="p-4 space-y-6">
+      <div className="p-2 sm:p-3 md:p-4 space-y-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           {statCards.map((stat, index) => (

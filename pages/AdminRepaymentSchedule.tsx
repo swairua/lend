@@ -182,7 +182,7 @@ export default function AdminRepaymentSchedule() {
     );
   }
 
-  const totalDue = schedule.reduce((sum, s) => sum + s.amount, 0);
+  const totalDue = schedule.reduce((sum, s) => sum + Number(s.amount), 0);
   const totalPaid = loan.total_paid || 0;
   const totalPending = totalDue - totalPaid;
   const paidCount = schedule.filter(s => s.isPaid).length;

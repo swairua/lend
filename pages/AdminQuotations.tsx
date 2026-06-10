@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus, Eye, Trash2, FileOutput, Printer, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
-import { adminApi, formatKES, formatDate } from '../types/api';
+import { adminApi, formatKES, formatDate, getFileUrl } from '../types/api';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
 import { normalizeList } from '../utils/normalize';
@@ -134,7 +134,7 @@ export default function AdminQuotations() {
       let quote = q;
       if (!q.items) { const res = await adminApi.getQuotation(q.id); quote = res.data; }
       const config = await adminApi.getConfig();
-      const company = { company_name: config.data.company_name || 'Company', company_logo: config.data.company_logo || '', company_email: config.data.company_email || '', company_phone: config.data.company_phone || '', company_address: config.data.company_address || '' };
+      const company = { company_name: config.data.company_name || 'Company', company_logo: getFileUrl(config.data.company_logo) || '', company_email: config.data.company_email || '', company_phone: config.data.company_phone || '', company_address: config.data.company_address || '' };
       const html = buildBrandedDocumentHtml({
         number: quote.quote_number, title: 'QUOTATION',
         client_name: quote.client_name, client_email: quote.client_email, client_phone: quote.client_phone, client_address: quote.client_address,

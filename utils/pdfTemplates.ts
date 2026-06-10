@@ -2,6 +2,25 @@
 import { Loan, Repayment } from '../types/api';
 import { buildPDFHeaderHTML } from './pdfHeader';
 
+export async function resolveLogoUrl(companyLogoUrl?: string | null): Promise<string | null> {
+  if (companyLogoUrl) {
+    try {
+      const resp = await fetch(companyLogoUrl);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const dataUri = await new Promise<string | null>(resolve => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+        if (dataUri) return dataUri;
+      }
+    } catch {}
+  }
+  return `${window.location.origin}/icons/icon-192.png`;
+}
+
 interface ReceiptData {
   repayment: Repayment & { loan_id: number };
   loan: Loan;
@@ -9,6 +28,10 @@ interface ReceiptData {
   borrowerEmail: string;
   companyName?: string;
   companyLogoUrl?: string;
+  loanAmount?: number;
+  loanStatus?: string;
+  disbursedAt?: string;
+  remainingBalance?: number;
 }
 
 interface InvoiceData {
@@ -37,9 +60,10 @@ function formatDate(dateString: string): string {
 }
 
 export function generateReceiptHTML(data: ReceiptData): string {
-  const { repayment, loan, borrowerName, borrowerEmail, companyName = 'Jecri Bureau', companyLogoUrl } = data;
+  const { repayment, loan, borrowerName, borrowerEmail, companyName = 'Jecri Bureau', companyLogoUrl, loanAmount, loanStatus, disbursedAt, remainingBalance } = data;
   const receiptDate = formatDate(repayment.paid_at);
-   
+  const logoUrl = companyLogoUrl;
+
   return `
   <!DOCTYPE html>
   <html>
@@ -62,7 +86,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
     <div class="container">
       ${buildPDFHeaderHTML({
         companyName,
-        companyLogoUrl,
+        companyLogoUrl: logoUrl,
         title: 'Payment Receipt',
         documentNumber: `Receipt #${repayment.id}`,
         date: receiptDate,
@@ -81,6 +105,16 @@ export function generateReceiptHTML(data: ReceiptData): string {
           <div class="row">
             <span class="label">Loan ID:</span>
             <span>LOAN-${loan.id}</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Loan Information</div>
+          <div class="summary">
+            ${loanAmount ? `<div class="row"><span class="label">Loan Amount:</span><span class="amount">${formatCurrency(loanAmount)}</span></div>` : ''}
+            ${loanStatus ? `<div class="row"><span class="label">Loan Status:</span><span>${loanStatus.toUpperCase()}</span></div>` : ''}
+            ${disbursedAt ? `<div class="row"><span class="label">Disbursed Date:</span><span>${formatDate(disbursedAt)}</span></div>` : ''}
+            ${remainingBalance !== undefined ? `<div class="row"><span class="label">Remaining Balance:</span><span class="amount">${formatCurrency(remainingBalance)}</span></div>` : ''}
           </div>
         </div>
 

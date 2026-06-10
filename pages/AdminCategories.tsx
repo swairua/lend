@@ -141,7 +141,7 @@ export default function AdminCategories() {
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Loan Categories</h1>
         </div>
-        <Button onClick={handleOpenNew} className="w-full sm:w-auto h-10">
+        <Button onClick={handleOpenNew} className="w-full sm:w-auto min-h-[44px]">
           <Plus className="h-4 w-4 mr-2" />
           Add Category
         </Button>
@@ -170,14 +170,14 @@ export default function AdminCategories() {
               <p className="text-xs text-muted-foreground mb-2">Code: {category.code}</p>
               <p className="text-sm text-muted-foreground mb-4">{category.description}</p>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1 h-10" onClick={() => handleEdit(category)}>
+                <Button size="sm" variant="outline" className="flex-1 min-h-[44px]" onClick={() => handleEdit(category)}>
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
                 <Button
                   size="sm"
                   variant={category.is_active ? 'destructive' : 'default'}
-                  className="flex-1 h-10"
+                  className="flex-1 min-h-[44px]"
                   onClick={() => handleToggle(category)}
                 >
                   {category.is_active ? <X className="h-4 w-4 mr-1" /> : <Check className="h-4 w-4 mr-1" />}
@@ -265,7 +265,7 @@ export default function AdminCategories() {
 
       {/* Delete Confirmation */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="p-4 sm:p-6">
+        <DialogContent className="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Delete Category?</DialogTitle>
           </DialogHeader>

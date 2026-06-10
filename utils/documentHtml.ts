@@ -1,3 +1,5 @@
+import { getFileUrl } from './api';
+
 export interface CompanySettings {
   company_name: string;
   company_logo: string;
@@ -39,8 +41,9 @@ function htmlEscape(str: string): string {
 }
 
 export function buildBrandedDocumentHtml(data: DocumentData, company: CompanySettings): string {
-  const logoHtml = company.company_logo
-    ? `<img src="${htmlEscape(company.company_logo)}" alt="Logo" style="max-height:70px;max-width:200px;" />`
+  const logoUrl = company.company_logo ? getFileUrl(company.company_logo) : '';
+  const logoHtml = logoUrl
+    ? `<img src="${htmlEscape(logoUrl)}" alt="Logo" style="max-height:70px;max-width:200px;" />`
     : `<h1 style="margin:0;color:#1a1a2e;font-size:24px;">${htmlEscape(company.company_name || 'Company Name')}</h1>`;
 
   const itemsHtml = data.items.map(it => `

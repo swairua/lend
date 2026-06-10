@@ -7,7 +7,7 @@ import DocumentsPanel from "@/components/DocumentsPanel";
 import { ProfileForm } from "@/components/ProfileForm";
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 import { PageTitle } from '@/components/PageTitle';
-import { authApi, formatKES } from '@/utils/api';
+import { authApi, formatKES, getFileUrl } from '@/utils/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Banknote } from 'lucide-react';
 import { useAuthenticatedUser } from '@/hooks/useAuthenticatedUser';
@@ -96,7 +96,7 @@ export default function Profile() {
         }));
 
         if (userData?.photo_url) {
-          setPhotoUrl(userData.photo_url);
+          setPhotoUrl(getFileUrl(userData.photo_url));
         }
 
         if (userData.borrower) {

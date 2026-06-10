@@ -195,7 +195,14 @@ export default function AdminSystemLogs() {
             onClick={() => setFiltersOpen(!filtersOpen)}
             className="w-full flex items-center justify-between hover:opacity-75 transition-opacity"
           >
-            <CardTitle className="m-0">Filter Logs</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="m-0">Filter Logs</CardTitle>
+              {activeFilterCount > 0 && (
+                <Badge variant="secondary" className="text-xs h-5 min-w-[20px] px-1.5">
+                  {activeFilterCount}
+                </Badge>
+              )}
+            </div>
             <ChevronDown className={`w-5 h-5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
           </button>
         </CardHeader>
@@ -262,17 +269,17 @@ export default function AdminSystemLogs() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              <Button onClick={handleApplyFilters} className="bg-blue-600 h-10 sm:h-auto">
+              <Button onClick={handleApplyFilters} className="bg-blue-600 min-h-[44px] sm:h-auto">
                 Apply Filters
               </Button>
-              <Button onClick={handleClearFilters} variant="outline" className="h-10 sm:h-auto">
+              <Button onClick={handleClearFilters} variant="outline" className="min-h-[44px] sm:h-auto">
                 Clear Filters
               </Button>
-              <Button onClick={handleExportCsv} variant="outline" className="h-10 sm:h-auto">
+              <Button onClick={handleExportCsv} variant="outline" className="min-h-[44px] sm:h-auto">
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
               </Button>
-              <Button onClick={handleCleanup} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 h-10 sm:h-auto">
+              <Button onClick={handleCleanup} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 min-h-[44px] sm:h-auto">
                 <Trash2 className="w-4 h-4 mr-2" />
                 Cleanup
               </Button>
