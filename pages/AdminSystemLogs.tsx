@@ -170,6 +170,15 @@ export default function AdminSystemLogs() {
     return details;
   };
 
+  const detailsPreview = (log: SystemLog) => {
+    if (!log.details) return '—';
+    const parsed = typeof log.details === 'string'
+      ? (() => { try { return JSON.parse(log.details) } catch { return log.details } })()
+      : log.details;
+    const text = typeof parsed === 'object' ? JSON.stringify(parsed) : String(parsed);
+    return text.length > 80 ? text.slice(0, 80) + '...' : text;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -279,6 +288,7 @@ export default function AdminSystemLogs() {
                   <ResponsiveTableRow>
                     <ResponsiveTableHead>Type</ResponsiveTableHead>
                     <ResponsiveTableHead>Action</ResponsiveTableHead>
+                    <ResponsiveTableHead>Details</ResponsiveTableHead>
                     <ResponsiveTableHead>Status</ResponsiveTableHead>
                     <ResponsiveTableHead>User</ResponsiveTableHead>
                     <ResponsiveTableHead>Timestamp</ResponsiveTableHead>
@@ -294,6 +304,9 @@ export default function AdminSystemLogs() {
                         </Badge>
                       </ResponsiveTableCell>
                       <ResponsiveTableCell className="font-medium">{log.action}</ResponsiveTableCell>
+                      <ResponsiveTableCell className="text-sm text-gray-500 max-w-[200px] truncate">
+                        {detailsPreview(log)}
+                      </ResponsiveTableCell>
                       <ResponsiveTableCell>
                         <Badge className={getStatusColor(log.status)}>
                           {log.status}
