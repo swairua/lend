@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
+import { buildPDFHeaderHTML } from "@/utils/pdfHeader";
 
 interface InvoiceReceiptProps {
   open: boolean;
@@ -20,15 +21,71 @@ export default function InvoiceReceipt({ open, onClose, type, loan, repayment, u
   const formatKES = (n: number) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n || 0);
 
   const handlePrint = () => {
-    const el = document.getElementById("print-doc");
-    if (!el) return;
     const w = window.open("", "_blank", "width=800,height=900");
     if (!w) return;
-    w.document.write("<html><head><title>" + title + "</title>");
-    w.document.write("<style>body{font-family:Arial,sans-serif;padding:40px;color:#111;} table{width:100%;border-collapse:collapse;} td,th{padding:8px 12px;border:1px solid #ddd;} th{background:#f3f4f6;} .header{display:flex;justify-content:space-between;margin-bottom:24px;} .total{font-weight:bold;font-size:1.1em;} .badge{display:inline-block;padding:4px 12px;border-radius:20px;background:#dcfce7;color:#166534;font-weight:bold;}</style>");
-    w.document.write("</head><body>");
-    w.document.write(el.innerHTML);
-    w.document.write("</body></html>");
+
+    const headerHtml = buildPDFHeaderHTML({
+      companyName: "JECRI BUREAU",
+      title,
+      documentNumber: docNo,
+      date: today,
+    });
+
+    const lineItemsHtml = isInvoice
+      ? `
+        <tr><td class="p">Principal Amount</td><td class="p tr">${formatKES(loan?.principal_amount)}</td></tr>
+        ${loan?.interest_amount > 0 ? `<tr><td class="p">Interest</td><td class="p tr">${formatKES(loan?.interest_amount)}</td></tr>` : ''}
+        ${loan?.processing_fee > 0 ? `<tr><td class="p">Processing Fee</td><td class="p tr">${formatKES(loan?.processing_fee)}</td></tr>` : ''}
+        ${loan?.asset_transfer_fee > 0 ? `<tr><td class="p">Asset Transfer Fee</td><td class="p tr">${formatKES(loan?.asset_transfer_fee)}</td></tr>` : ''}
+        <tr class="fb bg-g"><td class="p">Total Repayable</td><td class="p tr">${formatKES(loan?.total_amount)}</td></tr>
+        <tr><td class="p">Amount Paid</td><td class="p tr cg">${formatKES(loan?.total_paid)}</td></tr>
+        <tr class="fb"><td class="p">Outstanding Balance</td><td class="p tr cr">${formatKES(loan?.balance)}</td></tr>`
+      : `
+        <tr><td class="p">Payment Amount</td><td class="p tr">${formatKES(repayment?.amount || loan?.total_paid)}</td></tr>
+        ${repayment?.principal_paid > 0 ? `<tr><td class="p pl">Principal</td><td class="p tr">${formatKES(repayment?.principal_paid)}</td></tr>` : ''}
+        ${repayment?.interest_paid > 0 ? `<tr><td class="p pl">Interest</td><td class="p tr">${formatKES(repayment?.interest_paid)}</td></tr>` : ''}
+        ${repayment?.penalty_paid > 0 ? `<tr><td class="p pl">Penalties</td><td class="p tr cr">${formatKES(repayment?.penalty_paid)}</td></tr>` : ''}
+        <tr><td class="p">Payment Method</td><td class="p tr cap">${repayment?.payment_method || '-'}</td></tr>
+        ${repayment?.reference_number ? `<tr><td class="p">Reference</td><td class="p tr">${repayment?.reference_number}</td></tr>` : ''}
+        <tr><td class="p">Remaining Balance</td><td class="p tr">${formatKES(loan?.balance)}</td></tr>`;
+
+    w.document.write(`<html><head><title>${title}</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:40px;color:#111;font-size:13px;}
+  .container{max-width:700px;margin:0 auto;}
+  table{width:100%;border-collapse:collapse;margin:20px 0;}
+  td,th{padding:10px 12px;border:1px solid #ddd;}
+  th{background:#f3f4f6;text-align:left;}
+  .tr{text-align:right;}
+  .fb{font-weight:bold;}
+  .bg-g{background:#f9fafb;}
+  .cg{color:#16a34a;}
+  .cr{color:#dc2626;}
+  .cap{text-transform:capitalize;}
+  .pl{padding-left:24px!important;color:#666;}
+  .p{padding:10px 12px;border:1px solid #ddd;}
+  .footer{text-align:center;margin-top:30px;padding-top:15px;border-top:1px solid #ddd;font-size:11px;color:#999;}
+</style></head><body>
+<div class="container">
+  ${headerHtml}
+  <div style="display:flex;gap:40px;margin:20px 0;">
+    <div>
+      <div style="font-size:11px;font-weight:600;color:#666;text-transform:uppercase;margin-bottom:4px;">${isInvoice ? 'Bill To' : 'Received From'}</div>
+      <div style="font-weight:600;">${userName || loan?.borrower_name || 'Borrower'}</div>
+      <div style="font-size:12px;color:#666;">Loan #${loan?.id}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:11px;font-weight:600;color:#666;text-transform:uppercase;margin-bottom:4px;">Loan Product</div>
+      <div style="font-weight:600;">${loan?.product_name || 'Loan'}</div>
+      <div style="font-size:12px;color:#666;">${loan?.term_months} months term</div>
+    </div>
+  </div>
+  <table><thead><tr><th>Description</th><th class="tr">Amount (KES)</th></tr></thead><tbody>${lineItemsHtml}</tbody></table>
+  <div class="footer">
+    <p style="font-weight:600;color:#444;margin:0 0 4px;">Thank you for banking with JECRI BUREAU</p>
+    <p style="margin:0;">This is a computer-generated document. No signature required.</p>
+  </div>
+</div></body></html>`);
     w.document.close();
     w.print();
   };

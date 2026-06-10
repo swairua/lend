@@ -1,5 +1,6 @@
 // Server-side PDF generation using pdfkit
 import PDFDocument from 'pdfkit';
+import { drawPDFHeader } from './pdfHeader';
 
 interface ReceiptData {
   loanId: number;
@@ -58,17 +59,12 @@ export function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', reject);
 
-      // Header
-      doc.fontSize(20).font('Helvetica-Bold').text('JECRI BUREAU', { align: 'center' });
-      doc.fontSize(18).text('Payment Receipt', { align: 'center' });
-      doc.fontSize(10).fillColor('#666666');
-      doc.text(`Receipt #${data.repaymentId}`, { align: 'center' });
-      doc.text(`Loan Reference: LOAN-${data.loanId}`, { align: 'center' });
-      doc.text(`Generated: ${new Date().toLocaleDateString('en-KE')}`, { align: 'center' });
-      doc.fillColor('black');
-
-      doc.moveTo(50, 100).lineTo(550, 100).stroke();
-      doc.moveDown(0.5);
+      doc.y = drawPDFHeader(doc, {
+        companyName: 'JECRI BUREAU',
+        title: 'Payment Receipt',
+        documentNumber: `Receipt #${data.repaymentId}`,
+        date: new Date().toLocaleDateString('en-KE'),
+      });
 
       // Borrower Information
       doc.fontSize(12).font('Helvetica-Bold').text('Borrower Information');
@@ -162,17 +158,12 @@ export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', reject);
 
-      // Header
-      doc.fontSize(20).font('Helvetica-Bold').text('JECRI BUREAU', { align: 'center' });
-      doc.fontSize(18).text('Loan Invoice', { align: 'center' });
-      doc.fontSize(10).fillColor('#666666');
-      doc.text(`Invoice #INV-${data.loanId}`, { align: 'center' });
-      doc.text(`Loan Reference: LOAN-${data.loanId}`, { align: 'center' });
-      doc.text(`Generated: ${new Date().toLocaleDateString('en-KE')}`, { align: 'center' });
-      doc.fillColor('black');
-
-      doc.moveTo(50, 100).lineTo(550, 100).stroke();
-      doc.moveDown(0.5);
+      doc.y = drawPDFHeader(doc, {
+        companyName: 'JECRI BUREAU',
+        title: 'Loan Invoice',
+        documentNumber: `Invoice #INV-${data.loanId}`,
+        date: new Date().toLocaleDateString('en-KE'),
+      });
 
       // Alert if amount due
       if (data.amountDue > 0) {

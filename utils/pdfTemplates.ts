@@ -1,5 +1,6 @@
 // PDF Template Generators for both client and server use
 import { Loan, Repayment } from '../types/api';
+import { buildPDFHeaderHTML } from './pdfHeader';
 
 interface ReceiptData {
   repayment: Repayment & { loan_id: number };
@@ -47,11 +48,6 @@ export function generateReceiptHTML(data: ReceiptData): string {
     <style>
       body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
       .container { max-width: 600px; margin: 0 auto; }
-      .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-      .logo-img { max-height: 40px; margin-bottom: 10px; }
-      .logo-text { font-size: 24px; font-weight: bold; color: #2563eb; }
-      .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
-      .receipt-no { color: #666; font-size: 12px; }
       .section { margin-bottom: 25px; }
       .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
       .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
@@ -64,12 +60,13 @@ export function generateReceiptHTML(data: ReceiptData): string {
   </head>
   <body>
     <div class="container">
-      <div class="header">
-        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName}" class="logo-img" />` : ''}
-        <div class="logo-text">${companyName}</div>
-        <div class="title">Payment Receipt</div>
-        <div class="receipt-no">Receipt #${repayment.id}</div>
-      </div>
+      ${buildPDFHeaderHTML({
+        companyName,
+        companyLogoUrl,
+        title: 'Payment Receipt',
+        documentNumber: `Receipt #${repayment.id}`,
+        date: receiptDate,
+      })}
 
         <div class="section">
           <div class="section-title">Borrower Information</div>
@@ -149,11 +146,6 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     <style>
       body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
       .container { max-width: 600px; margin: 0 auto; }
-      .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-      .logo-img { max-height: 40px; margin-bottom: 10px; }
-      .logo-text { font-size: 24px; font-weight: bold; color: #2563eb; }
-      .title { font-size: 20px; font-weight: bold; margin: 10px 0; }
-      .invoice-no { color: #666; font-size: 12px; }
       .section { margin-bottom: 25px; }
       .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
       .row { display: flex; justify-content: space-between; margin-bottom: 8px; }
@@ -168,12 +160,13 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   </head>
   <body>
     <div class="container">
-      <div class="header">
-        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName}" class="logo-img" />` : ''}
-        <div class="logo-text">${companyName}</div>
-        <div class="title">Loan Invoice</div>
-        <div class="invoice-no">Invoice #INV-${loan.id}</div>
-      </div>
+      ${buildPDFHeaderHTML({
+        companyName,
+        companyLogoUrl,
+        title: 'Loan Invoice',
+        documentNumber: `Invoice #INV-${loan.id}`,
+        date: dueDate,
+      })}
 
         ${balance > 0 ? `
         <div class="alert">

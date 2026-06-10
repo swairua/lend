@@ -94,6 +94,11 @@ export default function LoanDetails() {
   const [errorDialog, setErrorDialog] = useState<{ open: boolean; title: string; message: string }>({ open: false, title: '', message: '' });
   const [companyName, setCompanyName] = useState<string>('LENDING PLATFORM');
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [companyKraPin, setCompanyKraPin] = useState<string>('');
+  const [companyRegNumber, setCompanyRegNumber] = useState<string>('');
+  const [companyAddress, setCompanyAddress] = useState<string>('Nairobi, Kenya');
+  const [companyPhone, setCompanyPhone] = useState<string>('+254 (0) 700 000 000');
+  const [companyEmail, setCompanyEmail] = useState<string>('support@jecribureau.ke');
 
   useEffect(() => {
     const loadUser = async () => {
@@ -111,8 +116,12 @@ export default function LoanDetails() {
           
           const settings = Object.fromEntries(configArray.map(item => [item.key_name, item.key_value]));
           setCompanyName(settings.company_name || 'LENDING PLATFORM');
-          // Try to get logo URL from settings or use default
           setCompanyLogoUrl(settings.company_logo || null);
+          setCompanyKraPin(settings.company_kra_pin || settings.kra_pin || '');
+          setCompanyRegNumber(settings.company_reg_number || settings.registration_number || '');
+          setCompanyAddress(settings.company_address || 'Nairobi, Kenya');
+          setCompanyPhone(settings.company_phone || '+254 (0) 700 000 000');
+          setCompanyEmail(settings.company_email || 'support@jecribureau.ke');
         }
       } catch (err) {
         console.warn('Could not load company settings:', err);
@@ -211,10 +220,13 @@ export default function LoanDetails() {
         assetDescription: loan.asset_description || 'Asset(s)',
         assetValue: loan.asset_value,
         securityDetails: loan.security_details || 'As per agreement',
-        companyName: 'JECRI BUREAU',
-        companyAddress: 'Nairobi, Kenya',
-        companyPhone: '+254 (0) 700 000 000',
-        companyEmail: 'support@jecribureau.ke',
+        companyName: companyName,
+        companyAddress: companyAddress || 'Nairobi, Kenya',
+        companyPhone: companyPhone || '+254 (0) 700 000 000',
+        companyEmail: companyEmail || 'support@jecribureau.ke',
+        companyLogoUrl: companyLogoUrl || undefined,
+        companyKraPin: companyKraPin || undefined,
+        companyRegNumber: companyRegNumber || undefined,
       });
     } catch (err: any) {
       console.error('Failed to download PDF:', err);
