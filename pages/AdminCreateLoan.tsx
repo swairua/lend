@@ -27,6 +27,7 @@ export default function AdminCreateLoan() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [borrowers, setBorrowers] = useState<any[]>([]);
   const [selectedBorrower, setSelectedBorrower] = useState<any>(null);
+  const [createdLoan, setCreatedLoan] = useState<any>(null);
   const [borrowerSearchTerm, setBorrowerSearchTerm] = useState('');
   const [borrowerPopoverOpen, setBorrowerPopoverOpen] = useState(false);
   const [loadingBorrowers, setLoadingBorrowers] = useState(false);
@@ -84,7 +85,7 @@ export default function AdminCreateLoan() {
       const res = await adminApi.getCategories();
       const cats = (res.data || []).filter((c: any) => c.is_active !== false);
       setCategories(cats);
-      if (cats.length > 0) setSelectedCategory(String(cats[0].id));
+      if (cats.length > 0) setSelectedCategory(cats[0].name);
     } catch (err: any) {
       showAlert({ type: 'error', message: 'Failed to load loan categories' });
     } finally {
@@ -142,8 +143,8 @@ export default function AdminCreateLoan() {
     }
   };
 
-  const handleSelectProduct = (productId: string) => {
-    const p = products.find((pr: any) => String(pr.id) === productId);
+  const handleSelectProduct = (productName: string) => {
+    const p = products.find((pr: any) => pr.name === productName);
     if (!p) return;
     setSelectedProduct(p);
     setForm(f => ({
@@ -220,9 +221,8 @@ export default function AdminCreateLoan() {
       const response = await adminApi.createLoan(payload);
 
       if (response.success) {
-        toast.success('Loan created successfully!');
-        // Redirect to the new loan's repayment schedule or admin loans page
-        navigate(`/admin/loans/${response.data?.id || ''}`);
+        setCreatedLoan(response.data);
+        setStep(4);
       } else {
         showAlert({ type: 'error', message: response.message || 'Failed to create loan' });
       }
@@ -335,13 +335,17 @@ export default function AdminCreateLoan() {
             {/* Product Selection */}
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select value={selectedCategory} onValueChange={(name) => {
+                setSelectedCategory(name);
+                const cat = categories.find(c => c.name === name);
+                if (cat) loadProducts(String(cat.id));
+              }}>
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={String(cat.id)}>
+                    <SelectItem key={cat.id} value={cat.name}>
                       {cat.name}
                     </SelectItem>
                   ))}
@@ -351,13 +355,13 @@ export default function AdminCreateLoan() {
 
             <div className="space-y-2">
               <Label htmlFor="product">Product*</Label>
-              <Select value={selectedProduct?.id ? String(selectedProduct.id) : ''} onValueChange={handleSelectProduct}>
+              <Select value={selectedProduct?.name || ''} onValueChange={handleSelectProduct}>
                 <SelectTrigger id="product">
                   <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((prod) => (
-                    <SelectItem key={prod.id} value={String(prod.id)}>
+                    <SelectItem key={prod.id} value={prod.name}>
                       {prod.name}
                     </SelectItem>
                   ))}
@@ -636,6 +640,50 @@ export default function AdminCreateLoan() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* STEP 4: Success Confirmation */}
+      {step === 4 && createdLoan && (
+        <Card>
+          <CardHeader className="pb-3 text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
+              <Check className="h-6 w-6 text-green-600" />
+            </div>
+            <CardTitle>Loan Created Successfully</CardTitle>
+            <CardDescription>The loan has been submitted and is pending review</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Loan ID</p>
+                <p className="font-semibold">#{createdLoan.id}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Borrower</p>
+                <p className="font-semibold">{selectedBorrower?.name}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Amount</p>
+                <p className="font-semibold">{formatKES(form.amount)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <p className="font-semibold text-yellow-600">Pending</p>
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-900">
+              The loan is now pending review. You will be notified once it's approved.
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => navigate('/admin/loans')}>
+                Back to Loans
+              </Button>
+              <Button className="flex-1" onClick={() => navigate(`/admin/loans/${createdLoan.id}`)}>
+                View Loan <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {AlertComponent}

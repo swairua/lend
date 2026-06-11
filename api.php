@@ -595,9 +595,10 @@ function bootstrap() {
         // Fix TEXT→VARCHAR for UNIQUE columns (MySQL requires VARCHAR for UNIQUE)
         try { $p->exec("ALTER TABLE quotations MODIFY COLUMN quote_number VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE invoices MODIFY COLUMN invoice_number VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
-        $uq1 = $p->query("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME = 'quotations' AND COLUMN_NAME = 'quote_number' AND NON_UNIQUE = 0")->fetch(PDO::FETCH_ASSOC);
+        $db = $p->query("SELECT DATABASE() db")->fetch(PDO::FETCH_ASSOC)['db'];
+        $uq1 = $p->query("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '$db' AND TABLE_NAME = 'quotations' AND COLUMN_NAME = 'quote_number' AND NON_UNIQUE = 0")->fetch(PDO::FETCH_ASSOC);
         if ($uq1['c'] == 0) { try { $p->exec("ALTER TABLE quotations ADD UNIQUE (quote_number)"); } catch (Exception $e) {} }
-        $uq2 = $p->query("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME = 'invoices' AND COLUMN_NAME = 'invoice_number' AND NON_UNIQUE = 0")->fetch(PDO::FETCH_ASSOC);
+        $uq2 = $p->query("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '$db' AND TABLE_NAME = 'invoices' AND COLUMN_NAME = 'invoice_number' AND NON_UNIQUE = 0")->fetch(PDO::FETCH_ASSOC);
         if ($uq2['c'] == 0) { try { $p->exec("ALTER TABLE invoices ADD UNIQUE (invoice_number)"); } catch (Exception $e) {} }
         try { $p->exec("ALTER TABLE mpesa_transactions MODIFY COLUMN loan_id INT NULL"); } catch (Exception $e) {}
         // Rename system_logs.timestamp → created_at for consistency with all query code
@@ -1885,9 +1886,9 @@ try {
                 $purpose = $d['purpose'] ?? null;
                 $document_ids = $d['document_ids'] ?? [];
 
-                q("INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, term_months, interest_rate, status, due_date, security_details, guarantor_details, purpose)
-                   VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)",
-                  [$borrower_id, $product_id, floatval($amount), $total_amount, intval($term_months), $interest_rate, $due_date->format('Y-m-d'), $security_details, $guarantor_details, $purpose]);
+                q("INSERT INTO loans (borrower_id, product_id, principal_amount, total_amount, term_months, status, due_date, security_details, guarantor_details, purpose)
+                   VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)",
+                  [$borrower_id, $product_id, floatval($amount), $total_amount, intval($term_months), $due_date->format('Y-m-d'), $security_details, $guarantor_details, $purpose]);
 
                 $loanId = pdo()->lastInsertId();
 
