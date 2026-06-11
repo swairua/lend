@@ -943,7 +943,7 @@ try {
             $password = $d['password'] ?? '';
 
             try {
-                $user = one("SELECT id, email, name, phone, password, role, is_active FROM users WHERE email = ?", [$email]);
+                $user = one("SELECT id, email, name, phone, password, role, is_active, photo_url FROM users WHERE email = ?", [$email]);
 
                 if (!$user || !$user['is_active']) {
                     http_response_code(401);
@@ -4528,6 +4528,9 @@ try {
                 if ($data) {
                     $data['file_url'] = '/' . $data['file_path'];
                     $data['original_name'] = $data['file_name'];
+                    if ($doc_type === 'profile_photo') {
+                        q("UPDATE users SET photo_url = ? WHERE id = ?", [$data['file_url'], $user['id']]);
+                    }
                 }
 
                 log_error("File uploaded successfully", ['doc_id' => $doc_id, 'file' => $file_name, 'size' => $file['size']]);
