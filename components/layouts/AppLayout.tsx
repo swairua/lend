@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { LogOut, Menu, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { secureStorage } from '@/utils/secureStorage';
-import { adminApi, getFileUrl } from '@/utils/api';
+import { publicApi, adminApi, getFileUrl } from '@/utils/api';
 import { getNavItemsForRole, getPortalTitle, UserRole } from '@/config/navigationConfig';
 
 interface User {
@@ -35,7 +35,7 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await adminApi.getConfig();
+        const res = await publicApi.getSettings();
         if (res.success && res.data) {
           const arr = Array.isArray(res.data) ? res.data :
             res.data.data ? res.data.data :
@@ -174,7 +174,7 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
         </header>
 
         {/* Page Content */}
-        <div className="p-4">{children}</div>
+        <div className="p-4 pt-14 md:pt-4">{children}</div>
       </main>
     </div>
   );
