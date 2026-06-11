@@ -1310,6 +1310,16 @@ try {
             ]]);
             exit;
         }
+        // Public settings (no auth required — used by login page)
+        if ($method === 'GET' && strpos($uri, 'public/settings') !== false) {
+            $rows = all("SELECT * FROM settings");
+            $out = [];
+            foreach ($rows as $r) $out[$r['key_name']] = $r['key_value'];
+            log_access('GET', 'public/settings', 200);
+            echo json_encode(['success' => true, 'data' => $out]);
+            exit;
+        }
+
         http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Not found']);
         exit;

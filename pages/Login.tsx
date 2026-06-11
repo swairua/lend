@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { authApi, adminApi, getFileUrl } from '../utils/api';
+import { authApi, publicApi, getFileUrl } from '../utils/api';
 import { secureStorage } from '../utils/secureStorage';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
@@ -35,7 +35,7 @@ export default function Login() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await adminApi.getConfig();
+        const res = await publicApi.getSettings();
         if (res.success && res.data) {
           const arr = Array.isArray(res.data) ? res.data :
             res.data.data ? res.data.data :

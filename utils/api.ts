@@ -126,6 +126,11 @@ export const productsApi = {
     post('/public/loans/calculate', { product_id: productId, amount, term_months: termMonths }),
 };
 
+// ==================== Public (no auth) ====================
+export const publicApi = {
+  getSettings: () => get('/public/settings'),
+};
+
 // ==================== Loans ====================
 export const loansApi = {
   apply: (data: any) => post('/borrower/loans', data),
