@@ -441,22 +441,17 @@ function bootstrap() {
         $p->exec("CREATE TABLE IF NOT EXISTS mpesa_transactions (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             loan_id INTEGER,
+            repayment_id INTEGER,
+            phone_number VARCHAR(20) NOT NULL,
+            amount DECIMAL(15,2) NOT NULL,
             transaction_type VARCHAR(50) NOT NULL,
-            phone TEXT NOT NULL,
-            amount REAL,
-            mpesa_reference TEXT UNIQUE,
-            safaricom_receipt TEXT,
-            checkout_request_id TEXT UNIQUE,
-            command_id TEXT UNIQUE,
-            status VARCHAR(50) NOT NULL DEFAULT 'pending',
-            validation_result VARCHAR(100),
-            response_code TEXT,
+            mpesa_reference VARCHAR(100),
+            checkout_request_id VARCHAR(100),
+            status VARCHAR(50) DEFAULT 'pending',
+            response_code VARCHAR(50),
             response_message TEXT,
-            request_payload TEXT,
-            response_payload TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (loan_id) REFERENCES loans(id) ON DELETE SET NULL
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS system_logs (
@@ -600,8 +595,11 @@ function bootstrap() {
         // Fix TEXT→VARCHAR for UNIQUE columns (MySQL requires VARCHAR for UNIQUE)
         try { $p->exec("ALTER TABLE quotations MODIFY COLUMN quote_number VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE invoices MODIFY COLUMN invoice_number VARCHAR(50) NOT NULL"); } catch (Exception $e) {}
-        try { $p->exec("ALTER TABLE quotations ADD UNIQUE (quote_number)"); } catch (Exception $e) {}
-        try { $p->exec("ALTER TABLE invoices ADD UNIQUE (invoice_number)"); } catch (Exception $e) {}
+        $uq1 = $p->query("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME = 'quotations' AND COLUMN_NAME = 'quote_number' AND NON_UNIQUE = 0")->fetch(PDO::FETCH_ASSOC);
+        if ($uq1['c'] == 0) { try { $p->exec("ALTER TABLE quotations ADD UNIQUE (quote_number)"); } catch (Exception $e) {} }
+        $uq2 = $p->query("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME = 'invoices' AND COLUMN_NAME = 'invoice_number' AND NON_UNIQUE = 0")->fetch(PDO::FETCH_ASSOC);
+        if ($uq2['c'] == 0) { try { $p->exec("ALTER TABLE invoices ADD UNIQUE (invoice_number)"); } catch (Exception $e) {} }
+        try { $p->exec("ALTER TABLE mpesa_transactions MODIFY COLUMN loan_id INT NULL"); } catch (Exception $e) {}
         // Rename system_logs.timestamp → created_at for consistency with all query code
         try { $p->exec("ALTER TABLE system_logs CHANGE COLUMN `timestamp` `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); } catch (Exception $e) {}
         // Add entity_type, entity_id, ip_address columns to system_logs for richer audit context
@@ -611,9 +609,12 @@ function bootstrap() {
         // Add released_by / released_at columns to loans table for release workflow
         try { $p->exec("ALTER TABLE loans ADD COLUMN released_by INTEGER REFERENCES users(id) ON DELETE SET NULL"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE loans ADD COLUMN released_at TIMESTAMP"); } catch (Exception $e) {}
+        try { $p->exec("ALTER TABLE loans MODIFY COLUMN status ENUM('pending','approved','rejected','active','completed','defaulted','written_off','released','disbursing') DEFAULT 'pending'"); } catch (Exception $e) {}
         // Add password reset token columns to users table
         try { $p->exec("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) DEFAULT NULL"); } catch (Exception $e) {}
         try { $p->exec("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME DEFAULT NULL"); } catch (Exception $e) {}
+        // Add photo_url column to users table for profile photo
+        try { $p->exec("ALTER TABLE users ADD COLUMN photo_url TEXT DEFAULT NULL"); } catch (Exception $e) {}
 
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
         $demoUsers = [
@@ -2007,8 +2008,8 @@ try {
                 q("INSERT INTO payments (loan_id, type, amount, method, reference, status)
                    VALUES (?,'disbursement',?,'bank',?,'completed')", [$m[1], $amt, $d['reference'] ?? null]);
                 q("INSERT INTO disbursements (loan_id, amount, disbursement_method, reference_number, status, created_at, updated_at)
-                   VALUES (?,?,?,'bank',?,'completed',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
-                  [$m[1], $amt, $d['reference'] ?? null]);
+                   VALUES (?,?,?,?,'completed',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                  [$m[1], $amt, 'bank', $d['reference'] ?? null]);
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
                 q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type)
                    VALUES (?,?,?,'Loan Disbursed',?,'disbursement')",
@@ -3236,9 +3237,9 @@ try {
             }
 
             // Record transaction
-            q("INSERT INTO mpesa_transactions (loan_id, transaction_type, phone, amount, checkout_request_id, status, request_payload)
-               VALUES (?, 'stk_initiated', ?, ?, ?, 'stk_initiated', ?)",
-              [$loan_id, $phone, $amount, $checkout_request_id, json_encode($result['data'])]);
+            q("INSERT INTO mpesa_transactions (loan_id, transaction_type, phone_number, amount, checkout_request_id, status)
+               VALUES (?, 'stk_initiated', ?, ?, ?, 'stk_initiated')",
+              [$loan_id, $phone, $amount, $checkout_request_id]);
 
             log_access('POST', 'admin/mpesa/payment', 200);
             log_error("STK initiated", ['loan_id' => $loan_id, 'amount' => $amount, 'checkout_id' => substr($checkout_request_id, 0, 8)]);
@@ -3313,9 +3314,9 @@ try {
             }
 
             // Record transaction & mark loan as disbursed
-            q("INSERT INTO mpesa_transactions (loan_id, transaction_type, phone, amount, command_id, status, request_payload)
-               VALUES (?, 'b2c_initiated', ?, ?, ?, 'b2c_initiated', ?)",
-              [$loan_id, $phone, $amount, $command_id, json_encode($result['data'])]);
+            q("INSERT INTO mpesa_transactions (loan_id, transaction_type, phone_number, amount, checkout_request_id, status)
+               VALUES (?, 'b2c_initiated', ?, ?, ?, 'b2c_initiated')",
+              [$loan_id, $phone, $amount, $command_id]);
 
             // Defer 'active' status until B2C result callback confirms disbursement
             q("UPDATE loans SET status='disbursing', disbursed_at=CURRENT_TIMESTAMP WHERE id=?", [$loan_id]);
@@ -4653,9 +4654,9 @@ try {
 
             $result_code = $validation_ok ? '0' : '1';
 
-            q("INSERT INTO mpesa_transactions (transaction_type, phone, amount, status, validation_result, request_payload)
-               VALUES ('c2b_validation', ?, ?, 'validation_result', ?, ?)",
-              [$phone, $amount, ($validation_ok ? 'accepted' : 'rejected'), substr($raw, 0, 1000)]);
+            q("INSERT INTO mpesa_transactions (transaction_type, phone_number, amount, status)
+               VALUES ('c2b_validation', ?, ?, ?)",
+              [$phone, $amount, ($validation_ok ? 'accepted' : 'rejected')]);
 
             log_access('POST', 'mpesa/c2b/validate', 200);
             header('Content-Type: application/json');
@@ -4692,7 +4693,7 @@ try {
             $receipt = $parsed['receipt'];
 
             // Check for duplicate receipt
-            $existing = one("SELECT id FROM mpesa_transactions WHERE safaricom_receipt = ?", [$receipt]);
+            $existing = one("SELECT id FROM mpesa_transactions WHERE mpesa_reference = ?", [$receipt]);
             if ($existing) {
                 log_error("C2B confirm: duplicate receipt", ['receipt' => $receipt]);
                 log_access('POST', 'mpesa/c2b/confirm', 200);
@@ -4700,9 +4701,9 @@ try {
                 exit;
             }
 
-            q("INSERT INTO mpesa_transactions (transaction_type, phone, amount, mpesa_reference, safaricom_receipt, status, request_payload)
-               VALUES ('c2b_confirmation', ?, ?, ?, ?, 'confirmed', ?)",
-              [$phone, $amount, $receipt, $receipt, substr($raw, 0, 1000)]);
+            q("INSERT INTO mpesa_transactions (transaction_type, phone_number, amount, mpesa_reference, status)
+               VALUES ('c2b_confirmation', ?, ?, ?, 'confirmed')",
+              [$phone, $amount, $receipt]);
 
             log_access('POST', 'mpesa/c2b/confirm', 200);
             log_error("C2B confirm: transaction recorded", ['phone' => substr($phone, -4), 'amount' => $amount, 'receipt' => $receipt]);
@@ -4724,9 +4725,9 @@ try {
 
                 $parsed = MpesaXmlParser::parseC2bXml($raw);
                 if ($parsed) {
-                    q("INSERT INTO mpesa_transactions (transaction_type, phone, amount, status, request_payload)
-                       VALUES ('c2b_timeout', ?, ?, 'timeout', ?)",
-                      [$parsed['phone'], $parsed['amount'], substr($raw, 0, 1000)]);
+                    q("INSERT INTO mpesa_transactions (transaction_type, phone_number, amount, status)
+                       VALUES ('c2b_timeout', ?, ?, 'timeout')",
+                      [$parsed['phone'], $parsed['amount']]);
                     log_error("C2B timeout: recorded", ['phone' => substr($parsed['phone'], -4)]);
                 }
             }
@@ -4772,8 +4773,8 @@ try {
                 $amount = isset($metadata['Amount']) ? floatval($metadata['Amount']) : null;
 
                 if ($txn) {
-                    q("UPDATE mpesa_transactions SET status='completed', safaricom_receipt=?, response_code=?, response_message=?, response_payload=? WHERE id=?",
-                      [$receipt, $result_code, $result_desc, substr($raw, 0, 1000), $txn['id']]);
+                    q("UPDATE mpesa_transactions SET status='completed', response_code=?, response_message=? WHERE id=?",
+                      [$result_code, $result_desc, $txn['id']]);
 
                     if ($txn['loan_id'] && $amount) {
                         q("INSERT INTO repayments (loan_id, amount, principal_paid, interest_paid, payment_method, reference_number)
@@ -4804,19 +4805,19 @@ try {
                         log_error("STK callback success: repayment created", ['loan_id' => $txn['loan_id'], 'amount' => $amount, 'receipt' => $receipt]);
                     }
                 } else {
-                    q("INSERT INTO mpesa_transactions (transaction_type, checkout_request_id, status, response_code, response_message, safaricom_receipt, amount, request_payload)
-                       VALUES ('stk_callback', ?, 'completed', ?, ?, ?, ?, ?)",
-                      [$checkout_request_id, $result_code, $result_desc, $receipt, $amount, substr($raw, 0, 1000)]);
+                    q("INSERT INTO mpesa_transactions (transaction_type, checkout_request_id, status, response_code, response_message, amount)
+                       VALUES ('stk_callback', ?, 'completed', ?, ?, ?)",
+                      [$checkout_request_id, $result_code, $result_desc, $amount]);
                 }
             } else {
                 // Failed - user cancelled or timeout
                 if ($txn) {
-                    q("UPDATE mpesa_transactions SET status='failed', response_code=?, response_message=?, response_payload=? WHERE id=?",
-                      [$result_code, $result_desc, substr($raw, 0, 1000), $txn['id']]);
+                    q("UPDATE mpesa_transactions SET status='failed', response_code=?, response_message=? WHERE id=?",
+                      [$result_code, $result_desc, $txn['id']]);
                 } else {
-                    q("INSERT INTO mpesa_transactions (transaction_type, checkout_request_id, status, response_code, response_message, request_payload)
-                       VALUES ('stk_callback', ?, 'failed', ?, ?, ?)",
-                      [$checkout_request_id, $result_code, $result_desc, substr($raw, 0, 1000)]);
+                    q("INSERT INTO mpesa_transactions (transaction_type, checkout_request_id, status, response_code, response_message)
+                       VALUES ('stk_callback', ?, 'failed', ?, ?)",
+                      [$checkout_request_id, $result_code, $result_desc]);
                 }
                 log_error("STK callback failed", ['checkout_id' => $checkout_request_id, 'code' => $result_code, 'desc' => $result_desc]);
             }
@@ -4845,20 +4846,20 @@ try {
                     $command_id = $parsed['originator_conversation_id'];
                     $transaction_id = $parsed['transaction_id'] ?? null;
 
-                    $txn = one("SELECT id, loan_id FROM mpesa_transactions WHERE command_id = ?", [$command_id]);
+                    $txn = one("SELECT id, loan_id FROM mpesa_transactions WHERE checkout_request_id = ?", [$command_id]);
 
                     if ($txn) {
                         $status = ($result_code === 0) ? 'disbursed' : 'failed';
-                        q("UPDATE mpesa_transactions SET status=?, response_code=?, response_message=?, response_payload=? WHERE id=?",
-                          [$status, $result_code, $parsed['result_desc'], substr($raw, 0, 1000), $txn['id']]);
+                        q("UPDATE mpesa_transactions SET status=?, response_code=?, response_message=? WHERE id=?",
+                          [$status, $result_code, $parsed['result_desc'], $txn['id']]);
 
                         if ($result_code === 0 && $txn['loan_id']) {
                             q("UPDATE loans SET status='active', disbursed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$txn['loan_id']]);
                         }
                     } else {
-                        q("INSERT INTO mpesa_transactions (transaction_type, command_id, status, response_code, response_message, request_payload)
-                           VALUES ('b2c_result', ?, ?, ?, ?, ?)",
-                          [$command_id, ($result_code === 0 ? 'disbursed' : 'failed'), $result_code, $parsed['result_desc'], substr($raw, 0, 1000)]);
+                        q("INSERT INTO mpesa_transactions (transaction_type, checkout_request_id, status, response_code, response_message)
+                           VALUES ('b2c_result', ?, ?, ?, ?)",
+                          [$command_id, ($result_code === 0 ? 'disbursed' : 'failed'), $result_code, $parsed['result_desc']]);
                     }
 
                     log_error("B2C result: processed", ['command_id' => $command_id, 'code' => $result_code]);
@@ -4884,9 +4885,9 @@ try {
                 $parsed = MpesaXmlParser::parseB2cResultXml($raw);
                 if ($parsed) {
                     $command_id = $parsed['originator_conversation_id'];
-                    q("INSERT INTO mpesa_transactions (transaction_type, command_id, status, request_payload)
-                       VALUES ('b2c_timeout', ?, 'b2c_timeout', ?)",
-                      [$command_id, substr($raw, 0, 1000)]);
+                    q("INSERT INTO mpesa_transactions (transaction_type, checkout_request_id, status)
+                       VALUES ('b2c_timeout', ?, 'b2c_timeout')",
+                      [$command_id]);
                     log_error("B2C timeout: recorded", ['command_id' => $command_id]);
                 }
             }
