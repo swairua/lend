@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Wallet, Eye, Trash2, Plus, Check, ChevronsUpDown, Download } from 'lucide-react';
 import { adminApi, repaymentsApi, formatKES, formatDate, getFileUrl } from '../types/api';
-import { generateReceiptHTML, resolveLogoUrl } from '../utils/pdfTemplates';
+import { generateReceiptHTML, getPdfLogoUrl } from '../utils/pdfTemplates';
 import { toast } from 'sonner';
 import { normalizeList } from '../utils/normalize';
 import { useAlert } from '@/hooks/use-alert';
@@ -175,21 +175,19 @@ export default function AdminRepayments() {
       const balance = totalAmount - totalPaid;
       const html2pdf = (await import('html2pdf.js')).default;
       const element = document.createElement('div');
-      const pdfLogoUrl = await resolveLogoUrl(companyLogoUrl);
       element.innerHTML = generateReceiptHTML({
         repayment: { ...repayment, loan_id: repayment.loan_id },
         loan: { id: repayment.loan_id } as any,
         borrowerName: repayment.borrower_name || 'N/A',
         borrowerEmail: repayment.borrower_email || 'N/A',
         companyName,
-        companyLogoUrl: pdfLogoUrl,
+        companyLogoUrl: getPdfLogoUrl(),
         loanAmount: totalAmount || undefined,
         loanStatus: repayment.loan_status || undefined,
         disbursedAt: repayment.disbursed_at || undefined,
         remainingBalance: balance > 0 ? balance : 0,
       });
-      await Promise.all([...element.querySelectorAll('img')].map(img => img.complete ? Promise.resolve() : new Promise<void>(resolve => { img.onload = () => resolve(); img.onerror = () => resolve(); })));
-      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Receipt_${repayment.loan_id}_${repayment.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
       toast.success('Receipt downloaded successfully');
     } catch (error: any) {

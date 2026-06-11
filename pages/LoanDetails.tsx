@@ -10,7 +10,7 @@ import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from 
 import { uploadsApi } from "../utils/api";
 import { secureStorage } from "@/utils/secureStorage";
 import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
-import { generateInvoiceHTML, generateReceiptHTML, resolveLogoUrl } from "../utils/pdfTemplates";
+import { generateInvoiceHTML, generateReceiptHTML, getPdfLogoUrl } from "../utils/pdfTemplates";
 import { adminApi, getFileUrl } from "../types/api";
 import { calculateAPR } from "../utils/aprCalculator";
 import { Loader2, ArrowLeft, Calendar, FileText, Receipt, AlertTriangle, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
@@ -241,7 +241,6 @@ export default function LoanDetails() {
       setDownloadingInvoice(true);
       const html2pdf = (await import('html2pdf.js')).default;
       const element = document.createElement('div');
-      const pdfLogoUrl = await resolveLogoUrl(companyLogoUrl);
       element.innerHTML = generateInvoiceHTML({
         loan,
         borrowerName: user.name || loan.borrower_name || 'N/A',
@@ -249,10 +248,9 @@ export default function LoanDetails() {
         totalPaid: loan.total_paid || 0,
         balance: loan.balance || 0,
         companyName,
-        companyLogoUrl: pdfLogoUrl,
+        companyLogoUrl: getPdfLogoUrl(),
       });
-      await Promise.all([...element.querySelectorAll('img')].map(img => img.complete ? Promise.resolve() : new Promise<void>(resolve => { img.onload = () => resolve(); img.onerror = () => resolve(); })));
-      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Invoice_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
     } catch (err: any) {
       console.error('Failed to download invoice:', err);
@@ -267,21 +265,19 @@ export default function LoanDetails() {
     try {
       const html2pdf = (await import('html2pdf.js')).default;
       const element = document.createElement('div');
-      const pdfLogoUrl = await resolveLogoUrl(companyLogoUrl);
       element.innerHTML = generateReceiptHTML({
         repayment: loan.repayments[loan.repayments.length - 1],
         loan,
         borrowerName: user.name || loan.borrower_name || 'N/A',
         borrowerEmail: user.email || loan.borrower_email || 'N/A',
         companyName,
-        companyLogoUrl: pdfLogoUrl,
+        companyLogoUrl: getPdfLogoUrl(),
         loanAmount: loan.total_amount || loan.amount,
         loanStatus: loan.status,
         disbursedAt: loan.disbursed_at,
         remainingBalance: loan.balance || 0,
       });
-      await Promise.all([...element.querySelectorAll('img')].map(img => img.complete ? Promise.resolve() : new Promise<void>(resolve => { img.onload = () => resolve(); img.onerror = () => resolve(); })));
-      const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
+      const opt = { margin: 0.5, filename: `Receipt_Loan${loan.id}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
       await html2pdf().set(opt).from(element).save();
     } catch (err: any) {
       console.error('Failed to download receipt:', err);

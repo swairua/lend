@@ -1,5 +1,5 @@
 import { buildPDFHeaderHTML } from './pdfHeader';
-import { resolveLogoUrl } from './pdfTemplates';
+import { getPdfLogoUrl } from './pdfTemplates';
 
 export interface LoanAgreementData {
   loanId: number;
@@ -295,10 +295,8 @@ export async function downloadLoanAgreementPDF(data: LoanAgreementData): Promise
   try {
     const html2pdf = (await import('html2pdf.js')).default;
     const element = document.createElement('div');
-    const pdfLogoUrl = await resolveLogoUrl(data.companyLogoUrl);
-    data.companyLogoUrl = pdfLogoUrl;
+    data.companyLogoUrl = getPdfLogoUrl();
     element.innerHTML = generateLoanAgreementHTML(data);
-    await Promise.all([...element.querySelectorAll('img')].map(img => img.complete ? Promise.resolve() : new Promise<void>(resolve => { img.onload = () => resolve(); img.onerror = () => resolve(); })));
     const opt: any = {
       margin: [0.5, 0.5, 0.5, 0.5],
       filename: `Loan-Agreement-${data.loanId}.pdf`,

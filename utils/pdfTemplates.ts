@@ -2,22 +2,7 @@
 import { Loan, Repayment } from '../types/api';
 import { buildPDFHeaderHTML } from './pdfHeader';
 
-export async function resolveLogoUrl(companyLogoUrl?: string | null): Promise<string | null> {
-  if (companyLogoUrl) {
-    try {
-      const resp = await fetch(companyLogoUrl);
-      if (resp.ok) {
-        const blob = await resp.blob();
-        const dataUri = await new Promise<string | null>(resolve => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(blob);
-        });
-        if (dataUri) return dataUri;
-      }
-    } catch {}
-  }
+export function getPdfLogoUrl(): string {
   return `${window.location.origin}/icons/icon-192.png`;
 }
 
