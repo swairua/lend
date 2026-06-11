@@ -408,7 +408,7 @@ export default function Index() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/login">
-                <Button size="lg" variant="secondary">
+                <Button size="lg" variant="secondary" className="text-secondary-foreground">
                   Apply Now <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
