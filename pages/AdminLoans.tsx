@@ -193,11 +193,10 @@ export default function AdminLoans() {
         try {
           await adminApi.approveLoan(loanId, true);
           toast.success('Loan approved successfully');
-          await refreshAfterUpdate();
         } catch (error: any) {
-          showAlert({ type: 'error', message: error.message });
           toast.error(error.message || 'Failed to approve loan');
         } finally {
+          await refreshAfterUpdate();
           setActionLoading(false);
         }
       });

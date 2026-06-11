@@ -1932,36 +1932,63 @@ try {
                 }
                 $d = input(); $approve = $d['approve'] ?? true;
                 $ns = $approve ? 'approved' : 'rejected';
-                q("UPDATE loans SET status=?, approved_by=?, approved_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$ns, $user['id'], $m[1]]);
+
+                // Do all lookups BEFORE the critical UPDATE
                 $b = one("SELECT user_id FROM borrowers WHERE id = ?", [$loan['borrower_id']]);
-                q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type) VALUES (?,?,?,?,?,?)",
-                  [$user['id'], $b['user_id'], $m[1],
-                   $approve ? 'Loan Approved' : 'Loan Rejected',
-                   $approve ? "Your loan #{$m[1]} has been approved." : "Your loan #{$m[1]} has been rejected.",
-                   $approve ? 'approval' : 'rejection']);
-                // Email notification
-                $borrowerUser = one("SELECT email, name FROM users WHERE id = ?", [$b['user_id']]);
-                if ($borrowerUser) {
-                    $actionLabel = $approve ? 'Approved' : 'Rejected';
-                    $subject = "Loan $actionLabel - Loan #{$m[1]}";
-                    $body = "<h2>Loan $actionLabel</h2><p>Dear {$borrowerUser['name']},</p>";
-                    $body .= "<p>Your loan application #{$m[1]} has been <strong>" . strtolower($actionLabel) . "</strong>.</p>";
-                    if (!$approve && !empty($d['reason'])) $body .= "<p><strong>Reason:</strong> " . htmlspecialchars($d['reason']) . "</p>";
-                    $body .= "<p>Best regards,<br/>Lending System</p>";
-                    sendMail($borrowerUser['email'], $subject, $body, true);
+                $recipientId = $b ? $b['user_id'] : null;
+                $borrowerUser = $recipientId ? one("SELECT email, name FROM users WHERE id = ?", [$recipientId]) : null;
+
+                // Critical UPDATE — this is the atomic operation
+                q("UPDATE loans SET status=?, approved_by=?, approved_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$ns, $user['id'], $m[1]]);
+
+                // Message (non-critical)
+                try {
+                    if ($recipientId) {
+                        q("INSERT INTO messages (sender_id, recipient_id, loan_id, subject, message, type) VALUES (?,?,?,?,?,?)",
+                          [$user['id'], $recipientId, $m[1],
+                           $approve ? 'Loan Approved' : 'Loan Rejected',
+                           $approve ? "Your loan #{$m[1]} has been approved." : "Your loan #{$m[1]} has been rejected.",
+                           $approve ? 'approval' : 'rejection']);
+                    }
+                } catch (Exception $e) {
+                    log_error("Loan approve message failed", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
                 }
-                logAudit($user['id'], $approve ? 'loan_approved' : 'loan_rejected', 'loan', $m[1], [
-                    'previous_status' => 'pending',
-                    'new_status' => $ns,
-                    'approved_by_user_id' => $user['id'],
-                    'rejection_reason' => $approve ? null : ($d['reason'] ?? null)
-                ]);
+
+                // Email (non-critical)
+                if ($borrowerUser) {
+                    try {
+                        $actionLabel = $approve ? 'Approved' : 'Rejected';
+                        $subject = "Loan $actionLabel - Loan #{$m[1]}";
+                        $body = "<h2>Loan $actionLabel</h2><p>Dear {$borrowerUser['name']},</p>";
+                        $body .= "<p>Your loan application #{$m[1]} has been <strong>" . strtolower($actionLabel) . "</strong>.</p>";
+                        if (!$approve && !empty($d['reason'])) $body .= "<p><strong>Reason:</strong> " . htmlspecialchars($d['reason']) . "</p>";
+                        $body .= "<p>Best regards,<br/>Lending System</p>";
+                        sendMail($borrowerUser['email'], $subject, $body, true);
+                    } catch (Exception $e) {
+                        log_error("Loan approve email failed", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
+                    }
+                }
+
+                // Audit log (non-critical)
+                try {
+                    logAudit($user['id'], $approve ? 'loan_approved' : 'loan_rejected', 'loan', $m[1], [
+                        'previous_status' => 'pending',
+                        'new_status' => $ns,
+                        'approved_by_user_id' => $user['id'],
+                        'rejection_reason' => $approve ? null : ($d['reason'] ?? null)
+                    ]);
+                } catch (Exception $e) {
+                    log_error("Loan approve audit failed", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
+                }
+
                 log_access('POST', 'admin/loans/' . $m[1] . '/approve', 200);
                 echo json_encode(['success' => true]);
                 exit;
             } catch (Exception $e) {
                 log_error("Loan approval exception", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
-                throw $e;
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Server error occurred']);
+                exit;
             }
         }
         // Release approved loan (admin or releaser)
