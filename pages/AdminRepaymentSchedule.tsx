@@ -52,7 +52,7 @@ function generateSchedule(loan: any): ScheduleItem[] {
     grace.setDate(grace.getDate() + GRACE_DAYS);
     const isLate = !isPaid && Date.now() > grace.getTime();
     
-    const remainingBalance = Math.max(0, totalAmount - cumulative);
+    const remainingBalance = Math.max(0, totalAmount - monthlyPayment * (i - 1));
     
     schedule.push({
       no: i,
