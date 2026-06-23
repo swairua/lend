@@ -119,6 +119,7 @@ CREATE TABLE loans (
   due_date DATE DEFAULT NULL,
   security_details TEXT DEFAULT NULL,
   guarantor_details TEXT DEFAULT NULL,
+  purpose TEXT DEFAULT NULL,
   postdated_check_no VARCHAR(100) DEFAULT NULL,
   logbook_no VARCHAR(100) DEFAULT NULL,
   asset_description VARCHAR(255) DEFAULT NULL,

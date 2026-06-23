@@ -616,6 +616,8 @@ function bootstrap() {
         try { $p->exec("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME DEFAULT NULL"); } catch (Exception $e) {}
         // Add photo_url column to users table for profile photo
         try { $p->exec("ALTER TABLE users ADD COLUMN photo_url TEXT DEFAULT NULL"); } catch (Exception $e) {}
+        // Add purpose column to loans table for loan purpose description
+        try { $p->exec("ALTER TABLE loans ADD COLUMN purpose TEXT DEFAULT NULL"); } catch (Exception $e) {}
 
         // Seed / repair demo users (admin + borrower) with valid Pass123 hash
         $demoUsers = [
@@ -3356,7 +3358,7 @@ try {
         }
 
         // GET /admin/mpesa/orphaned-payments - Find M-Pesa transactions without repayment records
-        if ($method === 'GET' && strpos($uri, 'admin/mpesa/orphaned-payments') !== false) {
+        if ($method === 'GET' && strpos($uri, 'admin/mpesa/orphaned') !== false) {
             $u = auth();
             requireRole($u, 'admin');
 
