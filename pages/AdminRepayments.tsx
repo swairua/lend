@@ -806,7 +806,7 @@ export default function AdminRepayments() {
                         onValueChange={setLoanSearchTerm}
                       />
                       <CommandEmpty>
-                        {loadingLoans ? 'Loading loans...' : 'No active loans found. Refresh the page if loans exist.'}
+                        {loadingLoans ? 'Loading loans...' : loans.length === 0 ? 'No active loans found. Refresh the page if loans exist.' : 'No loans match your search.'}
                       </CommandEmpty>
                       <CommandList>
                         <CommandGroup>
