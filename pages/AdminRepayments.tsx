@@ -56,6 +56,7 @@ export default function AdminRepayments() {
   const [companyName, setCompanyName] = useState('LENDING PLATFORM');
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [loanSearchTerm, setLoanSearchTerm] = useState('');
+  const [matchLoanSearchTerm, setMatchLoanSearchTerm] = useState('');
   const [loans, setLoans] = useState<LoanOption[]>([]);
   const [loanPopoverOpen, setLoanPopoverOpen] = useState(false);
   const [loadingLoans, setLoadingLoans] = useState(false);
@@ -322,7 +323,7 @@ export default function AdminRepayments() {
   const openMatchingDialog = (repayment: Repayment) => {
     setSelectedRepaymentForMatch(repayment);
     setMatchingLoanId('');
-    setLoanSearchTerm('');
+    setMatchLoanSearchTerm('');
     setMatchingDialogOpen(true);
     loadAllLoans();
   };
@@ -757,7 +758,7 @@ export default function AdminRepayments() {
 
       {/* Match Payment Dialog */}
       <Dialog open={matchingDialogOpen} onOpenChange={setMatchingDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-md p-3 md:p-6 space-y-3 md:space-y-4">
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] sm:max-w-3xl p-3 md:p-6 space-y-3 md:space-y-4">
           <DialogHeader>
             <DialogTitle className="text-base md:text-lg">Match Repayment to Loan</DialogTitle>
           </DialogHeader>
@@ -802,8 +803,8 @@ export default function AdminRepayments() {
                     <Command>
                       <CommandInput
                         placeholder="Search loan ID or borrower..."
-                        value={loanSearchTerm}
-                        onValueChange={setLoanSearchTerm}
+                        value={matchLoanSearchTerm}
+                        onValueChange={setMatchLoanSearchTerm}
                       />
                       <CommandEmpty>
                         {loadingLoans ? 'Loading loans...' : loans.length === 0 ? 'No active loans found. Refresh the page if loans exist.' : 'No loans match your search.'}
