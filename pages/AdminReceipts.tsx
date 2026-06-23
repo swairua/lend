@@ -8,6 +8,7 @@ import { secureStorage } from '@/utils/secureStorage';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { toast } from 'sonner';
 
 export default function AdminReceipts() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function AdminReceipts() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<number | null>(null);
   const limit = 20;
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export default function AdminReceipts() {
   };
 
   const handleDownload = async (id: number, number: string) => {
+    setDownloadingReceiptId(id);
     try {
       const blob = await adminApi.getReceiptPdf(id);
       const url = URL.createObjectURL(blob);
@@ -55,8 +58,12 @@ export default function AdminReceipts() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err) {
+      toast.success('Receipt downloaded successfully');
+    } catch (err: any) {
       console.error('Failed to download receipt:', err);
+      toast.error(err.message || 'Failed to download receipt');
+    } finally {
+      setDownloadingReceiptId(null);
     }
   };
 
@@ -113,8 +120,8 @@ export default function AdminReceipts() {
                         <TableCell className="text-right text-xs sm:text-sm">{formatKES(r.amount)}</TableCell>
                         <TableCell className="hidden sm:table-cell text-xs sm:text-sm">{formatDate(r.generated_at)}</TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" variant="outline" className="min-h-[44px] h-auto" onClick={() => handleDownload(r.id, r.receipt_number)}>
-                            <Download className="h-4 w-4" />
+                          <Button size="sm" variant="outline" className="min-h-[44px] h-auto" onClick={() => handleDownload(r.id, r.receipt_number)} disabled={downloadingReceiptId === r.id}>
+                            {downloadingReceiptId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                           </Button>
                         </TableCell>
                       </TableRow>
