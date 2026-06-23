@@ -61,7 +61,10 @@ export default function AdminCreateLoan() {
   }, []);
 
   useEffect(() => {
-    if (selectedCategory) loadProducts(selectedCategory);
+    if (selectedCategory) {
+      const cat = categories.find(c => c.name === selectedCategory);
+      if (cat) loadProducts(String(cat.id));
+    }
   }, [selectedCategory]);
 
   useEffect(() => {
@@ -337,8 +340,6 @@ export default function AdminCreateLoan() {
               <Label htmlFor="category">Category</Label>
               <Select value={selectedCategory} onValueChange={(name) => {
                 setSelectedCategory(name);
-                const cat = categories.find(c => c.name === name);
-                if (cat) loadProducts(String(cat.id));
               }}>
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Select category" />
