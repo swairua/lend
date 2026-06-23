@@ -630,9 +630,15 @@ export default function AdminRepayments() {
                       value={loanSearchTerm}
                       onValueChange={setLoanSearchTerm}
                     />
-                    <CommandEmpty>
-                      {loadingLoans ? 'Loading loans...' : 'No loans found.'}
-                    </CommandEmpty>
+                    {loadingLoans ? (
+                      <CommandEmpty>Loading loans...</CommandEmpty>
+                    ) : loans.length === 0 ? (
+                      <CommandEmpty>No loans found.</CommandEmpty>
+                    ) : loanSearchTerm && !loans.some(
+                        loan => String(loan.id).includes(loanSearchTerm) || loan.borrower_name?.toLowerCase().includes(loanSearchTerm.toLowerCase())
+                      ) ? (
+                      <CommandEmpty>No loans match your search.</CommandEmpty>
+                    ) : null}
                     <CommandList>
                       <CommandGroup>
                         {loans.map((loan) => (
@@ -806,9 +812,15 @@ export default function AdminRepayments() {
                         value={matchLoanSearchTerm}
                         onValueChange={setMatchLoanSearchTerm}
                       />
-                      <CommandEmpty>
-                        {loadingLoans ? 'Loading loans...' : loans.length === 0 ? 'No active loans found. Refresh the page if loans exist.' : 'No loans match your search.'}
-                      </CommandEmpty>
+                      {loadingLoans ? (
+                        <CommandEmpty>Loading loans...</CommandEmpty>
+                      ) : loans.length === 0 ? (
+                        <CommandEmpty>No active loans found. Refresh the page if loans exist.</CommandEmpty>
+                      ) : matchLoanSearchTerm && !loans.some(
+                          loan => String(loan.id).includes(matchLoanSearchTerm) || loan.borrower_name?.toLowerCase().includes(matchLoanSearchTerm.toLowerCase())
+                        ) ? (
+                        <CommandEmpty>No loans match your search.</CommandEmpty>
+                      ) : null}
                       <CommandList>
                         <CommandGroup>
                           {loans.map((loan) => (
