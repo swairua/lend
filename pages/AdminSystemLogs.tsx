@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { Loader2, ChevronLeft, ChevronRight, RefreshCw, Download, Eye, Trash2, ChevronDown } from 'lucide-react';
-import { adminApi, formatDate } from '../types/api';
+import { adminApi, formatDate, formatKES } from '../types/api';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeList } from '../utils/normalize';
 
@@ -181,25 +181,25 @@ export default function AdminSystemLogs() {
       petty_cash_created: d.category === 'balance_adjustment'
         ? `${d.description || 'Manual balance adjustment'}${by}`
         : d.amount
-          ? `Created petty cash transaction of KES ${Number(d.amount).toLocaleString()} for account #${d.account_id}${by}`
+          ? `Created petty cash transaction of ${formatKES(d.amount)} for account #${d.account_id}${by}`
           : `Created petty cash transaction${by}`,
       petty_cash_account_created: `Created petty cash account: ${d.name || 'Unknown'} (${d.type || 'Unknown'})${by}`,
       petty_cash_reactivated: `Reactivated petty cash account${by}`,
       petty_cash_account_edited: `Edited petty cash account: ${d.name || 'Unknown'}${by}`,
-      petty_cash_edited: `Edited petty cash transaction${d.amount ? ' of KES ' + Number(d.amount).toLocaleString() : ''}${by}`,
-      loan_created_admin: `Created loan for borrower #${d.borrower_id || '?'} (KES ${Number(d.principal_amount || 0).toLocaleString()})${by}`,
-      payment_received: `Received KES ${Number(d.amount || 0).toLocaleString()} via ${d.payment_method || '?'}${d.reference_number ? ' (Ref: ' + d.reference_number + ')' : ''}${by}`,
+      petty_cash_edited: `Edited petty cash transaction${d.amount ? ' of ' + formatKES(d.amount) : ''}${by}`,
+      loan_created_admin: `Created loan for borrower #${d.borrower_id || '?'} (${formatKES(d.principal_amount || 0)})${by}`,
+      payment_received: `Received ${formatKES(d.amount || 0)} via ${d.payment_method || '?'}${d.reference_number ? ' (Ref: ' + d.reference_number + ')' : ''}${by}`,
       user_registered: `Registered user: ${d.email || '?'}${by}`,
       user_updated_by_admin: `Updated user ${d.email || '?'}${d.role ? ' (role: ' + d.role + ')' : ''}${by}`,
       settings_updated: `Updated ${d.count || '?'} system settings${by}`,
       role_permissions_updated: `Updated permissions for ${d.role_key || '?'} (${d.permissions_count || d.permission_keys_modified?.length || 0} modified)${by}`,
       role_updated: `Updated role: ${d.role_key || '?'}${by}`,
       logs_cleaned: `Cleaned up logs older than ${d.retention_days || 90} days${by}`,
-      mpesa_stk_push_sent: `STK push sent to ${d.phone_number || '?'}${d.amount ? ' for KES ' + Number(d.amount).toLocaleString() : ''}${by}`,
-      mpesa_b2c_sent: `B2C payment sent to ${d.phone_number || '?'} of KES ${Number(d.amount || 0).toLocaleString()}${by}`,
+      mpesa_stk_push_sent: `STK push sent to ${d.phone_number || '?'}${d.amount ? ' for ' + formatKES(d.amount) : ''}${by}`,
+      mpesa_b2c_sent: `B2C payment sent to ${d.phone_number || '?'} of ${formatKES(d.amount || 0)}${by}`,
       mpesa_transaction_completed: d.type === 'b2c'
-        ? `B2C completed${d.amount ? ' (KES ' + Number(d.amount).toLocaleString() + ')' : ''}${by}`
-        : `STK push completed${d.amount ? ' (KES ' + Number(d.amount).toLocaleString() + ')' : ''}${by}`,
+        ? `B2C completed${d.amount ? ' (' + formatKES(d.amount) + ')' : ''}${by}`
+        : `STK push completed${d.amount ? ' (' + formatKES(d.amount) + ')' : ''}${by}`,
     };
     return map[action] || `${action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}${by}`;
   };

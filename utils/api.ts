@@ -129,6 +129,8 @@ export const productsApi = {
 // ==================== Public (no auth) ====================
 export const publicApi = {
   getSettings: () => get('/public/settings'),
+  getAdminId: () => get('/public/admin-id'),
+  getAgreementSections: () => get('/public/agreement-sections'),
 };
 
 // ==================== Loans ====================
@@ -143,6 +145,7 @@ export const loansApi = {
 export const repaymentsApi = {
   getMyRepayments: () => get('/repayments/mine'),
   getMyReceipts: (params?: any) => get('/borrower/receipts', params),
+  getMyReceipt: (id: number) => get(`/borrower/receipts/${id}`),
   getMyReceiptPdf: (id: number) => getBlob(`/borrower/receipts/${id}/pdf`),
   record: (data: any) => post('/repayments', data),
 };
@@ -272,6 +275,10 @@ export const adminApi = {
   getPettyCashCashBook: (startDate?: string, endDate?: string) => get('/admin/petty-cash/reports/cash-book', { start_date: startDate, end_date: endDate }),
   getPettyCashDailySummary: (date?: string) => get('/admin/petty-cash/reports/daily-summary', { date }),
   getPettyCashStatement: (accountId: number) => get(`/admin/petty-cash/reports/statement/${accountId}`),
+
+  // ---- Agreement Sections ----
+  getAgreementSections: () => get('/admin/agreement-sections'),
+  updateAgreementSection: (id: number, content: string) => put(`/admin/agreement-sections/${id}`, { content }),
 };
 
 // ==================== Messages ====================
@@ -318,10 +325,10 @@ export const uploadCompanyLogo = async (file: File): Promise<{ success: boolean;
 
 // ==================== Email ====================
 export const emailApi = {
-  getEmailSettings: () => get('/admin/email/settings'),
+  getEmailSettings: () => get('/admin/email-settings'),
   updateEmailSettings: (smtp_host: string, smtp_port: number, smtp_user: string, smtp_pass: string, smtp_from: string) =>
-    put('/admin/email/settings', { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from }),
-  testEmailSettings: () => post('/admin/email/test'),
+    post('/admin/email-settings', { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from }),
+  testEmailSettings: () => post('/admin/email-settings/test'),
   sendReceipt: (loanId: number, repaymentId: number, recipientEmail: string) =>
     post('/admin/send-receipt', { loan_id: loanId, repayment_id: repaymentId, recipient_email: recipientEmail }),
   sendInvoice: (loanId: number, recipientEmail: string) =>

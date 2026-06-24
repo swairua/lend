@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
-import { adminApi, formatKES, formatDate, getFileUrl, Loan } from '../types/api';
+import { adminApi, formatKES, formatDate, getFileUrl, Loan, publicApi } from '../types/api';
 import { generateInvoiceHTML, getPdfLogoUrl } from '../utils/pdfTemplates';
 import { downloadLoanAgreementPDF } from '../utils/loanPdfGenerator';
 import { calculateAPR } from '../utils/aprCalculator';
@@ -72,6 +72,8 @@ export default function AdminLoans() {
   const [companyKraPin, setCompanyKraPin] = useState('');
   const [companyRegNumber, setCompanyRegNumber] = useState('');
   const [downloadingAgreementId, setDownloadingAgreementId] = useState<number | null>(null);
+  const [disburseDialogOpen, setDisburseDialogOpen] = useState(false);
+  const [disburseTarget, setDisburseTarget] = useState<Loan | null>(null);
 
   const loadLoans = useCallback(async () => {
     setLoading(true);
@@ -254,19 +256,28 @@ export default function AdminLoans() {
   };
 
   const handleDisburse = async (loanId: number) => {
-    confirm('Disburse this loan?', async () => {
-      setActionLoading(true);
-      try {
-        await adminApi.disburseLoan(loanId);
-        toast.success('Loan disbursed successfully');
-        await refreshAfterUpdate();
-      } catch (error: any) {
-        showAlert({ type: 'error', message: error.message });
-        toast.error(error.message || 'Failed to disburse loan');
-      } finally {
-        setActionLoading(false);
-      }
-    });
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      setDisburseTarget(loan);
+      setDisburseDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDisburse = async () => {
+    if (!disburseTarget) return;
+    setActionLoading(true);
+    try {
+      await adminApi.disburseLoan(disburseTarget.id);
+      toast.success('Loan disbursed successfully');
+      setDisburseDialogOpen(false);
+      setDisburseTarget(null);
+      await refreshAfterUpdate();
+    } catch (error: any) {
+      showAlert({ type: 'error', message: error.message });
+      toast.error(error.message || 'Failed to disburse loan');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleGenerateInvoice = async (loan: Loan) => {
@@ -304,6 +315,13 @@ export default function AdminLoans() {
         assetTransferFee: Number(loan.asset_transfer_fee || 0),
         trackingSystemFee: Number(loan.tracking_system_fee || 0),
       });
+
+      let agreementSections: Record<string, string> | undefined;
+      try {
+        const secRes = await publicApi.getAgreementSections();
+        agreementSections = secRes?.map || undefined;
+      } catch { /* sections not available, fall back to defaults */ }
+
       await downloadLoanAgreementPDF({
         loanId: loan.id,
         borrowerName: loan.borrower_name || 'N/A',
@@ -337,6 +355,7 @@ export default function AdminLoans() {
         companyLogoUrl: getPdfLogoUrl(),
         companyKraPin: companyKraPin || undefined,
         companyRegNumber: companyRegNumber || undefined,
+        agreementSections,
       });
       toast.success('Agreement downloaded successfully');
     } catch (error: any) {
@@ -722,6 +741,35 @@ export default function AdminLoans() {
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleReject} disabled={actionLoading}>
               {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject Loan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disburse Confirmation Dialog */}
+      <Dialog open={disburseDialogOpen} onOpenChange={setDisburseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Disbursement</DialogTitle>
+          </DialogHeader>
+          {disburseTarget && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Are you sure you want to disburse this loan?</p>
+              <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Borrower</span><span className="font-medium">{disburseTarget.borrower_name || 'N/A'}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Product</span><span className="font-medium">{disburseTarget.product_name || 'N/A'}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Principal</span><span className="font-medium">{formatKES(disburseTarget.principal_amount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Total Amount</span><span className="font-medium">{formatKES(disburseTarget.total_amount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Balance</span><span className="font-medium">{formatKES(disburseTarget.balance)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Status</span><Badge className={getStatusColor(disburseTarget.status)}>{getStatusLabel(disburseTarget.status)}</Badge></div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDisburseDialogOpen(false); setDisburseTarget(null); }}>Cancel</Button>
+            <Button onClick={handleConfirmDisburse} disabled={actionLoading}>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wallet className="h-4 w-4 mr-2" />}
+              {actionLoading ? 'Disbursing...' : 'Confirm Disbursement'}
             </Button>
           </DialogFooter>
         </DialogContent>

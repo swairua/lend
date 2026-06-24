@@ -280,6 +280,14 @@ export interface Invoice {
   items?: InvoiceItem[];
 }
 
+export interface AgreementSection {
+  id: number;
+  section_key: string;
+  title: string;
+  content: string;
+  updated_at: string;
+}
+
 export interface Receipt {
   id: number;
   receipt_number: string;
@@ -329,6 +337,7 @@ export {
   adminApi,
   messagesApi,
   emailApi,
+  publicApi,
   formatKES,
   formatDate,
   getFileUrl,

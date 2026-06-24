@@ -118,13 +118,36 @@ export default function BorrowerPayments() {
   const handleDownloadReceiptPdf = async (receipt: Receipt) => {
     try {
       setDownloadingReceiptId(receipt.id);
-      const blob = await repaymentsApi.getMyReceiptPdf(receipt.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${receipt.receipt_number}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const res = await repaymentsApi.getMyReceipt(receipt.id);
+      const r = res?.data;
+      if (!r) throw new Error('Receipt not found');
+
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.createElement('div');
+      element.innerHTML = generateReceiptHTML({
+        repayment: {
+          id: r.repayment_id,
+          loan_id: r.loan_id,
+          amount: Number(r.repayment_amount) || Number(r.amount) || 0,
+          principal_paid: Number(r.principal_paid) || 0,
+          interest_paid: Number(r.interest_paid) || 0,
+          penalty_paid: Number(r.penalty_paid) || 0,
+          payment_method: r.payment_method || 'mpesa',
+          reference_number: r.reference_number || '',
+          paid_at: r.paid_at || r.generated_at,
+        } as any,
+        loan: { id: r.loan_id } as any,
+        borrowerName: r.borrower_name || 'N/A',
+        borrowerEmail: r.borrower_email || '',
+        companyName,
+        companyLogoUrl: getPdfLogoUrl(),
+        loanAmount: Number(r.total_amount) || undefined,
+        loanStatus: r.loan_status || undefined,
+        disbursedAt: r.disbursed_at || undefined,
+        remainingBalance: r.remaining_balance != null ? Number(r.remaining_balance) : undefined,
+      });
+      const opt = { margin: 0.5, filename: `${receipt.receipt_number}.pdf`, image: { type: 'png' as const, quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait' as const, unit: 'in', format: 'a4' } };
+      await html2pdf().set(opt).from(element).save();
       toast.success('Receipt downloaded');
     } catch { toast.error('Failed to download receipt'); } finally { setDownloadingReceiptId(null); }
   };

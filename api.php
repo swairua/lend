@@ -111,14 +111,25 @@ function decryptSmtpPass($encrypted) {
 }
 
 function sendMail($to, $subject, $body, $isHtml = true) {
-    // Use PHP's built-in mail() — no PHPMailer / composer dependency.
     try {
-        $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_from','smtp_user')");
+        $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
         $config = [];
         foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
         $fromAddr = !empty($config['smtp_from'])
             ? $config['smtp_from']
             : (!empty($config['smtp_user']) ? $config['smtp_user'] : ('no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost')));
+
+        $host = $config['smtp_host'] ?? '';
+        $port = $config['smtp_port'] ?? '587';
+        $user = $config['smtp_user'] ?? '';
+        $pass = !empty($config['smtp_pass']) ? decryptSmtpPass($config['smtp_pass']) : '';
+
+        // If SMTP host is configured, use SMTP via fsockopen; otherwise fall back to mail()
+        if (!empty($host)) {
+            $smtpOk = sendMailSMTP($host, intval($port), $user, $pass, $fromAddr, $to, $subject, $body, $isHtml);
+            if (!$smtpOk) log_error('sendMail SMTP failed', ['host' => $host, 'port' => $port, 'to' => $to]);
+            return $smtpOk;
+        }
 
         $headers   = [];
         $headers[] = 'MIME-Version: 1.0';
@@ -134,6 +145,40 @@ function sendMail($to, $subject, $body, $isHtml = true) {
         log_error('sendMail exception', ['to' => $to, 'error' => $e->getMessage()]);
         return false;
     }
+}
+
+function sendMailSMTP($host, $port, $user, $pass, $fromAddr, $to, $subject, $body, $isHtml) {
+    $errno = 0; $errstr = '';
+    $useTLS = $port === '587';
+    $remote = ($useTLS ? 'tls://' : '') . $host . ':' . $port;
+    $sock = @fsockopen($remote, $port, $errno, $errstr, 15);
+    if (!$sock) {
+        // Try without TLS prefix
+        $sock = @fsockopen($host, $port, $errno, $errstr, 15);
+        if (!$sock) return false;
+        $useTLS = false;
+    }
+    $response = fgets($sock, 512);
+    fputs($sock, "EHLO lending-system\r\n"); $response = fgets($sock, 512);
+    if ($useTLS) {
+        fputs($sock, "STARTTLS\r\n"); fgets($sock, 512);
+        stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+        fputs($sock, "EHLO lending-system\r\n"); fgets($sock, 512);
+    }
+    if (!empty($user) && !empty($pass)) {
+        fputs($sock, "AUTH LOGIN\r\n"); fgets($sock, 512);
+        fputs($sock, base64_encode($user) . "\r\n"); fgets($sock, 512);
+        fputs($sock, base64_encode($pass) . "\r\n"); fgets($sock, 512);
+    }
+    $contentType = $isHtml ? 'text/html' : 'text/plain';
+    fputs($sock, "MAIL FROM:<$fromAddr>\r\n"); fgets($sock, 512);
+    fputs($sock, "RCPT TO:<$to>\r\n"); fgets($sock, 512);
+    fputs($sock, "DATA\r\n"); fgets($sock, 512);
+    $headers = "From: $fromAddr\r\nReply-To: $fromAddr\r\nMIME-Version: 1.0\r\nContent-Type: $contentType; charset=UTF-8\r\nX-Mailer: PHP/SMTP";
+    fputs($sock, "$headers\r\n\r\n$body\r\n.\r\n"); fgets($sock, 512);
+    fputs($sock, "QUIT\r\n");
+    fclose($sock);
+    return true;
 }
 
 
@@ -407,6 +452,14 @@ function bootstrap() {
             key_value TEXT,
             description TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+
+        $p->exec("CREATE TABLE IF NOT EXISTS agreement_sections (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            section_key VARCHAR(100) NOT NULL UNIQUE,
+            title VARCHAR(255) NOT NULL,
+            content TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )");
 
         $p->exec("CREATE TABLE IF NOT EXISTS audit_logs (
@@ -780,11 +833,41 @@ function bootstrap() {
             'default_interest_rate' => '10',
             'default_processing_fee' => '4.00',
             'late_penalty_rate' => '2.5',
+            'late_fee_percentage' => '2.5',
             'asset_transfer_fee' => '7000',
             'tracking_system_fee' => '25000',
         ];
         foreach ($defaults as $k => $v) {
             q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
+        }
+
+        // Seed agreement sections
+        $agreementSections = [
+            ['notice_banner', 'Notice Banner',
+             '<div class="notice-banner"><span><strong>IMPORTANT:</strong> This document constitutes a legally binding agreement. Please read all terms carefully before signing.</span><span class="status-badge">DRAFT</span></div>'],
+            ['clause_1_repayment', 'Repayment Schedule',
+             '<h4>1. Repayment Schedule</h4><p>The Borrower agrees to repay the principal amount together with all interest, fees, and charges in {{loanTermMonths}} equal monthly installments of {{monthlyPayment}} each. The first installment shall be due on {{firstDue}}, with subsequent installments due on the same calendar day of each following month until full repayment. All payments shall be made via M-Pesa paybill (Business Number: <strong>247247</strong>, Account: <strong>LOAN-{{loanId}}</strong>) or such other method as the Lender may designate from time to time.</p>'],
+            ['clause_2_security', 'Security & Collateral',
+             '<h4>2. Security &amp; Collateral</h4><p>This loan is secured by {{assetDescription}}. The Borrower irrevocably authorizes the Lender to hold the original certificate of title, logbook, or other security documents as continuing security until full repayment of all amounts outstanding under this Agreement. The Borrower shall maintain comprehensive insurance on the secured asset(s) for the full duration of the loan term, with the Lender noted as a loss payee, and shall provide proof of such insurance upon request.</p>'],
+            ['clause_3_default', 'Default & Acceleration',
+             '<h4>3. Default &amp; Acceleration</h4><p>The Borrower shall be in default if: (a) any installment remains unpaid for 30 days after its due date; (b) the Borrower provides false or misleading information; (c) the secured asset is damaged, destroyed, or disposed of without consent; or (d) the Borrower becomes insolvent or initiates bankruptcy proceedings. Upon default, the Lender may, without notice, declare the entire outstanding balance immediately due and payable (acceleration), seize and dispose of the secured asset, report the default to licensed credit reference bureaus, and pursue any other legal remedy available under Kenyan law.</p>'],
+            ['clause_4_late_payment', 'Late Payment Penalty',
+             '<h4>4. Late Payment Penalty</h4><p>If the Borrower fails to pay any installment by its due date, a late payment penalty of <strong>{{lateFeePenalty}}% per annum</strong> on the outstanding principal balance shall accrue daily from the due date until full payment is received. This penalty is in addition to the stated interest rate and shall not constitute a waiver of the Lender\'s rights regarding default.</p><div class="highlight-box"><strong>Example:</strong> A late payment of a KES 50,000 installment overdue for 30 days would incur approximately {{lateFeeExample}} in penalty charges.</div>'],
+            ['clause_5_interest_apr', 'Interest Rates & APR',
+             '<h4>5. Interest Rates &amp; APR</h4><p>The loan bears interest at <strong>{{interestRate}}% per annum</strong> on the reducing balance. The Annual Percentage Rate (APR) is <strong>{{apr}}%</strong>, which reflects the total cost of credit including interest, processing fees, and other charges expressed as an annualized rate, enabling the Borrower to compare the true cost of this loan with other credit products. The APR is calculated in accordance with the Central Bank of Kenya (Credit Reference Bureau) Regulations, 2013.</p><div class="highlight-box"><strong>Total Cost of Credit:</strong> The Borrower will pay a total of {{totalRepayable}} over {{loanTermMonths}} months, comprising the principal of {{principalAmount}} plus total fees and interest of {{totalInterest}}.</div>'],
+            ['clause_6_fees', 'Fees & Charges',
+             '<h4>6. Fees &amp; Charges</h4><p>The Borrower acknowledges and accepts the following fees and charges as set out in the Fee Breakdown section above: (a) <strong>Processing Fee</strong> of {{processingFee}} covering administrative, credit vetting, and loan origination costs; (b) <strong>Asset Transfer Fee</strong> of {{assetTransferFee}} for the registration and transfer of the security interest; and (c) <strong>Tracking System Fee</strong> of {{trackingSystemFee}} for GPS-enabled asset monitoring throughout the loan term. All fees are non-refundable once the loan has been disbursed.</p>'],
+            ['clause_7_data_protection', 'Data Protection & Privacy',
+             '<h4>7. Data Protection &amp; Privacy</h4><p>The Borrower\'s personal and financial information shall be collected, processed, and stored in accordance with the Kenya Data Protection Act, 2019. The Borrower consents to the Lender: (a) conducting credit checks with licensed credit reference bureaus; (b) sharing information with guarantors, insurers, and regulatory authorities as required by law; (c) using automated decision-making for credit scoring and loan management; and (d) sending payment reminders and marketing communications via SMS, email, and phone. The Borrower has the right to access, correct, or request deletion of their data by contacting the Lender\'s Data Protection Officer.</p>'],
+            ['clause_8_dispute_resolution', 'Dispute Resolution & Governing Law',
+             '<h4>8. Dispute Resolution &amp; Governing Law</h4><p>This Agreement shall be governed by and construed in accordance with the laws of the Republic of Kenya. Any dispute arising out of or relating to this Agreement shall first be referred to amicable negotiation between the parties for a period of 14 days. If the dispute remains unresolved, it shall be referred to mediation at the Nairobi Centre for International Arbitration (NCIA). Should mediation fail, the dispute shall be finally resolved by binding arbitration in accordance with the Arbitration Act, 1995, by a single arbitrator appointed by the Chairman of the Chartered Institute of Arbitrators (Kenya Branch). The seat of arbitration shall be Nairobi, Kenya. The prevailing party shall be entitled to recover reasonable legal costs and expenses.</p>'],
+            ['signature_block', 'Signature Block',
+             '<div class="signature-section"><div class="signature-block"><h4>Borrower</h4><div class="name">{{borrowerName}}</div><div class="signature-line">Signature _________________________</div><div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div></div><div class="signature-block"><h4>Authorized Representative</h4><div class="name">{{companyName}}</div><div class="signature-line">Signature _________________________</div><div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div></div><div class="signature-block"><h4>Witness</h4><div class="name">_________________________</div><div class="signature-line">Signature _________________________</div><div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div></div></div>'],
+            ['footer_text', 'Footer',
+             '<p>This is a computer-generated document. The Borrower acknowledges receipt and confirms understanding of all terms herein.</p><p>Generated on {{today}} &bull; Loan #{{loanId}} &bull; {{companyName}}</p>'],
+        ];
+        foreach ($agreementSections as $sec) {
+            q("INSERT IGNORE INTO agreement_sections (section_key, title, content) VALUES (?, ?, ?)", $sec);
         }
 
         // Cleanup: remove legacy 'currency' key — use 'default_currency' instead
@@ -1354,6 +1437,20 @@ try {
             foreach ($rows as $r) $out[$r['key_name']] = $r['key_value'];
             log_access('GET', 'public/settings', 200);
             echo json_encode(['success' => true, 'data' => $out]);
+            exit;
+        }
+
+        if ($method === 'GET' && strpos($uri, 'public/admin-id') !== false) {
+            $admin = one("SELECT id FROM users WHERE role = 'admin' AND is_active = 1 ORDER BY id LIMIT 1");
+            echo json_encode(['success' => true, 'data' => ['admin_id' => $admin ? intval($admin['id']) : 1]]);
+            exit;
+        }
+
+        if ($method === 'GET' && strpos($uri, 'public/agreement-sections') !== false) {
+            $rows = all("SELECT * FROM agreement_sections ORDER BY id");
+            $out = [];
+            foreach ($rows as $r) $out[$r['section_key']] = $r['content'];
+            echo json_encode(['success' => true, 'data' => $rows, 'map' => $out]);
             exit;
         }
 
@@ -2059,7 +2156,9 @@ try {
                 exit;
             } catch (Exception $e) {
                 log_error("Loan release exception", ['loan_id' => $m[1], 'error' => $e->getMessage()]);
-                throw $e;
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Server error occurred']);
+                exit;
             }
         }
         // Disburse loan (admin or releaser) — requires 'released' status
@@ -3019,7 +3118,7 @@ try {
         }
 
         // Settings
-        if (strpos($uri, 'admin/settings') !== false) {
+        if (preg_match('#^admin/settings$#', $uri)) {
             if ($method === 'PUT' || $method === 'POST') {
                 requireRole($user, 'admin');
                 $d = input();
@@ -3654,6 +3753,12 @@ try {
                     if (!$disburse) {
                         http_response_code(404);
                         echo json_encode(['success' => false, 'error' => 'Disbursement not found']);
+                        exit;
+                    }
+
+                    if ($disburse['status'] === 'completed') {
+                        http_response_code(403);
+                        echo json_encode(['success' => false, 'error' => 'Cannot delete a completed disbursement']);
                         exit;
                     }
 
@@ -4298,11 +4403,15 @@ try {
         if (strpos($uri, 'admin/receipts') !== false) {
             // Get single receipt
             if ($method === 'GET' && preg_match('#admin/receipts/(\d+)$#', $uri, $m)) {
-                $rct = one("SELECT r.*, u.name borrower_name, l.principal_amount, l.total_amount
+                $rct = one("SELECT r.*, u.name borrower_name, u.email borrower_email,
+                                   l.principal_amount, l.total_amount, l.status loan_status, l.disbursed_at,
+                                   rp.payment_method, rp.reference_number, rp.paid_at,
+                                   rp.principal_paid, rp.interest_paid, rp.penalty_paid, rp.amount repayment_amount
                             FROM receipts r
                             LEFT JOIN loans l ON r.loan_id=l.id
                             LEFT JOIN borrowers b ON r.borrower_id=b.id
                             LEFT JOIN users u ON b.user_id=u.id
+                            LEFT JOIN repayments rp ON r.repayment_id=rp.id
                             WHERE r.id=?", [$m[1]]);
                 if (!$rct) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Receipt not found']); exit; }
                 log_access('GET', 'admin/receipts/' . $m[1], 200);
@@ -4372,6 +4481,28 @@ try {
             echo json_encode(['success' => true, 'data' => ['receipts' => $rows,
                 'pagination' => ['page' => $page, 'limit' => $limit, 'total' => $tot['c']]]]);
             exit;
+        }
+
+        // ==================== AGREEMENT SECTIONS ====================
+        if (strpos($uri, 'admin/agreement-sections') !== false) {
+            requireRole($user, 'admin');
+
+            // GET /admin/agreement-sections - list all
+            if ($method === 'GET') {
+                $rows = all("SELECT * FROM agreement_sections ORDER BY id");
+                log_access('GET', 'admin/agreement-sections', 200);
+                echo json_encode(['success' => true, 'data' => $rows]);
+                exit;
+            }
+
+            // PUT /admin/agreement-sections/{id} - update content
+            if ($method === 'PUT' && preg_match('#agreement-sections/(\d+)$#', $uri, $m)) {
+                $d = input();
+                q("UPDATE agreement_sections SET content=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$d['content'], $m[1]]);
+                log_access('PUT', 'admin/agreement-sections/' . $m[1], 200);
+                echo json_encode(['success' => true, 'message' => 'Section updated']);
+                exit;
+            }
         }
 
         // ---- Petty Cash ----
@@ -4526,6 +4657,23 @@ try {
     if (strpos($uri, 'borrower/receipts') !== false) {
         $borrower = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
         if (!$borrower) { echo json_encode(['success' => true, 'data' => ['receipts' => []]]); exit; }
+        // Get single receipt
+        if ($method === 'GET' && preg_match('#borrower/receipts/(\d+)$#', $uri, $m)) {
+            $rct = one("SELECT r.*, u.name borrower_name, u.email borrower_email,
+                               l.principal_amount, l.total_amount, l.status loan_status, l.disbursed_at,
+                               rp.payment_method, rp.reference_number, rp.paid_at,
+                               rp.principal_paid, rp.interest_paid, rp.penalty_paid, rp.amount repayment_amount
+                        FROM receipts r
+                        LEFT JOIN loans l ON r.loan_id=l.id
+                        LEFT JOIN borrowers b ON r.borrower_id=b.id
+                        LEFT JOIN users u ON b.user_id=u.id
+                        LEFT JOIN repayments rp ON r.repayment_id=rp.id
+                        WHERE r.id=? AND r.borrower_id=?", [$m[1], $borrower['id']]);
+            if (!$rct) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Receipt not found']); exit; }
+            log_access('GET', 'borrower/receipts/' . $m[1], 200);
+            echo json_encode(['success' => true, 'data' => $rct]);
+            exit;
+        }
         // Download receipt PDF
         if ($method === 'GET' && preg_match('#borrower/receipts/(\d+)/pdf$#', $uri, $m)) {
             $rct = one("SELECT r.*, u.name borrower_name, u.email borrower_email, l.principal_amount, l.total_amount

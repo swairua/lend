@@ -72,7 +72,7 @@ export default function Index() {
                 </Link>
                 <Link to="/login">
                   <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    Admin Access
+                    Sign In
                   </Button>
                 </Link>
               </div>
@@ -414,7 +414,7 @@ export default function Index() {
               </Link>
               <Link to="/login">
                 <Button size="lg" variant="outline" className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10">
-                  Admin Portal
+                  Sign In
                 </Button>
               </Link>
             </div>

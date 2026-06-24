@@ -275,8 +275,9 @@ export default function AdminDisbursements() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-500 hover:text-red-600"
-                          onClick={() => handleDelete(disbursement.id)}
+                          className={disbursement.status === 'completed' ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:text-red-600'}
+                          onClick={() => disbursement.status !== 'completed' && handleDelete(disbursement.id)}
+                          title={disbursement.status === 'completed' ? 'Cannot delete completed disbursement' : 'Delete disbursement'}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

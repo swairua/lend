@@ -9,7 +9,6 @@ import DocumentsPanel from "../components/DocumentsPanel";
 import { loansApi, formatKES, formatDate, getStatusColor, getStatusLabel } from "../types/api";
 import { uploadsApi } from "../utils/api";
 import { secureStorage } from "@/utils/secureStorage";
-import { downloadLoanAgreementPDF } from "../utils/loanPdfGenerator";
 import { generateInvoiceHTML, generateReceiptHTML, getPdfLogoUrl } from "../utils/pdfTemplates";
 import { adminApi, getFileUrl } from "../types/api";
 import { calculateAPR } from "../utils/aprCalculator";
@@ -87,7 +86,6 @@ export default function LoanDetails() {
   const [loan, setLoan] = useState<any>(null);
   const [loanDocuments, setLoanDocuments] = useState<any[]>([]);
   const [error, setError] = useState("");
-  const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [user, setUser] = useState<any>({});
@@ -181,60 +179,6 @@ export default function LoanDetails() {
   const progress = loan.total_paid && loan.total_amount ? Math.min((loan.total_paid / loan.total_amount) * 100, 100) : 0;
   const { isLate, daysOverdue, lateFee } = calcLatePayment(loan);
   const schedule = generateSchedule(loan);
-
-  const handleDownloadPDF = async () => {
-    try {
-      setDownloadingPDF(true);
-      const aprResult = calculateAPR({
-        principalAmount: loan.principal_amount,
-        interestRate: loan.interest_rate,
-        loanTermMonths: loan.term_months,
-        processingFeePercent: loan.processing_fee > 0 ? (loan.processing_fee / loan.principal_amount) * 100 : 0,
-        assetTransferFee: loan.asset_transfer_fee || 0,
-        trackingSystemFee: loan.tracking_system_fee || 0,
-      });
-
-      await downloadLoanAgreementPDF({
-        loanId: loan.id,
-        borrowerName: user.name,
-        borrowerEmail: user.email,
-        borrowerPhone: user.phone || '',
-        borrowerIdNumber: loan.national_id || 'N/A',
-        borrowerAddress: loan.address || 'N/A',
-        loanAmount: Number(loan.principal_amount),
-        principalAmount: Number(loan.principal_amount),
-        interestRate: Number(loan.interest_rate) || 0,
-        loanTermMonths: Number(loan.term_months),
-        monthlyPayment: Number(loan.total_amount) / Number(loan.term_months),
-        processingFee: Number(loan.processing_fee),
-        assetTransferFee: Number(loan.asset_transfer_fee || 0),
-        trackingSystemFee: Number(loan.tracking_system_fee || 0),
-        totalFees: Number(loan.processing_fee || 0) + Number(loan.asset_transfer_fee || 0) + Number(loan.tracking_system_fee || 0),
-        totalRepayableAmount: Number(loan.total_amount),
-        disbursementDate: formatDate(loan.disbursed_at || loan.approved_at),
-        maturityDate: loan.due_date,
-        firstPaymentDueDate: new Date(loan.disbursed_at || loan.approved_at || loan.created_at).toLocaleDateString('en-KE'),
-        apr: aprResult.apr || 0,
-        lateFeePenalty: 2.5,
-        loanProductName: loan.product_name || 'Loan',
-        assetDescription: loan.asset_description || 'Asset(s)',
-        assetValue: loan.asset_value,
-        securityDetails: loan.security_details || 'As per agreement',
-        companyName: companyName,
-        companyAddress: companyAddress || 'Nairobi, Kenya',
-        companyPhone: companyPhone || '+254 (0) 700 000 000',
-        companyEmail: companyEmail || 'support@jecribureau.ke',
-        companyLogoUrl: companyLogoUrl || undefined,
-        companyKraPin: companyKraPin || undefined,
-        companyRegNumber: companyRegNumber || undefined,
-      });
-    } catch (err: any) {
-      console.error('Failed to download PDF:', err);
-      setErrorDialog({ open: true, title: 'PDF Failed', message: err?.message || 'Failed to download PDF. Please try again.' });
-    } finally {
-      setDownloadingPDF(false);
-    }
-  };
 
   const handleDownloadInvoice = async () => {
     try {
@@ -353,24 +297,6 @@ export default function LoanDetails() {
             <span className="hidden sm:inline">Schedule</span>
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1"
-          onClick={handleDownloadPDF}
-          disabled={downloadingPDF}
-        >
-          {downloadingPDF ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4 mr-1" />
-            </>
-          )}
-          <span className="hidden sm:inline">Agreement</span>
-        </Button>
       </div>
 
       {/* Summary Card */}

@@ -36,6 +36,9 @@ export const navigationItems: NavItem[] = [
   { label: 'Profile', href: '/profile', icon: User, roles: ['borrower'] },
   { label: 'Messages', href: '/messages', icon: MessageSquare, roles: ['borrower'], badge: 'messages' },
 
+  // Admin - Profile
+  { label: 'My Profile', href: '/admin/profile', icon: User, roles: ['admin', 'releaser', 'manager', 'agent'] },
+
   // Admin Dashboards
   { label: 'Dashboard', href: '/admin', icon: Home, roles: ['admin', 'releaser', 'manager', 'agent'] },
 
@@ -68,6 +71,7 @@ export const navigationItems: NavItem[] = [
 
   // Admin - Settings
   { label: 'Settings', href: '/admin/config', icon: Settings, roles: ['admin'] },
+  { label: 'Agreement', href: '/admin/agreement', icon: FileText, roles: ['admin'] },
 
   // Admin - Documentation
   { label: 'Documentation', href: '/admin/documentation', icon: BookOpen, roles: ['admin', 'releaser', 'manager', 'agent'] },

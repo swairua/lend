@@ -35,6 +35,7 @@ export default function AdminProducts() {
     name: '',
     description: '',
     category_id: 0,
+    category_name: '',
     min_amount: '',
     max_amount: '',
     min_term_months: '',
@@ -76,17 +77,18 @@ export default function AdminProducts() {
   }
 
   const handleOpenNew = () => {
-    setForm({ ...emptyForm, category_id: categories[0]?.id || 0 });
+    setForm({ ...emptyForm, category_id: categories[0]?.id || 0, category_name: categories[0]?.name || '' });
     setIsEditing(false);
-    setSelectedProduct(null);
     setDialogOpen(true);
   };
 
   const handleEdit = (product: Product) => {
+    const cat = categories.find(c => c.id === product.category_id);
     setForm({
       name: product.name,
       description: product.description,
       category_id: product.category_id,
+      category_name: cat?.name || '',
       min_amount: product.min_amount,
       max_amount: product.max_amount,
       min_term_months: product.min_term_months,
@@ -339,11 +341,14 @@ export default function AdminProducts() {
               </div>
               <div className="space-y-2">
                 <Label>Category *</Label>
-                <Select value={String(form.category_id)} onValueChange={(v) => setForm({ ...form, category_id: Number(v) })}>
+                <Select value={form.category_name || ''} onValueChange={(v) => {
+                    const cat = categories.find(c => c.name === v);
+                    setForm({ ...form, category_id: cat ? cat.id : 0, category_name: v });
+                  }}>
                   <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+                      <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { LogOut, Menu, ChevronLeft, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { secureStorage } from '@/utils/secureStorage';
-import { publicApi, adminApi, getFileUrl } from '@/utils/api';
+import { publicApi, adminApi, messagesApi, getFileUrl } from '@/utils/api';
 import { getNavItemsForRole, getPortalTitle, UserRole } from '@/config/navigationConfig';
 
 interface User {
@@ -21,7 +21,9 @@ interface AppLayoutProps {
   unreadMessages?: number;
 }
 
-export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps) {
+export function AppLayout({ children, user, unreadMessages }: AppLayoutProps) {
+  const [fetchedUnread, setFetchedUnread] = useState(0);
+  const effectiveUnread = unreadMessages ?? fetchedUnread;
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -47,7 +49,16 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
       } catch {}
     };
     loadSettings();
+    loadUnreadCount();
   }, []);
+
+  const loadUnreadCount = async () => {
+    try {
+      const res: any = await messagesApi.getUnreadCount();
+      const count = res?.data?.unread ?? res?.data?.count ?? res?.unread ?? 0;
+      setFetchedUnread(count);
+    } catch {}
+  };
 
   const handleLogout = async () => {
     await secureStorage.clear();
@@ -134,11 +145,11 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
         <span className={cn('text-sm', !sidebarOpen && 'hidden')}>
           {item.label}
         </span>
-        {item.badge === 'messages' && unreadMessages > 0 && (
-          <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center flex-shrink-0">
-            {unreadMessages}
-          </span>
-        )}
+        {item.badge === 'messages' && effectiveUnread > 0 && (
+            <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center flex-shrink-0">
+              {effectiveUnread}
+            </span>
+          )}
       </Link>
     );
   };

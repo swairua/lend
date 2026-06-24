@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageTitle } from '@/components/PageTitle';
-import { messagesApi, formatDate, adminApi, authApi } from '../types/api';
+import { messagesApi, formatDate, adminApi, authApi, publicApi } from '../types/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { normalizeList } from '../utils/normalize';
 import { Mail, MailOpen, Trash2, Send, Search, Archive, Star } from 'lucide-react';
@@ -83,9 +83,11 @@ export default function Messages() {
             setBorrowersLoading(false);
           }
         } else {
-          // For borrowers, default to admin user ID 1
-          // The admin_id can be configured in backend if needed
-          setAdminUserId(1);
+          try {
+            const res: any = await publicApi.getAdminId();
+            if (res?.data?.admin_id) setAdminUserId(Number(res.data.admin_id));
+          } catch {}
+          if (!adminUserId) setAdminUserId(1);
         }
       }
     } catch (error) {

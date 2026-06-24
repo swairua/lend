@@ -10,6 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ChevronLeft, AlertCircle, CreditCard, Info, ArrowRight, ArrowLeft, Check, ChevronsUpDown, Upload, X, FileText } from 'lucide-react';
 import { adminApi, productsApi, formatKES, uploadsApi } from '../utils/api';
+import { calculateAPR } from '../utils/aprCalculator';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,7 @@ export default function AdminCreateLoan() {
   const [loadingBorrowers, setLoadingBorrowers] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
+  const [apr, setApr] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     amount: 0,
@@ -413,6 +415,14 @@ export default function AdminCreateLoan() {
                         <div>
                           <p className="text-muted-foreground">Interest</p>
                           <p className="font-semibold">{formatKES(estimate.interest)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Interest Rate</p>
+                          <p className="font-semibold">{selectedProduct?.interest_rate || 0}% p.a.</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">APR</p>
+                          <p className="font-semibold">{apr !== null ? `${apr.toFixed(2)}%` : '—'}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Total Fees</p>

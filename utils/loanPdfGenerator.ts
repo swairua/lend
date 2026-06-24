@@ -40,6 +40,8 @@ export interface LoanAgreementData {
   companyLogoUrl?: string;
   companyKraPin?: string;
   companyRegNumber?: string;
+
+  agreementSections?: Record<string, string>;
 }
 
 function fmt(n: number): string {
@@ -54,6 +56,10 @@ function fdate(dateStr: string): string {
   } catch { return dateStr; }
 }
 
+function interpolateTemplate(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
+}
+
 export function generateLoanAgreementHTML(data: LoanAgreementData): string {
   const today = new Date().toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' });
   const disbursed = data.disbursementDate === 'Invalid Date' ? 'N/A' : data.disbursementDate;
@@ -61,6 +67,30 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
   const firstDue = data.firstPaymentDueDate === 'Invalid Date' ? 'N/A' : data.firstPaymentDueDate;
   const totalRepayable = data.totalRepayableAmount || (data.principalAmount + data.totalFees);
   const disbursedAmount = data.principalAmount - data.totalFees;
+
+  const templateVars: Record<string, string> = {
+    loanTermMonths: String(data.loanTermMonths),
+    monthlyPayment: fmt(data.monthlyPayment),
+    firstDue,
+    loanId: String(data.loanId),
+    companyName: data.companyName,
+    companyPhone: data.companyPhone,
+    lateFeePenalty: String(data.lateFeePenalty),
+    lateFeeExample: fmt(50000 * data.lateFeePenalty / 100 / 365 * 30),
+    interestRate: String(data.interestRate || 0),
+    apr: (data.apr || 0).toFixed(1),
+    totalRepayable: fmt(totalRepayable),
+    principalAmount: fmt(data.principalAmount),
+    totalInterest: fmt(totalRepayable - data.principalAmount),
+    processingFee: fmt(data.processingFee),
+    assetTransferFee: fmt(data.assetTransferFee),
+    trackingSystemFee: fmt(data.trackingSystemFee),
+    borrowerName: data.borrowerName,
+    assetDescription: data.assetDescription || 'the asset(s) described in the loan application',
+    today,
+  };
+
+  const sec = data.agreementSections || {};
 
   const feeRows = `
     <tr><td>Principal Amount</td><td class="r">${fmt(data.principalAmount)}</td></tr>
@@ -70,6 +100,73 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
     <tr class="total-fees"><td>Total Fees & Charges</td><td class="r">${fmt(data.totalFees)}</td></tr>
     <tr class="disbursed"><td>Amount Disbursed to Borrower</td><td class="r">${fmt(disbursedAmount)}</td></tr>
     <tr class="grand-total"><td>Total Repayable Amount</td><td class="r">${fmt(totalRepayable)}</td></tr>`;
+
+  const defaultNoticeBanner = `<div class="notice-banner">
+    <span><strong>IMPORTANT:</strong> This document constitutes a legally binding agreement. Please read all terms carefully before signing.</span>
+    <span class="status-badge">DRAFT</span>
+  </div>`;
+
+  const defaultClause1 = `<h4>1. Repayment Schedule</h4>
+      <p>The Borrower agrees to repay the principal amount together with all interest, fees, and charges in ${data.loanTermMonths} equal monthly installments of ${fmt(data.monthlyPayment)} each. The first installment shall be due on ${firstDue}, with subsequent installments due on the same calendar day of each following month until full repayment. All payments shall be made via M-Pesa paybill (Business Number: <strong>247247</strong>, Account: <strong>LOAN-${data.loanId}</strong>) or such other method as the Lender may designate from time to time.</p>`;
+
+  const defaultClause2 = `<h4>2. Security &amp; Collateral</h4>
+      <p>This loan is secured by ${data.assetDescription || 'the asset(s) described in the loan application'}. The Borrower irrevocably authorizes the Lender to hold the original certificate of title, logbook, or other security documents as continuing security until full repayment of all amounts outstanding under this Agreement. The Borrower shall maintain comprehensive insurance on the secured asset(s) for the full duration of the loan term, with the Lender noted as a loss payee, and shall provide proof of such insurance upon request.</p>`;
+
+  const defaultClause3 = `<h4>3. Default &amp; Acceleration</h4>
+      <p>The Borrower shall be in default if: (a) any installment remains unpaid for 30 days after its due date; (b) the Borrower provides false or misleading information; (c) the secured asset is damaged, destroyed, or disposed of without consent; or (d) the Borrower becomes insolvent or initiates bankruptcy proceedings. Upon default, the Lender may, without notice, declare the entire outstanding balance immediately due and payable (acceleration), seize and dispose of the secured asset, report the default to licensed credit reference bureaus, and pursue any other legal remedy available under Kenyan law.</p>`;
+
+  const defaultClause4 = `<h4>4. Late Payment Penalty</h4>
+      <p>If the Borrower fails to pay any installment by its due date, a late payment penalty of <strong>${data.lateFeePenalty}% per annum</strong> on the outstanding principal balance shall accrue daily from the due date until full payment is received. This penalty is in addition to the stated interest rate and shall not constitute a waiver of the Lender's rights regarding default.</p>
+      <div class="highlight-box"><strong>Example:</strong> A late payment of a KES 50,000 installment overdue for 30 days would incur approximately ${fmt(50000 * data.lateFeePenalty / 100 / 365 * 30)} in penalty charges.</div>`;
+
+  const defaultClause5 = `<h4>5. Interest Rates &amp; APR</h4>
+      <p>The loan bears interest at <strong>${data.interestRate || 0}% per annum</strong> on the reducing balance. The Annual Percentage Rate (APR) is <strong>${(data.apr || 0).toFixed(1)}%</strong>, which reflects the total cost of credit including interest, processing fees, and other charges expressed as an annualized rate, enabling the Borrower to compare the true cost of this loan with other credit products. The APR is calculated in accordance with the Central Bank of Kenya (Credit Reference Bureau) Regulations, 2013.</p>
+      <div class="highlight-box"><strong>Total Cost of Credit:</strong> The Borrower will pay a total of ${fmt(totalRepayable)} over ${data.loanTermMonths} months, comprising the principal of ${fmt(data.principalAmount)} plus total fees and interest of ${fmt(totalRepayable - data.principalAmount)}.</div>`;
+
+  const defaultClause6 = `<h4>6. Fees &amp; Charges</h4>
+      <p>The Borrower acknowledges and accepts the following fees and charges as set out in the Fee Breakdown section above: (a) <strong>Processing Fee</strong> of ${fmt(data.processingFee)} covering administrative, credit vetting, and loan origination costs; (b) <strong>Asset Transfer Fee</strong> of ${fmt(data.assetTransferFee)} for the registration and transfer of the security interest; and (c) <strong>Tracking System Fee</strong> of ${fmt(data.trackingSystemFee)} for GPS-enabled asset monitoring throughout the loan term. All fees are non-refundable once the loan has been disbursed.</p>`;
+
+  const defaultClause7 = `<h4>7. Data Protection &amp; Privacy</h4>
+      <p>The Borrower's personal and financial information shall be collected, processed, and stored in accordance with the Kenya Data Protection Act, 2019. The Borrower consents to the Lender: (a) conducting credit checks with licensed credit reference bureaus; (b) sharing information with guarantors, insurers, and regulatory authorities as required by law; (c) using automated decision-making for credit scoring and loan management; and (d) sending payment reminders and marketing communications via SMS, email, and phone. The Borrower has the right to access, correct, or request deletion of their data by contacting the Lender's Data Protection Officer.</p>`;
+
+  const defaultClause8 = `<h4>8. Dispute Resolution &amp; Governing Law</h4>
+      <p>This Agreement shall be governed by and construed in accordance with the laws of the Republic of Kenya. Any dispute arising out of or relating to this Agreement shall first be referred to amicable negotiation between the parties for a period of 14 days. If the dispute remains unresolved, it shall be referred to mediation at the Nairobi Centre for International Arbitration (NCIA). Should mediation fail, the dispute shall be finally resolved by binding arbitration in accordance with the Arbitration Act, 1995, by a single arbitrator appointed by the Chairman of the Chartered Institute of Arbitrators (Kenya Branch). The seat of arbitration shall be Nairobi, Kenya. The prevailing party shall be entitled to recover reasonable legal costs and expenses.</p>`;
+
+  const defaultSignature = `<div class="signature-section">
+    <div class="signature-block">
+      <h4>Borrower</h4>
+      <div class="name">${data.borrowerName}</div>
+      <div class="signature-line">Signature _________________________</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div>
+    </div>
+    <div class="signature-block">
+      <h4>Authorized Representative</h4>
+      <div class="name">${data.companyName}</div>
+      <div class="signature-line">Signature _________________________</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div>
+    </div>
+    <div class="signature-block">
+      <h4>Witness</h4>
+      <div class="name">_________________________</div>
+      <div class="signature-line">Signature _________________________</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div>
+    </div>
+  </div>`;
+
+  const defaultFooter = `<p>This is a computer-generated document. The Borrower acknowledges receipt and confirms understanding of all terms herein.</p>
+    <p>Generated on ${today} &bull; Loan #${data.loanId} &bull; ${data.companyName}</p>`;
+
+  const noticeHtml = sec.notice_banner ? interpolateTemplate(sec.notice_banner, templateVars) : defaultNoticeBanner;
+  const clause1Html = sec.clause_1_repayment ? interpolateTemplate(sec.clause_1_repayment, templateVars) : defaultClause1;
+  const clause2Html = sec.clause_2_security ? interpolateTemplate(sec.clause_2_security, templateVars) : defaultClause2;
+  const clause3Html = sec.clause_3_default ? interpolateTemplate(sec.clause_3_default, templateVars) : defaultClause3;
+  const clause4Html = sec.clause_4_late_payment ? interpolateTemplate(sec.clause_4_late_payment, templateVars) : defaultClause4;
+  const clause5Html = sec.clause_5_interest_apr ? interpolateTemplate(sec.clause_5_interest_apr, templateVars) : defaultClause5;
+  const clause6Html = sec.clause_6_fees ? interpolateTemplate(sec.clause_6_fees, templateVars) : defaultClause6;
+  const clause7Html = sec.clause_7_data_protection ? interpolateTemplate(sec.clause_7_data_protection, templateVars) : defaultClause7;
+  const clause8Html = sec.clause_8_dispute_resolution ? interpolateTemplate(sec.clause_8_dispute_resolution, templateVars) : defaultClause8;
+  const signatureHtml = sec.signature_block ? interpolateTemplate(sec.signature_block, templateVars) : defaultSignature;
+  const footerHtml = sec.footer_text ? interpolateTemplate(sec.footer_text, templateVars) : defaultFooter;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -83,7 +180,6 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 11px; line-height: 1.6; }
   .container { max-width: 190mm; margin: 0 auto; }
 
-  /* 2-column info grid */
   .info-grid { display: flex; gap: 24px; margin-bottom: 18px; }
   .info-grid > div { flex: 1; }
   .info-card { background: #f8fafc; border-radius: 6px; padding: 14px 16px; border: 1px solid #e2e8f0; }
@@ -94,10 +190,8 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
   .info-row .value { font-weight: 600; text-align: right; }
   .info-row .highlight { background: #fef3c7; padding: 1px 6px; border-radius: 3px; color: #92400e; }
 
-  /* Section titles */
   .section-title { font-size: 13px; font-weight: 700; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #1e3a5f; padding-bottom: 5px; margin-bottom: 12px; margin-top: 22px; page-break-after: avoid; }
 
-  /* Fee table */
   .fee-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11px; }
   .fee-table td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
   .fee-table .r { text-align: right; font-weight: 600; }
@@ -106,31 +200,25 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
   .fee-table .disbursed td { background: #ecfdf5; color: #065f46; font-weight: 700; }
   .fee-table .grand-total td { background: #1e3a5f; color: #fff; font-weight: 700; font-size: 12px; }
 
-  /* Terms */
   .terms-container { page-break-inside: auto; }
   .clause { margin-bottom: 14px; page-break-inside: avoid; }
   .clause h4 { font-size: 11px; font-weight: 700; color: #1e3a5f; margin-bottom: 3px; }
   .clause p { font-size: 10.5px; color: #334155; text-align: justify; margin-left: 14px; }
   .clause .highlight-box { background: #fffbeb; border-left: 3px solid #f59e0b; padding: 8px 12px; margin: 6px 0 0 14px; font-size: 10px; border-radius: 3px; }
 
-  /* Signature */
   .signature-section { margin-top: 30px; display: flex; gap: 40px; page-break-inside: avoid; }
   .signature-block { flex: 1; }
   .signature-block h4 { font-size: 10px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 4px; }
   .signature-line { border-top: 1px solid #94a3b8; margin-top: 36px; padding-top: 4px; font-size: 10px; color: #64748b; }
   .signature-block .name { font-weight: 600; margin-top: 4px; font-size: 11px; }
 
-  /* Footer */
   .doc-footer { text-align: center; margin-top: 28px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #94a3b8; page-break-after: avoid; }
 
-  /* Print page-break */
   .page-break { page-break-before: always; }
 
-  /* Notice banner */
   .notice-banner { background: #1e3a5f; color: #fff; padding: 8px 14px; border-radius: 4px; font-size: 10px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
   .notice-banner strong { font-size: 11px; }
 
-  /* Status badge */
   .status-badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; background: #dcfce7; color: #166534; }
 
   @media print {
@@ -150,13 +238,8 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
     date: today,
   })}
 
-  <!-- Notice Banner -->
-  <div class="notice-banner">
-    <span><strong>IMPORTANT:</strong> This document constitutes a legally binding agreement. Please read all terms carefully before signing.</span>
-    <span class="status-badge">DRAFT</span>
-  </div>
+  ${noticeHtml}
 
-  <!-- Loan & Borrower Details (2-column) -->
   <div class="info-grid">
     <div class="info-card">
       <h3>Loan Details</h3>
@@ -178,7 +261,6 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
     </div>
   </div>
 
-  <!-- Key Dates -->
   <div class="info-grid">
     <div class="info-card">
       <h3>Key Dates</h3>
@@ -197,61 +279,23 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
     </div>
   </div>
 
-  <!-- Fee Breakdown -->
   <div class="section-title">Fee Breakdown &amp; Financing Structure</div>
   <table class="fee-table">
     ${feeRows}
   </table>
 
-  <!-- Terms & Conditions -->
   <div class="section-title" style="page-break-before: always;">Terms &amp; Conditions</div>
   <div class="terms-container">
-
-    <div class="clause">
-      <h4>1. Repayment Schedule</h4>
-      <p>The Borrower agrees to repay the principal amount together with all interest, fees, and charges in ${data.loanTermMonths} equal monthly installments of ${fmt(data.monthlyPayment)} each. The first installment shall be due on ${firstDue}, with subsequent installments due on the same calendar day of each following month until full repayment. All payments shall be made via M-Pesa paybill (Business Number: <strong>247247</strong>, Account: <strong>LOAN-${data.loanId}</strong>) or such other method as the Lender may designate from time to time.</p>
-    </div>
-
-    <div class="clause">
-      <h4>2. Security &amp; Collateral</h4>
-      <p>This loan is secured by ${data.assetDescription || 'the asset(s) described in the loan application'}. The Borrower irrevocably authorizes the Lender to hold the original certificate of title, logbook, or other security documents as continuing security until full repayment of all amounts outstanding under this Agreement. The Borrower shall maintain comprehensive insurance on the secured asset(s) for the full duration of the loan term, with the Lender noted as a loss payee, and shall provide proof of such insurance upon request.</p>
-    </div>
-
-    <div class="clause">
-      <h4>3. Default &amp; Acceleration</h4>
-      <p>The Borrower shall be in default if: (a) any installment remains unpaid for 30 days after its due date; (b) the Borrower provides false or misleading information; (c) the secured asset is damaged, destroyed, or disposed of without consent; or (d) the Borrower becomes insolvent or initiates bankruptcy proceedings. Upon default, the Lender may, without notice, declare the entire outstanding balance immediately due and payable (acceleration), seize and dispose of the secured asset, report the default to licensed credit reference bureaus, and pursue any other legal remedy available under Kenyan law.</p>
-    </div>
-
-    <div class="clause">
-      <h4>4. Late Payment Penalty</h4>
-      <p>If the Borrower fails to pay any installment by its due date, a late payment penalty of <strong>${data.lateFeePenalty}% per annum</strong> on the outstanding principal balance shall accrue daily from the due date until full payment is received. This penalty is in addition to the stated interest rate and shall not constitute a waiver of the Lender's rights regarding default.</p>
-      <div class="highlight-box"><strong>Example:</strong> A late payment of a KES 50,000 installment overdue for 30 days would incur approximately KES ${(50000 * data.lateFeePenalty / 100 / 365 * 30).toFixed(0)} in penalty charges.</div>
-    </div>
-
-    <div class="clause">
-      <h4>5. Interest Rates &amp; APR</h4>
-      <p>The loan bears interest at <strong>${data.interestRate || 0}% per annum</strong> on the reducing balance. The Annual Percentage Rate (APR) is <strong>${(data.apr || 0).toFixed(1)}%</strong>, which reflects the total cost of credit including interest, processing fees, and other charges expressed as an annualized rate, enabling the Borrower to compare the true cost of this loan with other credit products. The APR is calculated in accordance with the Central Bank of Kenya (Credit Reference Bureau) Regulations, 2013.</p>
-      <div class="highlight-box"><strong>Total Cost of Credit:</strong> The Borrower will pay a total of ${fmt(totalRepayable)} over ${data.loanTermMonths} months, comprising the principal of ${fmt(data.principalAmount)} plus total fees and interest of ${fmt(totalRepayable - data.principalAmount)}.</div>
-    </div>
-
-    <div class="clause">
-      <h4>6. Fees &amp; Charges</h4>
-      <p>The Borrower acknowledges and accepts the following fees and charges as set out in the Fee Breakdown section above: (a) <strong>Processing Fee</strong> of ${fmt(data.processingFee)} covering administrative, credit vetting, and loan origination costs; (b) <strong>Asset Transfer Fee</strong> of ${fmt(data.assetTransferFee)} for the registration and transfer of the security interest; and (c) <strong>Tracking System Fee</strong> of ${fmt(data.trackingSystemFee)} for GPS-enabled asset monitoring throughout the loan term. All fees are non-refundable once the loan has been disbursed.</p>
-    </div>
-
-    <div class="clause">
-      <h4>7. Data Protection &amp; Privacy</h4>
-      <p>The Borrower's personal and financial information shall be collected, processed, and stored in accordance with the Kenya Data Protection Act, 2019. The Borrower consents to the Lender: (a) conducting credit checks with licensed credit reference bureaus; (b) sharing information with guarantors, insurers, and regulatory authorities as required by law; (c) using automated decision-making for credit scoring and loan management; and (d) sending payment reminders and marketing communications via SMS, email, and phone. The Borrower has the right to access, correct, or request deletion of their data by contacting the Lender's Data Protection Officer.</p>
-    </div>
-
-    <div class="clause">
-      <h4>8. Dispute Resolution &amp; Governing Law</h4>
-      <p>This Agreement shall be governed by and construed in accordance with the laws of the Republic of Kenya. Any dispute arising out of or relating to this Agreement shall first be referred to amicable negotiation between the parties for a period of 14 days. If the dispute remains unresolved, it shall be referred to mediation at the Nairobi Centre for International Arbitration (NCIA). Should mediation fail, the dispute shall be finally resolved by binding arbitration in accordance with the Arbitration Act, 1995, by a single arbitrator appointed by the Chairman of the Chartered Institute of Arbitrators (Kenya Branch). The seat of arbitration shall be Nairobi, Kenya. The prevailing party shall be entitled to recover reasonable legal costs and expenses.</p>
-    </div>
-
+    <div class="clause">${clause1Html}</div>
+    <div class="clause">${clause2Html}</div>
+    <div class="clause">${clause3Html}</div>
+    <div class="clause">${clause4Html}</div>
+    <div class="clause">${clause5Html}</div>
+    <div class="clause">${clause6Html}</div>
+    <div class="clause">${clause7Html}</div>
+    <div class="clause">${clause8Html}</div>
   </div>
 
-  <!-- Lender Information Compact -->
   <div class="section-title">Lender Information</div>
   <div style="font-size:10.5px;color:#475569;margin-bottom:10px;">
     <strong>${data.companyName}</strong> &bull; ${data.companyAddress} &bull; Phone: ${data.companyPhone} &bull; Email: ${data.companyEmail}
@@ -259,31 +303,10 @@ export function generateLoanAgreementHTML(data: LoanAgreementData): string {
     ${data.companyRegNumber ? `&bull; Reg: ${data.companyRegNumber}` : ''}
   </div>
 
-  <!-- Signature -->
-  <div class="signature-section">
-    <div class="signature-block">
-      <h4>Borrower</h4>
-      <div class="name">${data.borrowerName}</div>
-      <div class="signature-line">Signature _________________________</div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div>
-    </div>
-    <div class="signature-block">
-      <h4>Authorized Representative</h4>
-      <div class="name">${data.companyName}</div>
-      <div class="signature-line">Signature _________________________</div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div>
-    </div>
-    <div class="signature-block">
-      <h4>Witness</h4>
-      <div class="name">_________________________</div>
-      <div class="signature-line">Signature _________________________</div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px;">Date: _________________________</div>
-    </div>
-  </div>
+  ${signatureHtml}
 
   <div class="doc-footer">
-    <p>This is a computer-generated document. The Borrower acknowledges receipt and confirms understanding of all terms herein.</p>
-    <p>Generated on ${today} &bull; Loan #${data.loanId} &bull; ${data.companyName}</p>
+    ${footerHtml}
   </div>
 
 </div>

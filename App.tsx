@@ -3,7 +3,7 @@ import "./global.css";
 import { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { initializeCapacitor } from "./utils/capacitorInit";
 
@@ -38,7 +38,9 @@ import AdminQuotations from "./pages/AdminQuotations";
 import AdminInvoices from "./pages/AdminInvoices";
 import AdminCustomers from "./pages/AdminCustomers";
 import AdminRoles from "./pages/AdminRoles";
+import AdminProfile from "./pages/AdminProfile";
 import AdminDocumentation from "./pages/AdminDocumentation";
+import AdminAgreement from "./pages/AdminAgreement";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import BorrowerPayments from "./pages/BorrowerPayments";
@@ -69,7 +71,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public Pages */}
-      <Route path="/" element={<Index />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
@@ -89,6 +91,7 @@ const AppRoutes = () => {
 
       {/* Admin Pages — role-gated */}
       <Route path="/admin" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminDashboard /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/profile" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminProfile /></AppLayout></PrivateRoute>} />
       <Route path="/admin/loans" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
       <Route path="/admin/loans/create" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminCreateLoan /></AppLayout></PrivateRoute>} />
       <Route path="/admin/loans/:loanId" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminLoans /></AppLayout></PrivateRoute>} />
@@ -111,6 +114,7 @@ const AppRoutes = () => {
       <Route path="/admin/documentation" element={<PrivateRoute requiredRole={['admin','releaser','manager','agent']}><AppLayout user={user}><AdminDocumentation /></AppLayout></PrivateRoute>} />
       <Route path="/admin/receipts" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminReceipts /></AppLayout></PrivateRoute>} />
       <Route path="/admin/petty-cash" element={<PrivateRoute requiredRole={['admin','manager']}><AppLayout user={user}><AdminPettyCash /></AppLayout></PrivateRoute>} />
+      <Route path="/admin/agreement" element={<PrivateRoute requiredRole="admin"><AppLayout user={user}><AdminAgreement /></AppLayout></PrivateRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

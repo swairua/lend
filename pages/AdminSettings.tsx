@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { adminApi, emailApi, uploadCompanyLogo, getFileUrl } from '../utils/api';
+import { adminApi, emailApi, formatKES, uploadCompanyLogo, getFileUrl } from '../utils/api';
 import { secureStorage } from '@/utils/secureStorage';
 import { Loader2, Save, ChevronLeft, Building, Bell, Shield, CreditCard, Users, FileText, Plus, Edit, Trash2, Package, DollarSign, AlertTriangle, Calculator, Percent, Calendar, Check, X, Smartphone, Copy, Check as CheckIcon, Mail, Upload, Image } from 'lucide-react';
 import { useAlert } from '@/hooks/use-alert';
@@ -131,8 +131,8 @@ export default function AdminSettings() {
     company_address: '',
     company_logo: '',
     default_interest_rate: '10',
-    late_fee_percentage: '5',
-    processing_fee_percentage: '2',
+    late_fee_percentage: '2.5',
+    processing_fee_percentage: '4',
     max_loan_amount: '500000',
     min_loan_amount: '5000',
     default_loan_term: '12',
@@ -148,7 +148,7 @@ export default function AdminSettings() {
     auto_approve_threshold: '10000',
     default_currency: 'KES',
     grace_period_days: '7',
-    penalty_rate_daily: '0.5',
+    penalty_rate_daily: '2.5',
     max_loan_duration_months: '60',
     min_credit_score: '550',
     require_guarantor_collateral: '0',
@@ -816,7 +816,7 @@ export default function AdminSettings() {
                               <p className="text-xs text-muted-foreground truncate">{prod.code}</p>
                             </td>
                             <td className="hidden sm:table-cell p-2 md:p-3 text-xs md:text-sm whitespace-nowrap min-w-[120px]">{cat?.name || '-'}</td>
-                            <td className="p-2 md:p-3 text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">KSh {prod.min_amount.toLocaleString()}</td>
+                            <td className="p-2 md:p-3 text-right text-xs md:text-sm whitespace-nowrap min-w-[100px]">{formatKES(prod.min_amount)}</td>
                             <td className="hidden md:table-cell p-2 md:p-3 text-center text-xs md:text-sm whitespace-nowrap min-w-[100px]">{prod.min_term_months}-{prod.max_term_months}mo</td>
                             <td className="p-2 md:p-3 text-right text-xs md:text-sm whitespace-nowrap min-w-[80px]">{prod.interest_rate}%</td>
                             <td className="p-2 md:p-3 text-center min-w-[80px]">
