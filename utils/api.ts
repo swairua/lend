@@ -143,6 +143,7 @@ export const loansApi = {
 export const repaymentsApi = {
   getMyRepayments: () => get('/repayments/mine'),
   getMyReceipts: (params?: any) => get('/borrower/receipts', params),
+  getMyReceiptPdf: (id: number) => getBlob(`/borrower/receipts/${id}/pdf`),
   record: (data: any) => post('/repayments', data),
 };
 

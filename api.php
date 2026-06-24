@@ -4515,6 +4515,40 @@ try {
     if (strpos($uri, 'borrower/receipts') !== false) {
         $borrower = one("SELECT id FROM borrowers WHERE user_id = ?", [$user['id']]);
         if (!$borrower) { echo json_encode(['success' => true, 'data' => ['receipts' => []]]); exit; }
+        // Download receipt PDF
+        if ($method === 'GET' && preg_match('#borrower/receipts/(\d+)/pdf$#', $uri, $m)) {
+            $rct = one("SELECT r.*, u.name borrower_name, u.email borrower_email, l.principal_amount, l.total_amount
+                        FROM receipts r
+                        LEFT JOIN loans l ON r.loan_id=l.id
+                        LEFT JOIN borrowers b ON r.borrower_id=b.id
+                        LEFT JOIN users u ON b.user_id=u.id
+                        WHERE r.id=? AND r.borrower_id=?", [$m[1], $borrower['id']]);
+            if (!$rct) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Receipt not found']); exit; }
+            $repayment = one("SELECT * FROM repayments WHERE id=?", [$rct['repayment_id']]);
+            $totalPaid = floatval(one("SELECT COALESCE(SUM(amount),0) FROM repayments WHERE loan_id=?", [$rct['loan_id']])['COALESCE(SUM(amount),0)'] ?? 0);
+            $remainingBalance = floatval($rct['total_amount'] ?? 0) - $totalPaid;
+            require_once __DIR__ . '/utils/pdfGenerator.php';
+            $pdfData = [
+                'receiptNumber' => $rct['receipt_number'],
+                'repaymentId' => $rct['repayment_id'],
+                'loanId' => $rct['loan_id'],
+                'borrowerName' => $rct['borrower_name'] ?? 'N/A',
+                'borrowerEmail' => $rct['borrower_email'] ?? '',
+                'amount' => floatval($rct['amount']),
+                'paymentMethod' => $repayment ? $repayment['payment_method'] : 'mpesa',
+                'paidAt' => $rct['generated_at'],
+                'loanAmount' => floatval($rct['total_amount'] ?? 0),
+                'principalAmount' => floatval($rct['principal_amount'] ?? 0),
+                'totalPaid' => $totalPaid,
+                'remainingBalance' => $remainingBalance,
+            ];
+            $pdfBuffer = generateReceiptPDF($pdfData);
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="' . $rct['receipt_number'] . '.pdf"');
+            echo $pdfBuffer;
+            log_access('GET', 'borrower/receipts/' . $m[1] . '/pdf', 200);
+            exit;
+        }
         $page = intval($_GET['page'] ?? 1); $limit = intval($_GET['limit'] ?? 20); $off = ($page - 1) * $limit;
         $rows = all("SELECT r.*, l.principal_amount, l.total_amount
                      FROM receipts r

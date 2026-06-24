@@ -118,7 +118,7 @@ export default function BorrowerPayments() {
   const handleDownloadReceiptPdf = async (receipt: Receipt) => {
     try {
       setDownloadingReceiptId(receipt.id);
-      const blob = await adminApi.getReceiptPdf(receipt.id);
+      const blob = await repaymentsApi.getMyReceiptPdf(receipt.id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
