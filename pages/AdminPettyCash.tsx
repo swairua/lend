@@ -86,13 +86,35 @@ export default function AdminPettyCash() {
     setSaving(true);
     try {
       if (editAccount) {
-        await adminApi.updatePettyCashAccount(editAccount.id, acctForm);
+        await adminApi.updatePettyCashAccount(editAccount.id, {
+          name: acctForm.name,
+          type: acctForm.type,
+          branch: acctForm.branch || '',
+        });
+        const currentBalance = Number(editAccount.balance) || 0;
+        const newBalance = Number(acctForm.balance);
+        if (newBalance !== currentBalance) {
+          const diff = newBalance - currentBalance;
+          const absDiff = Math.abs(diff);
+          const txnType = diff > 0 ? 'adjustment' : 'expense';
+          const desc = `Manual balance ${diff > 0 ? 'increase' : 'reduction'} from ${formatKES(currentBalance)} to ${formatKES(newBalance)}`;
+          const res = await adminApi.createPettyCashTransaction({
+            account_id: editAccount.id,
+            transaction_type: txnType,
+            amount: absDiff,
+            description: desc,
+            category: 'balance_adjustment',
+          });
+          await adminApi.approvePettyCashTransaction(res.data.id, 'approved');
+        }
         toast.success('Account updated');
       } else {
         await adminApi.createPettyCashAccount({ ...acctForm, balance: Number(acctForm.balance) || 0 });
         toast.success('Account created');
       }
       setAcctDialogOpen(false);
+      setEditAccount(null);
+      setAcctForm({ name: '', type: 'cash_float', branch: '', balance: '' });
       await loadData();
     } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
@@ -284,7 +306,7 @@ export default function AdminPettyCash() {
                 <CardContent className="p-4 pt-2">
                   <p className="text-2xl font-bold">{formatKES(acct.balance)}</p>
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="outline" className="flex-1 min-h-[44px]" onClick={() => { setEditAccount(acct); setAcctForm({ name: acct.name, type: acct.type, branch: acct.branch || '', balance: '' }); setAcctDialogOpen(true); }}>
+                    <Button size="sm" variant="outline" className="flex-1 min-h-[44px]" onClick={() => { setEditAccount(acct); setAcctForm({ name: acct.name, type: acct.type, branch: acct.branch || '', balance: String(acct.balance ?? '') }); setAcctDialogOpen(true); }}>
                       Edit
                     </Button>
                     {acct.is_active ? (
@@ -607,12 +629,10 @@ export default function AdminPettyCash() {
               <Label>Branch (optional)</Label>
               <Input value={acctForm.branch} onChange={(e) => setAcctForm({ ...acctForm, branch: e.target.value })} placeholder="e.g., Nairobi Branch" />
             </div>
-            {!editAccount && (
-              <div className="space-y-2">
-                <Label>Opening Balance (KES)</Label>
-                <Input type="number" value={acctForm.balance} onChange={(e) => setAcctForm({ ...acctForm, balance: e.target.value })} />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>{editAccount ? 'Balance' : 'Opening Balance'} (KES)</Label>
+              <Input type="number" value={acctForm.balance} onChange={(e) => setAcctForm({ ...acctForm, balance: e.target.value })} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAcctDialogOpen(false)}>Cancel</Button>

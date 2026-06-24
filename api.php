@@ -661,7 +661,8 @@ function bootstrap() {
         $allPerms = [
             'Dashboard', 'Loan Applications (view)', 'Approve Loans', 'Release Loans', 'Disburse Loans',
             'Create Loan', 'Loan Categories', 'Loan Products', 'Borrowers', 'Repayments', 'Disbursements',
-            'Reports', 'Users', 'Settings', 'System Logs', 'Customers / Invoicing', 'Admin Messages',
+            'Receipts', 'Petty Cash', 'Reports', 'Invoices', 'Invoice Products', 'Quotations', 'Customers',
+            'Users', 'Roles', 'Settings', 'System Logs', 'Admin Messages', 'Documentation',
             'My Loans', 'Apply for Loan', 'Payments', 'Profile', 'Messages',
         ];
 
@@ -677,11 +678,11 @@ function bootstrap() {
                 if ($key === 'admin') {
                     $defaultPerms = array_fill_keys($allPerms, true);
                 } elseif ($key === 'releaser') {
-                    $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Release Loans', 'Reports'], true);
+                    $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Release Loans', 'Reports', 'Invoices', 'Invoice Products', 'Quotations', 'Customers', 'Documentation'], true);
                 } elseif ($key === 'manager') {
-                    $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Approve Loans', 'Create Loan', 'Borrowers', 'Repayments', 'Reports'], true);
+                    $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Approve Loans', 'Create Loan', 'Borrowers', 'Repayments', 'Receipts', 'Petty Cash', 'Reports', 'Invoices', 'Invoice Products', 'Quotations', 'Customers', 'Documentation'], true);
                 } elseif ($key === 'agent') {
-                    $defaultPerms = array_fill_keys(['Dashboard', 'Borrowers', 'Messages', 'Payments'], true);
+                    $defaultPerms = array_fill_keys(['Dashboard', 'Borrowers', 'Payments', 'Invoices', 'Invoice Products', 'Quotations', 'Customers', 'Documentation', 'Messages'], true);
                 } elseif ($key === 'borrower') {
                     $defaultPerms = array_fill_keys(['Dashboard', 'My Loans', 'Apply for Loan', 'Payments', 'Profile', 'Messages'], true);
                 }
@@ -693,6 +694,38 @@ function bootstrap() {
                 }
                 log_error("Role seeded", ['key' => $key, 'id' => $roleId]);
             }
+        }
+
+        // Re-seed permissions for seeded roles (ensures existing installs match current code defaults)
+        try {
+            $permMigrated = one("SELECT id FROM settings WHERE key_name = 'permissions_seeded'");
+            if (!$permMigrated) {
+                foreach ($seedRoles as [$key, $name, $desc, $sysRole]) {
+                    $role = one("SELECT id FROM roles WHERE key_name = ?", [$key]);
+                    if (!$role) continue;
+                    $defaultPerms = [];
+                    if ($key === 'admin') {
+                        $defaultPerms = array_fill_keys($allPerms, true);
+                    } elseif ($key === 'releaser') {
+                        $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Release Loans', 'Reports', 'Invoices', 'Invoice Products', 'Quotations', 'Customers', 'Documentation'], true);
+                    } elseif ($key === 'manager') {
+                        $defaultPerms = array_fill_keys(['Dashboard', 'Loan Applications (view)', 'Approve Loans', 'Create Loan', 'Borrowers', 'Repayments', 'Receipts', 'Petty Cash', 'Reports', 'Invoices', 'Invoice Products', 'Quotations', 'Customers', 'Documentation'], true);
+                    } elseif ($key === 'agent') {
+                        $defaultPerms = array_fill_keys(['Dashboard', 'Borrowers', 'Payments', 'Invoices', 'Invoice Products', 'Quotations', 'Customers', 'Documentation', 'Messages'], true);
+                    } elseif ($key === 'borrower') {
+                        $defaultPerms = array_fill_keys(['Dashboard', 'My Loans', 'Apply for Loan', 'Payments', 'Profile', 'Messages'], true);
+                    }
+                    q("DELETE FROM role_permissions WHERE role_id = ?", [$role['id']]);
+                    foreach ($allPerms as $perm) {
+                        $granted = isset($defaultPerms[$perm]) ? 1 : 0;
+                        q("INSERT INTO role_permissions (role_id, permission_key, granted) VALUES (?, ?, ?)",
+                          [$role['id'], $perm, $granted]);
+                    }
+                }
+                q("INSERT INTO settings (key_name, key_value) VALUES ('permissions_seeded', '1')");
+            }
+        } catch (Exception $e) {
+            log_error("Permission migration failed", ['error' => $e->getMessage()]);
         }
 
         // Seed loan categories
@@ -3792,6 +3825,29 @@ try {
                 }
             }
 
+            // PATCH /admin/users/{id}/toggle — activate/deactivate user
+            if ($method === 'PATCH' && preg_match('#users/(\d+)/toggle$#', $uri, $m)) {
+                $target = one("SELECT id, is_active FROM users WHERE id=?", [$m[1]]);
+                if (!$target) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'User not found']); exit; }
+                $new = $target['is_active'] ? 0 : 1;
+                q("UPDATE users SET is_active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [$new, $m[1]]);
+                echo json_encode(['success'=>true, 'data'=>['is_active'=>$new]]);
+                exit;
+            }
+
+            // POST /admin/users/{id}/reset-password — admin resets user password
+            if ($method === 'POST' && preg_match('#users/(\d+)/reset-password$#', $uri, $m)) {
+                $d = input();
+                $pw = $d['password'] ?? '';
+                if (strlen($pw) < 6) { http_response_code(400); echo json_encode(['success'=>false,'error'=>'Password must be at least 6 characters']); exit; }
+                $target = one("SELECT id FROM users WHERE id=?", [$m[1]]);
+                if (!$target) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'User not found']); exit; }
+                q("UPDATE users SET password=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [password_hash($pw, PASSWORD_BCRYPT), $m[1]]);
+                logSystem('user_mgmt', 'password_reset_by_admin', ['user_id' => intval($m[1])], $user['id'], 'success', 'user', intval($m[1]));
+                echo json_encode(['success'=>true, 'message'=>'Password reset successfully']);
+                exit;
+            }
+
             if ($method === 'PUT') {
                 try {
                     $parts = explode('/', trim($uri, '/'));
@@ -4064,7 +4120,7 @@ try {
                 $quote = one("SELECT * FROM quotations WHERE id=?", [$m[1]]);
                 if (!$quote) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Quotation not found']); exit; }
                 $items = all("SELECT * FROM quotation_items WHERE quotation_id=?", [$m[1]]);
-                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(invoice_number,5) AS INTEGER)),0)+1 n FROM invoices");
+                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(invoice_number,5) AS UNSIGNED)),0)+1 n FROM invoices");
                 $invNum = 'INV-' . str_pad($nextNum['n'], 4, '0', STR_PAD_LEFT);
                 q("INSERT INTO invoices (invoice_number, quotation_id, customer_id, client_name, client_email, client_phone, client_address, invoice_date, due_date, subtotal, tax_total, discount, grand_total, notes, status, created_by) VALUES (?,?,?,?,?,?,?,CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),?,?,?,?,?,'draft',?)",
                   [$invNum, $m[1], $quote['customer_id'], $quote['client_name'], $quote['client_email'], $quote['client_phone'],
@@ -4127,7 +4183,7 @@ try {
             // Create quote
             if ($method === 'POST') {
                 $d = input();
-                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(quote_number,5) AS INTEGER)),0)+1 n FROM quotations");
+                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(quote_number,5) AS UNSIGNED)),0)+1 n FROM quotations");
                 $qNum = 'QTE-' . str_pad($nextNum['n'], 4, '0', STR_PAD_LEFT);
                 $u = auth();
                 q("INSERT INTO quotations (quote_number, customer_id, client_name, client_email, client_phone, client_address, quote_date, expiry_date, subtotal, tax_total, discount, grand_total, notes, status, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'draft',?)",
@@ -4203,7 +4259,7 @@ try {
             // Create invoice
             if ($method === 'POST') {
                 $d = input();
-                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(invoice_number,5) AS INTEGER)),0)+1 n FROM invoices");
+                $nextNum = one("SELECT COALESCE(MAX(CAST(SUBSTR(invoice_number,5) AS UNSIGNED)),0)+1 n FROM invoices");
                 $invNum = 'INV-' . str_pad($nextNum['n'], 4, '0', STR_PAD_LEFT);
                 $u = auth();
                 q("INSERT INTO invoices (invoice_number, quotation_id, customer_id, client_name, client_email, client_phone, client_address, invoice_date, due_date, subtotal, tax_total, discount, grand_total, notes, status, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'draft',?)",

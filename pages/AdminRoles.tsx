@@ -33,12 +33,19 @@ const allPermissions = [
   'Borrowers',
   'Repayments',
   'Disbursements',
+  'Receipts',
+  'Petty Cash',
   'Reports',
+  'Invoices',
+  'Invoice Products',
+  'Quotations',
+  'Customers',
   'Users',
+  'Roles',
   'Settings',
   'System Logs',
-  'Customers / Invoicing',
   'Admin Messages',
+  'Documentation',
   'My Loans',
   'Apply for Loan',
   'Payments',
@@ -70,7 +77,7 @@ export default function AdminRoles() {
       if (response.success && response.data) {
         const rolesData = response.data.map((r: any) => ({
           ...r,
-          system_role: Boolean(r.system_role),
+          system_role: Boolean(r.system_role) || ['admin', 'releaser', 'manager', 'agent', 'borrower'].includes(r.key),
         }));
         setRoles(rolesData);
       } else {

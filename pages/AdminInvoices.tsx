@@ -8,7 +8,7 @@ import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, Responsive
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Plus, Eye, Trash2, Printer, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { Loader2, Plus, Eye, Trash2, Printer, ChevronLeft, ChevronRight, RefreshCw, Search, Pencil } from 'lucide-react';
 import { adminApi, formatKES, formatDate, getFileUrl } from '../types/api';
 import { useAlert } from '@/hooks/use-alert';
 import { toast } from 'sonner';
@@ -37,6 +37,7 @@ export default function AdminInvoices() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const [editTarget, setEditTarget] = useState<Invoice | null>(null);
   const [invoiceProducts, setInvoiceProducts] = useState<InvoiceProduct[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -48,6 +49,8 @@ export default function AdminInvoices() {
     due_date: '', notes: '', subtotal: 0, tax_total: 0, discount: 0, grand_total: 0,
     items: [{ ...emptyItem }],
   });
+
+  const selectedCustName = form.customer_id ? (customers.find(c => c.id === form.customer_id)?.name || '') : '';
 
   const load = async (p = 1) => {
     setLoading(true); setPage(p);
@@ -68,6 +71,8 @@ export default function AdminInvoices() {
   };
 
   useEffect(() => { load(); loadProducts(); loadCustomers(); }, []);
+
+  useEffect(() => { const t = setTimeout(() => loadCustomers(customerSearch), 300); return () => clearTimeout(t); }, [customerSearch]);
 
   const recalc = (items: typeof form.items, discount = form.discount) => {
     let subtotal = 0, tax_total = 0;
@@ -98,7 +103,24 @@ export default function AdminInvoices() {
   };
 
   const openCreate = () => {
+    setEditTarget(null);
     setForm({ customer_id: null, client_name: '', client_email: '', client_phone: '', client_address: '', invoice_date: new Date().toISOString().split('T')[0], due_date: '', notes: '', subtotal: 0, tax_total: 0, discount: 0, grand_total: 0, items: [{ ...emptyItem }] });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (inv: Invoice) => {
+    const items = (inv.items || []).map(it => ({
+      invoice_product_id: it.invoice_product_id,
+      description: it.description, quantity: it.quantity, unit_price: it.unit_price, tax_rate: it.tax_rate, amount: it.amount,
+    }));
+    setForm({
+      customer_id: inv.customer_id, client_name: inv.client_name, client_email: inv.client_email || '',
+      client_phone: inv.client_phone || '', client_address: inv.client_address || '',
+      invoice_date: inv.invoice_date, due_date: inv.due_date || '', notes: inv.notes || '',
+      subtotal: inv.subtotal, tax_total: inv.tax_total, discount: inv.discount, grand_total: inv.grand_total,
+      items: items.length ? items : [{ ...emptyItem }],
+    });
+    setEditTarget(inv);
     setDialogOpen(true);
   };
 
@@ -109,8 +131,15 @@ export default function AdminInvoices() {
   const handleSave = async () => {
     if (!form.client_name.trim()) { toast.error('Client name is required'); return; }
     try {
-      await adminApi.createInvoice({ ...form, items: form.items.map(it => ({ ...it })) });
-      toast.success('Invoice created'); setDialogOpen(false); load(1);
+      const data = { ...form, items: form.items.map(it => ({ ...it })) };
+      if (editTarget) {
+        await adminApi.updateInvoice(editTarget.id, data);
+        toast.success('Invoice updated');
+      } else {
+        await adminApi.createInvoice(data);
+        toast.success('Invoice created');
+      }
+      setDialogOpen(false); setEditTarget(null); load(1);
     } catch (e: any) { toast.error(e.message || 'Save failed'); }
   };
 
@@ -203,19 +232,19 @@ export default function AdminInvoices() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>New Invoice</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editTarget ? 'Edit Invoice' : 'New Invoice'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Select Customer (optional)</Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
-                  <Input className="pl-8" placeholder="Search customers..." value={customerSearch} onChange={e => { setCustomerSearch(e.target.value); loadCustomers(e.target.value); }} />
+                  <Input className="pl-8" placeholder="Search customers..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} />
                 </div>
-                <Select value={form.customer_id?.toString() || ''} onValueChange={v => selectCustomer(parseInt(v))}>
+                <Select value={selectedCustName} onValueChange={v => { const c = customers.find(x => x.name === v); if (c) selectCustomer(c.id); }}>
                   <SelectTrigger className="w-64"><SelectValue placeholder="Choose customer..." /></SelectTrigger>
                   <SelectContent>
-                    {customers.map(c => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}{c.company ? ` (${c.company})` : ''}</SelectItem>))}
+                    {customers.map(c => (<SelectItem key={c.id} value={c.name}>{c.name}{c.company ? ` (${c.company})` : ''}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
@@ -233,12 +262,14 @@ export default function AdminInvoices() {
 
             <div className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-2"><Label className="text-base font-semibold">Line Items</Label><Button variant="outline" size="sm" onClick={addItem}><Plus className="w-3 h-3 mr-1" />Add Item</Button></div>
-              {form.items.map((item, idx) => (
+              {form.items.map((item, idx) => {
+                const prodName = item.invoice_product_id ? (invoiceProducts.find(p => p.id === item.invoice_product_id)?.name || '') : '';
+                return (
                 <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-end">
                   <div className="col-span-3"><Label className="text-xs">Product</Label>
-                    <Select value={item.invoice_product_id?.toString() || ''} onValueChange={v => updateItem(idx, 'invoice_product_id', parseInt(v))}>
+                    <Select value={prodName} onValueChange={v => { const prod = invoiceProducts.find(p => p.name === v); if (prod) updateItem(idx, 'invoice_product_id', prod.id); }}>
                       <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                      <SelectContent>{invoiceProducts.map(p => (<SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>))}</SelectContent>
+                      <SelectContent>{invoiceProducts.map(p => (<SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>))}</SelectContent>
                     </Select>
                   </div>
                   <div className="col-span-3"><Label className="text-xs">Description</Label><Input value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} /></div>
@@ -248,7 +279,8 @@ export default function AdminInvoices() {
                   <div className="col-span-1"><Label className="text-xs">Amt</Label><div className="text-sm font-medium py-2">{formatKES(item.amount)}</div></div>
                   <div className="col-span-1"><Button variant="ghost" size="sm" className="text-red-500" onClick={() => removeItem(idx)} disabled={form.items.length <= 1}><Trash2 className="w-3 h-3" /></Button></div>
                 </div>
-              ))}
+                );
+              })}
               <div className="border-t pt-2 mt-2 space-y-1 text-sm">
                 <div className="flex justify-between"><span>Subtotal:</span><span>{formatKES(form.subtotal)}</span></div>
                 <div className="flex justify-between"><span>Tax:</span><span>{formatKES(form.tax_total)}</span></div>
@@ -258,7 +290,7 @@ export default function AdminInvoices() {
             </div>
             <div><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2} /></div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave}>Create Invoice</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave}>{editTarget ? 'Update Invoice' : 'Create Invoice'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -269,6 +301,7 @@ export default function AdminInvoices() {
             <div className="flex justify-between items-center">
               <Badge className={statusColors[selected.status] || ''}>{selected.status}</Badge>
               <div className="flex gap-2">
+                {selected.status !== 'cancelled' && selected.status !== 'paid' && <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); openEdit(selected); }}><Pencil className="w-3 h-3 mr-1" />Edit</Button>}
                 {selected.status === 'draft' && <Button size="sm" onClick={() => handleStatus(selected.id, 'sent')}>Mark Sent</Button>}
                 {selected.status === 'sent' && (<><Button size="sm" variant="outline" onClick={() => handleStatus(selected.id, 'paid')}>Mark Paid</Button><Button size="sm" variant="outline" onClick={() => handleStatus(selected.id, 'overdue')}>Mark Overdue</Button></>)}
                 {selected.status !== 'cancelled' && <Button size="sm" variant="outline" onClick={() => handleStatus(selected.id, 'cancelled')}>Cancel</Button>}

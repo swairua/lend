@@ -189,6 +189,7 @@ export const adminApi = {
   updateUser: (id: number, data: any) => put(`/admin/users/${id}`, data),
   deleteUser: (id: number) => del(`/admin/users/${id}`),
   toggleUser: (id: number) => patch(`/admin/users/${id}/toggle`),
+  resetPassword: (id: number, password: string) => post(`/admin/users/${id}/reset-password`, { password }),
 
   getSettings: () => get('/admin/settings'),
   updateSetting: (key_name: string, key_value: string, description?: string) =>
@@ -235,6 +236,7 @@ export const adminApi = {
   getQuotation: (id: number) => get(`/admin/quotations/${id}`),
   createQuotation: (data: any) => post('/admin/quotations', data),
   deleteQuotation: (id: number) => del(`/admin/quotations/${id}`),
+  updateQuotation: (id: number, data: any) => put(`/admin/quotations/${id}`, data),
   updateQuotationStatus: (id: number, status: string) => patch(`/admin/quotations/${id}/status`, { status }),
   convertQuotation: (id: number) => post(`/admin/quotations/${id}/convert`),
 

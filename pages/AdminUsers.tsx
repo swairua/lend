@@ -25,6 +25,10 @@ export default function AdminUsers() {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [resetPwdOpen, setResetPwdOpen] = useState(false);
+  const [resetPwdTarget, setResetPwdTarget] = useState<ApiUser | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
 
   const [form, setForm] = useState({
@@ -98,6 +102,25 @@ export default function AdminUsers() {
       toast.error(error.message || 'Failed to save user');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPwdTarget || !newPassword || newPassword.length < 6) {
+      showAlert({ type: 'warning', message: 'Password must be at least 6 characters' });
+      return;
+    }
+    setResetting(true);
+    try {
+      await adminApi.resetPassword(resetPwdTarget.id, newPassword);
+      toast.success(`Password reset for "${resetPwdTarget.name}"`);
+      setResetPwdOpen(false);
+      setResetPwdTarget(null);
+      setNewPassword('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reset password');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -272,6 +295,9 @@ export default function AdminUsers() {
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => handleEdit(user)}>
                         <Edit className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 md:h-auto md:w-auto md:p-2" onClick={() => { setResetPwdTarget(user); setNewPassword(''); setResetPwdOpen(true); }}>
+                        <Mail className="h-3 w-3 md:h-4 md:w-4" title="Reset Password" />
+                      </Button>
                       <Button
                         size="sm"
                         variant={user.is_active ? 'destructive' : 'default'}
@@ -360,6 +386,27 @@ export default function AdminUsers() {
         </DialogContent>
       </Dialog>
       
+      {/* Reset Password Dialog */}
+      <Dialog open={resetPwdOpen} onOpenChange={setResetPwdOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Reset Password</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Set a new password for <strong>{resetPwdTarget?.name}</strong> ({resetPwdTarget?.email})</p>
+            <div className="space-y-2">
+              <Label>New Password *</Label>
+              <Input type="password" placeholder="Min 6 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetPwdOpen(false)}>Cancel</Button>
+            <Button onClick={handleResetPassword} disabled={resetting}>
+              {resetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Reset Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Custom Alert */}
       {AlertComponent}
     </div>

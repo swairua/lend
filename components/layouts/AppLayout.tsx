@@ -75,7 +75,7 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
 
   const navLink = (item: any) => {
     if (item.children) {
-      const expanded = expandedGroups[item.label] !== false;
+      const expanded = expandedGroups[item.label] === true;
       const active = isChildActive(item.children);
       return (
         <div key={item.label} className="space-y-1">
