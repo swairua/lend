@@ -4427,7 +4427,7 @@ try {
                         $factor = ($txn['transaction_type'] === 'expense' || $txn['transaction_type'] === 'transfer') ? -1 : 1;
                         q("UPDATE petty_cash_accounts SET balance = balance + (? * ?) WHERE id=?", [$factor, floatval($txn['amount']), $txn['account_id']]);
                     }
-                    logAudit($user['id'], 'petty_cash_' . $newStatus, 'petty_cash_transaction', $m[1], ['status' => $newStatus]);
+                    logAudit($user['id'], 'petty_cash_' . $newStatus, 'petty_cash_transaction', $m[1], ['status' => $newStatus, 'admin_name' => $user['name'], 'admin_email' => $user['email']]);
                     log_access('PUT', 'admin/petty-cash/transactions/' . $m[1] . '/approve', 200);
                     echo json_encode(['success' => true]);
                     exit;
@@ -4453,6 +4453,8 @@ try {
                        VALUES (?,?,?,?,?,?,'pending')",
                       [$d['account_id'], $d['transaction_type'], floatval($d['amount']), $d['description']??null, $d['category']??null, $user['id']]);
                     $txnId = pdo()->lastInsertId();
+                    $d['admin_name'] = $user['name'];
+                    $d['admin_email'] = $user['email'];
                     logAudit($user['id'], 'petty_cash_created', 'petty_cash_transaction', $txnId, $d);
                     log_access('POST', 'admin/petty-cash/transactions', 201);
                     echo json_encode(['success' => true, 'data' => ['id' => $txnId]]);
@@ -4485,6 +4487,8 @@ try {
                 $d = input();
                 q("UPDATE petty_cash_accounts SET name=?, type=?, branch=?, is_active=? WHERE id=?",
                   [$d['name'], $d['type'], $d['branch']??null, isset($d['is_active'])?intval($d['is_active']):1, $m[1]]);
+                $au = ['admin_name' => $user['name'], 'admin_email' => $user['email']];
+                logAudit($user['id'], 'petty_cash_account_edited', 'petty_cash_account', $m[1], array_merge($d, $au));
                 log_access('PUT', 'admin/petty-cash/accounts/' . $m[1], 200);
                 echo json_encode(['success' => true]);
                 exit;

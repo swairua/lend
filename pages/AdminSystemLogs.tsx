@@ -97,7 +97,7 @@ export default function AdminSystemLogs() {
       const rows = logs.map(log => [
         log.id,
         log.log_type,
-        log.action,
+        formatLogAction(log.action, parseDetails(log.details), log.user_name),
         log.status,
         log.user_name || '-',
         new Date(log.created_at).toLocaleString(),
@@ -171,6 +171,37 @@ export default function AdminSystemLogs() {
       }
     }
     return details;
+  };
+
+  const formatLogAction = (action: string, details: any, userName?: string): string => {
+    const d = details || {};
+    const by = userName ? ` by ${userName}` : '';
+    const map: Record<string, string> = {
+      petty_cash_approved: `Approved petty cash transaction${by}`,
+      petty_cash_created: d.category === 'balance_adjustment'
+        ? `${d.description || 'Manual balance adjustment'}${by}`
+        : d.amount
+          ? `Created petty cash transaction of KES ${Number(d.amount).toLocaleString()} for account #${d.account_id}${by}`
+          : `Created petty cash transaction${by}`,
+      petty_cash_account_created: `Created petty cash account: ${d.name || 'Unknown'} (${d.type || 'Unknown'})${by}`,
+      petty_cash_reactivated: `Reactivated petty cash account${by}`,
+      petty_cash_account_edited: `Edited petty cash account: ${d.name || 'Unknown'}${by}`,
+      petty_cash_edited: `Edited petty cash transaction${d.amount ? ' of KES ' + Number(d.amount).toLocaleString() : ''}${by}`,
+      loan_created_admin: `Created loan for borrower #${d.borrower_id || '?'} (KES ${Number(d.principal_amount || 0).toLocaleString()})${by}`,
+      payment_received: `Received KES ${Number(d.amount || 0).toLocaleString()} via ${d.payment_method || '?'}${d.reference_number ? ' (Ref: ' + d.reference_number + ')' : ''}${by}`,
+      user_registered: `Registered user: ${d.email || '?'}${by}`,
+      user_updated_by_admin: `Updated user ${d.email || '?'}${d.role ? ' (role: ' + d.role + ')' : ''}${by}`,
+      settings_updated: `Updated ${d.count || '?'} system settings${by}`,
+      role_permissions_updated: `Updated permissions for ${d.role_key || '?'} (${d.permissions_count || d.permission_keys_modified?.length || 0} modified)${by}`,
+      role_updated: `Updated role: ${d.role_key || '?'}${by}`,
+      logs_cleaned: `Cleaned up logs older than ${d.retention_days || 90} days${by}`,
+      mpesa_stk_push_sent: `STK push sent to ${d.phone_number || '?'}${d.amount ? ' for KES ' + Number(d.amount).toLocaleString() : ''}${by}`,
+      mpesa_b2c_sent: `B2C payment sent to ${d.phone_number || '?'} of KES ${Number(d.amount || 0).toLocaleString()}${by}`,
+      mpesa_transaction_completed: d.type === 'b2c'
+        ? `B2C completed${d.amount ? ' (KES ' + Number(d.amount).toLocaleString() + ')' : ''}${by}`
+        : `STK push completed${d.amount ? ' (KES ' + Number(d.amount).toLocaleString() + ')' : ''}${by}`,
+    };
+    return map[action] || `${action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}${by}`;
   };
 
   const detailsPreview = (log: SystemLog) => {
@@ -321,7 +352,7 @@ export default function AdminSystemLogs() {
                           {log.log_type.replace('_', ' ')}
                         </Badge>
                       </ResponsiveTableCell>
-                      <ResponsiveTableCell className="font-medium">{log.action}</ResponsiveTableCell>
+                      <ResponsiveTableCell className="font-medium">{formatLogAction(log.action, parseDetails(log.details), log.user_name)}</ResponsiveTableCell>
                       <ResponsiveTableCell className="text-sm text-gray-500 max-w-[200px] truncate">
                         {detailsPreview(log)}
                       </ResponsiveTableCell>
@@ -398,7 +429,7 @@ export default function AdminSystemLogs() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Action</p>
-                <p className="text-base font-semibold">{selectedLog.action}</p>
+                <p className="text-base font-semibold">{formatLogAction(selectedLog.action, parseDetails(selectedLog.details), selectedLog.user_name)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Status</p>
