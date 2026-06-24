@@ -32,6 +32,10 @@ export default function AdminPettyCash() {
   const [topUpDialogOpen, setTopUpDialogOpen] = useState(false);
   const [topUpTarget, setTopUpTarget] = useState<PettyCashAccount | null>(null);
   const [topUpAmount, setTopUpAmount] = useState('');
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+  const [issueTarget, setIssueTarget] = useState<PettyCashAccount | null>(null);
+  const [issueAmount, setIssueAmount] = useState('');
+  const [issueReason, setIssueReason] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [acctForm, setAcctForm] = useState({ name: '', type: 'cash_float', branch: '', balance: '' });
@@ -131,6 +135,32 @@ export default function AdminPettyCash() {
       setTopUpDialogOpen(false);
       setTopUpTarget(null);
       setTopUpAmount('');
+      await loadData();
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
+  };
+
+  const handleIssueExpense = async () => {
+    if (!issueTarget || !issueAmount || Number(issueAmount) <= 0) {
+      showAlert({ type: 'warning', message: 'Enter a valid amount' }); return;
+    }
+    if (Number(issueAmount) > issueTarget.balance) {
+      showAlert({ type: 'warning', message: 'Amount exceeds current balance' }); return;
+    }
+    setSaving(true);
+    try {
+      const res = await adminApi.createPettyCashTransaction({
+        account_id: issueTarget.id,
+        transaction_type: 'expense',
+        amount: Number(issueAmount),
+        description: issueReason || 'Petty cash expense',
+        category: issueReason ? 'expense' : undefined,
+      });
+      await adminApi.approvePettyCashTransaction(res.data.id, 'approved');
+      toast.success(`${formatKES(Number(issueAmount))} issued to ${issueTarget.name}`);
+      setIssueDialogOpen(false);
+      setIssueTarget(null);
+      setIssueAmount('');
+      setIssueReason('');
       await loadData();
     } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
@@ -268,9 +298,14 @@ export default function AdminPettyCash() {
                     )}
                   </div>
                   {acct.is_active && (
-                    <Button size="sm" variant="secondary" className="w-full min-h-[44px] mt-2" onClick={() => { setTopUpTarget(acct); setTopUpAmount(''); setTopUpDialogOpen(true); }}>
-                      <Plus className="h-4 w-4 mr-1" /> Top Up
-                    </Button>
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" variant="secondary" className="flex-1 min-h-[44px]" onClick={() => { setIssueTarget(acct); setIssueAmount(''); setIssueReason(''); setIssueDialogOpen(true); }}>
+                        <ArrowUpRight className="h-4 w-4 mr-1" /> Issue
+                      </Button>
+                      <Button size="sm" variant="secondary" className="flex-1 min-h-[44px]" onClick={() => { setTopUpTarget(acct); setTopUpAmount(''); setTopUpDialogOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Top Up
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -510,6 +545,40 @@ export default function AdminPettyCash() {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setTopUpDialogOpen(false); setTopUpTarget(null); }}>Cancel</Button>
             <Button onClick={handleTopUp} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Top Up</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue Expense Dialog */}
+      <Dialog open={issueDialogOpen} onOpenChange={(open) => { if (!open) { setIssueDialogOpen(false); setIssueTarget(null); } }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader><DialogTitle>Issue Expense</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            {issueTarget && (
+              <div className="bg-muted/50 rounded-md p-3">
+                <p className="text-sm font-medium">{issueTarget.name}</p>
+                <p className="text-xs text-muted-foreground">Current Balance: {formatKES(issueTarget.balance)}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Amount (KES) *</Label>
+              <Input type="number" value={issueAmount} onChange={(e) => setIssueAmount(e.target.value)} placeholder="Enter expense amount" />
+            </div>
+            {issueTarget && issueAmount && Number(issueAmount) > 0 && (
+              <div className={`rounded-md p-3 ${Number(issueAmount) <= issueTarget.balance ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <p className="text-sm font-medium">
+                  Remaining Balance: <span className={Number(issueAmount) <= issueTarget.balance ? 'text-green-700' : 'text-red-700'}>{formatKES(issueTarget.balance - Number(issueAmount))}</span>
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Reason / Description *</Label>
+              <Input value={issueReason} onChange={(e) => setIssueReason(e.target.value)} placeholder="e.g., Office supplies, travel, etc." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIssueDialogOpen(false); setIssueTarget(null); }}>Cancel</Button>
+            <Button onClick={handleIssueExpense} disabled={saving || !issueAmount || Number(issueAmount) <= 0 || !issueReason}>{saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Issue</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
