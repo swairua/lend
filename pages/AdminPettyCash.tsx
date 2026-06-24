@@ -29,6 +29,9 @@ export default function AdminPettyCash() {
   const [txnDialogOpen, setTxnDialogOpen] = useState(false);
   const [editAccount, setEditAccount] = useState<PettyCashAccount | null>(null);
   const [editTransaction, setEditTransaction] = useState<PettyCashTransaction | null>(null);
+  const [topUpDialogOpen, setTopUpDialogOpen] = useState(false);
+  const [topUpTarget, setTopUpTarget] = useState<PettyCashAccount | null>(null);
+  const [topUpAmount, setTopUpAmount] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [acctForm, setAcctForm] = useState({ name: '', type: 'cash_float', branch: '', balance: '' });
@@ -108,6 +111,28 @@ export default function AdminPettyCash() {
       toast.success('Account activated');
       await loadData();
     } catch (e: any) { toast.error(e.message); }
+  };
+
+  const handleTopUp = async () => {
+    if (!topUpTarget || !topUpAmount || Number(topUpAmount) <= 0) {
+      showAlert({ type: 'warning', message: 'Enter a valid top-up amount' }); return;
+    }
+    setSaving(true);
+    try {
+      const res = await adminApi.createPettyCashTransaction({
+        account_id: topUpTarget.id,
+        transaction_type: 'adjustment',
+        amount: Number(topUpAmount),
+        description: 'Top-up / balance adjustment',
+        category: 'top-up',
+      });
+      await adminApi.approvePettyCashTransaction(res.data.id, 'approved');
+      toast.success(`Account topped up by ${formatKES(Number(topUpAmount))}`);
+      setTopUpDialogOpen(false);
+      setTopUpTarget(null);
+      setTopUpAmount('');
+      await loadData();
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
 
   const handleSaveTransaction = async () => {
@@ -242,6 +267,11 @@ export default function AdminPettyCash() {
                       </Button>
                     )}
                   </div>
+                  {acct.is_active && (
+                    <Button size="sm" variant="secondary" className="w-full min-h-[44px] mt-2" onClick={() => { setTopUpTarget(acct); setTopUpAmount(''); setTopUpDialogOpen(true); }}>
+                      <Plus className="h-4 w-4 mr-1" /> Top Up
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -460,6 +490,29 @@ export default function AdminPettyCash() {
           </Tabs>
         </TabsContent>
       </Tabs>
+
+      {/* Top Up Dialog */}
+      <Dialog open={topUpDialogOpen} onOpenChange={(open) => { if (!open) { setTopUpDialogOpen(false); setTopUpTarget(null); } }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader><DialogTitle>Top Up Account</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            {topUpTarget && (
+              <div className="bg-muted/50 rounded-md p-3">
+                <p className="text-sm font-medium">{topUpTarget.name}</p>
+                <p className="text-xs text-muted-foreground">Current Balance: {formatKES(topUpTarget.balance)}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Amount (KES) *</Label>
+              <Input type="number" value={topUpAmount} onChange={(e) => setTopUpAmount(e.target.value)} placeholder="Enter amount to add" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setTopUpDialogOpen(false); setTopUpTarget(null); }}>Cancel</Button>
+            <Button onClick={handleTopUp} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Top Up</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Account Dialog */}
       <Dialog open={acctDialogOpen} onOpenChange={setAcctDialogOpen}>
