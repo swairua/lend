@@ -4256,6 +4256,8 @@ try {
                             WHERE r.id=?", [$m[1]]);
                 if (!$rct) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Receipt not found']); exit; }
                 $repayment = one("SELECT * FROM repayments WHERE id=?", [$rct['repayment_id']]);
+                $totalPaid = floatval(one("SELECT COALESCE(SUM(amount),0) FROM repayments WHERE loan_id=?", [$rct['loan_id']])['COALESCE(SUM(amount),0)'] ?? 0);
+                $remainingBalance = floatval($rct['total_amount'] ?? 0) - $totalPaid;
                 require_once __DIR__ . '/utils/pdfGenerator.php';
                 $pdfData = [
                     'receiptNumber' => $rct['receipt_number'],
@@ -4268,6 +4270,8 @@ try {
                     'paidAt' => $rct['generated_at'],
                     'loanAmount' => floatval($rct['total_amount'] ?? 0),
                     'principalAmount' => floatval($rct['principal_amount'] ?? 0),
+                    'totalPaid' => $totalPaid,
+                    'remainingBalance' => $remainingBalance,
                 ];
                 $pdfBuffer = generateReceiptPDF($pdfData);
                 header('Content-Type: application/pdf');
