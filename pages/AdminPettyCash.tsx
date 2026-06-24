@@ -28,6 +28,7 @@ export default function AdminPettyCash() {
   const [acctDialogOpen, setAcctDialogOpen] = useState(false);
   const [txnDialogOpen, setTxnDialogOpen] = useState(false);
   const [editAccount, setEditAccount] = useState<PettyCashAccount | null>(null);
+  const [editTransaction, setEditTransaction] = useState<PettyCashTransaction | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [acctForm, setAcctForm] = useState({ name: '', type: 'cash_float', branch: '', balance: '' });
@@ -99,19 +100,40 @@ export default function AdminPettyCash() {
     });
   };
 
+  const handleActivateAccount = async (acct: PettyCashAccount) => {
+    try {
+      await adminApi.updatePettyCashAccount(acct.id, {
+        name: acct.name, type: acct.type, branch: acct.branch || '', is_active: 1,
+      });
+      toast.success('Account activated');
+      await loadData();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
   const handleSaveTransaction = async () => {
     if (!txnForm.account_id || !txnForm.amount) { showAlert({ type: 'warning', message: 'Account and amount required' }); return; }
     setSaving(true);
     try {
-      await adminApi.createPettyCashTransaction({
-        account_id: Number(txnForm.account_id),
-        transaction_type: txnForm.transaction_type,
-        amount: Number(txnForm.amount),
-        description: txnForm.description || null,
-        category: txnForm.category || null,
-      });
-      toast.success('Transaction created (pending approval)');
+      if (editTransaction) {
+        await adminApi.updatePettyCashTransaction(editTransaction.id, {
+          transaction_type: txnForm.transaction_type,
+          amount: Number(txnForm.amount),
+          description: txnForm.description || null,
+          category: txnForm.category || null,
+        });
+        toast.success('Transaction updated');
+      } else {
+        await adminApi.createPettyCashTransaction({
+          account_id: Number(txnForm.account_id),
+          transaction_type: txnForm.transaction_type,
+          amount: Number(txnForm.amount),
+          description: txnForm.description || null,
+          category: txnForm.category || null,
+        });
+        toast.success('Transaction created (pending approval)');
+      }
       setTxnDialogOpen(false);
+      setEditTransaction(null);
       setTxnForm({ account_id: '', transaction_type: 'expense', amount: '', description: '', category: '' });
       await loadTransactions();
     } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
@@ -149,6 +171,22 @@ export default function AdminPettyCash() {
   };
 
   useEffect(() => { if (activeTab === 'reports') { loadCashBook(); } }, [activeTab]);
+
+  const downloadCSV = (rows: Record<string, any>[], filename: string) => {
+    if (!rows.length) { toast.error('No data to export'); return; }
+    const headers = Object.keys(rows[0]);
+    const csv = [headers.join(','), ...rows.map(r => headers.map(h => {
+      const v = r[h] ?? '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(','))].join('\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const acctTypeLabel: Record<string, string> = { cash_float: 'Cash Float', branch_float: 'Branch Float', mobile_money: 'Mobile Money' };
   const txnTypeColor: Record<string, string> = { expense: 'text-red-600', reimbursement: 'text-green-600', transfer: 'text-blue-600', adjustment: 'text-orange-600' };
@@ -198,7 +236,11 @@ export default function AdminPettyCash() {
                       <Button size="sm" variant="destructive" className="flex-1 min-h-[44px]" onClick={() => handleDeleteAccount(acct)}>
                         <X className="h-4 w-4 mr-1" /> Deactivate
                       </Button>
-                    ) : null}
+                    ) : (
+                      <Button size="sm" variant="outline" className="flex-1 min-h-[44px]" onClick={() => handleActivateAccount(acct)}>
+                        <Check className="h-4 w-4 mr-1" /> Activate
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -220,7 +262,7 @@ export default function AdminPettyCash() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => { setTxnForm({ account_id: accounts[0]?.id ? String(accounts[0].id) : '', transaction_type: 'expense', amount: '', description: '', category: '' }); setTxnDialogOpen(true); }} className="min-h-[44px]">
+            <Button onClick={() => { setEditTransaction(null); setTxnForm({ account_id: accounts[0]?.id ? String(accounts[0].id) : '', transaction_type: 'expense', amount: '', description: '', category: '' }); setTxnDialogOpen(true); }} className="min-h-[44px]">
               <Plus className="h-4 w-4 mr-2" /> New Transaction
             </Button>
           </div>
@@ -256,6 +298,7 @@ export default function AdminPettyCash() {
                             <>
                               <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-green-600" onClick={() => handleApprove(txn.id, 'approved')} title="Approve"><Check className="h-4 w-4" /></Button>
                               <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-red-600" onClick={() => handleApprove(txn.id, 'rejected')} title="Reject"><X className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={() => { setEditTransaction(txn); setTxnForm({ account_id: String(txn.account_id), transaction_type: txn.transaction_type, amount: String(txn.amount), description: txn.description || '', category: txn.category || '' }); setTxnDialogOpen(true); }} title="Edit"><FileText className="h-4 w-4" /></Button>
                             </>
                           )}
                         </div>
@@ -271,6 +314,9 @@ export default function AdminPettyCash() {
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Page {txnPage}</p>
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => downloadCSV(transactions.map(t => ({ ID: t.id, Account: t.account_name, Type: t.transaction_type, Amount: t.amount, Description: t.description || '', Status: t.status, Date: t.created_at })), `petty-cash-transactions.csv`)}>
+                Export CSV
+              </Button>
               <Button onClick={() => loadTransactions(txnPage - 1)} disabled={txnPage <= 1} variant="outline" size="sm"><ChevronLeft className="h-4 w-4" /></Button>
               <Button onClick={() => loadTransactions(txnPage + 1)} disabled={txnPage * txnLimit >= txnTotal} variant="outline" size="sm"><ChevronRight className="h-4 w-4" /></Button>
             </div>
@@ -294,7 +340,12 @@ export default function AdminPettyCash() {
               </div>
               {cashBookData && (
                 <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Opening Balance: <span className="font-bold">{formatKES(cashBookData.opening_balance)}</span></p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Opening Balance: <span className="font-bold">{formatKES(cashBookData.opening_balance)}</span></p>
+                    <Button variant="outline" size="sm" onClick={() => downloadCSV((cashBookData.transactions || []).map((t: any) => ({ ID: t.id, Account: t.account_name, Type: t.transaction_type, Amount: t.amount, Description: t.description || '', Date: t.created_at })), `cash-book-${reportStart}-${reportEnd}.csv`)}>
+                      Export CSV
+                    </Button>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -329,6 +380,14 @@ export default function AdminPettyCash() {
               {dailySummary && (
                 <Card>
                   <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Summary for {reportDate}</p>
+                      {dailySummary.summary?.length > 0 && (
+                        <Button variant="outline" size="sm" onClick={() => downloadCSV(dailySummary.summary.map((s: any) => ({ Account: s.account_name, Type: s.transaction_type, Count: s.count, Total: s.total })), `daily-summary-${reportDate}.csv`)}>
+                          Export CSV
+                        </Button>
+                      )}
+                    </div>
                     {dailySummary.summary?.length === 0 ? <p className="text-sm text-muted-foreground">No approved transactions on this date</p> : (
                       dailySummary.summary?.map((s: any, i: number) => (
                         <div key={i} className="flex items-center justify-between border-b pb-2 last:border-0">
@@ -362,8 +421,15 @@ export default function AdminPettyCash() {
                 <>
                   <Card>
                     <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-base">{statementData.account?.name}</CardTitle>
-                      <CardDescription>{acctTypeLabel[statementData.account?.type || '']} {statementData.account?.branch ? `- ${statementData.account.branch}` : ''} | Balance: {formatKES(statementData.account?.balance || 0)}</CardDescription>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base">{statementData.account?.name}</CardTitle>
+                          <CardDescription>{acctTypeLabel[statementData.account?.type || '']} {statementData.account?.branch ? `- ${statementData.account.branch}` : ''} | Balance: {formatKES(statementData.account?.balance || 0)}</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => downloadCSV((statementData.transactions || []).map((t: any) => ({ ID: t.id, Type: t.transaction_type, Amount: t.amount, Description: t.description || '', Status: t.status, Date: t.created_at })), `statement-${statementData.account?.name || 'account'}.csv`)}>
+                          Export CSV
+                        </Button>
+                      </div>
                     </CardHeader>
                   </Card>
                   <Table>
@@ -434,18 +500,22 @@ export default function AdminPettyCash() {
       </Dialog>
 
       {/* Transaction Dialog */}
-      <Dialog open={txnDialogOpen} onOpenChange={setTxnDialogOpen}>
+      <Dialog open={txnDialogOpen} onOpenChange={(open) => { if (!open) setEditTransaction(null); setTxnDialogOpen(open); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader><DialogTitle>New Transaction</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editTransaction ? 'Edit Transaction' : 'New Transaction'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Account *</Label>
-              <Select value={txnForm.account_id} onValueChange={(v) => setTxnForm({ ...txnForm, account_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
-                <SelectContent>
-                  {accounts.filter(a => a.is_active).map((a) => <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {editTransaction ? (
+                <Input value={accounts.find(a => a.id === editTransaction.account_id)?.name || ''} disabled className="text-sm" />
+              ) : (
+                <Select value={txnForm.account_id} onValueChange={(v) => setTxnForm({ ...txnForm, account_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.filter(a => a.is_active).map((a) => <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Type</Label>
@@ -473,8 +543,8 @@ export default function AdminPettyCash() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTxnDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveTransaction} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}Submit</Button>
+            <Button variant="outline" onClick={() => { setTxnDialogOpen(false); setEditTransaction(null); }}>Cancel</Button>
+            <Button onClick={handleSaveTransaction} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}{editTransaction ? 'Update' : 'Submit'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
