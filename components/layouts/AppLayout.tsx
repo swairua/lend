@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { LogOut, Menu, ChevronLeft } from 'lucide-react';
+import { LogOut, Menu, ChevronLeft, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { secureStorage } from '@/utils/secureStorage';
 import { publicApi, adminApi, getFileUrl } from '@/utils/api';
@@ -26,6 +26,7 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const role = (user?.role as UserRole) || 'borrower';
@@ -60,36 +61,87 @@ export function AppLayout({ children, user, unreadMessages = 0 }: AppLayoutProps
     if (location.pathname === href) {
       return true;
     }
-    // Only match startsWith for paths that end with a slash or are root-level
     if (href.endsWith('/')) {
       return location.pathname.startsWith(href);
     }
     return false;
   };
 
-  const navLink = (item: any) => (
-    <Link
-      key={item.href}
-      to={item.href}
-      className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors relative',
-        isActive(item.href)
-          ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-muted'
-      )}
-      onClick={() => setMobileMenuOpen(false)}
-    >
-      <item.icon className={cn('h-5 w-5 flex-shrink-0', !sidebarOpen && 'h-6 w-6')} />
-      <span className={cn('text-sm', !sidebarOpen && 'hidden')}>
-        {item.label}
-      </span>
-      {item.badge === 'messages' && unreadMessages > 0 && (
-        <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center flex-shrink-0">
-          {unreadMessages}
+  const isChildActive = (children: any[]) => children.some((c: any) => isActive(c.href));
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+  };
+
+  const navLink = (item: any) => {
+    if (item.children) {
+      const expanded = expandedGroups[item.label] !== false;
+      const active = isChildActive(item.children);
+      return (
+        <div key={item.label} className="space-y-1">
+          <button
+            onClick={() => toggleGroup(item.label)}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full text-left',
+              active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+            )}
+          >
+            <item.icon className={cn('h-5 w-5 flex-shrink-0', !sidebarOpen && 'h-6 w-6')} />
+            <span className={cn('text-sm flex-1', !sidebarOpen && 'hidden')}>
+              {item.label}
+            </span>
+            <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180', !sidebarOpen && 'hidden')} />
+          </button>
+          {expanded && (
+            <div className={cn('space-y-1', sidebarOpen ? 'ml-4' : 'ml-0')}>
+              {item.children.map((child: any) => (
+                <Link
+                  key={child.href}
+                  to={child.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-1.5 rounded-lg transition-colors',
+                    isActive(child.href)
+                      ? 'bg-primary/80 text-primary-foreground'
+                      : 'hover:bg-muted'
+                  )}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <child.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className={cn('text-xs', !sidebarOpen && 'hidden')}>
+                    {child.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={item.href}
+        to={item.href}
+        className={cn(
+          'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors relative',
+          isActive(item.href)
+            ? 'bg-primary text-primary-foreground'
+            : 'hover:bg-muted'
+        )}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <item.icon className={cn('h-5 w-5 flex-shrink-0', !sidebarOpen && 'h-6 w-6')} />
+        <span className={cn('text-sm', !sidebarOpen && 'hidden')}>
+          {item.label}
         </span>
-      )}
-    </Link>
-  );
+        {item.badge === 'messages' && unreadMessages > 0 && (
+          <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center flex-shrink-0">
+            {unreadMessages}
+          </span>
+        )}
+      </Link>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background flex">

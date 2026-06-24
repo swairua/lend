@@ -24,6 +24,7 @@ interface NavItem {
   icon: any;
   roles: UserRole[];
   badge?: 'messages';
+  children?: NavItem[];
 }
 
 export const navigationItems: NavItem[] = [
@@ -51,6 +52,13 @@ export const navigationItems: NavItem[] = [
   { label: 'Receipts', href: '/admin/receipts', icon: Receipt, roles: ['admin', 'manager'] },
   { label: 'Petty Cash', href: '/admin/petty-cash', icon: Wallet, roles: ['admin', 'manager'] },
   { label: 'Reports', href: '/admin/reports', icon: BarChart3, roles: ['admin', 'manager'] },
+  { label: 'Product Invoices', href: '/admin/invoices', icon: FileText, roles: ['admin', 'manager', 'releaser', 'agent'],
+    children: [
+      { label: 'Invoices', href: '/admin/invoices', icon: Receipt, roles: ['admin', 'manager', 'releaser', 'agent'] },
+      { label: 'Products', href: '/admin/invoice-products', icon: Package, roles: ['admin', 'manager', 'releaser', 'agent'] },
+      { label: 'Quotations', href: '/admin/quotations', icon: FileText, roles: ['admin', 'manager', 'releaser', 'agent'] },
+      { label: 'Customers', href: '/admin/customers', icon: Users, roles: ['admin', 'manager', 'releaser', 'agent'] },
+    ] },
 
   // Admin - Management
   { label: 'Users', href: '/admin/users', icon: User, roles: ['admin'] },
@@ -66,7 +74,9 @@ export const navigationItems: NavItem[] = [
 ];
 
 export function getNavItemsForRole(role: UserRole): NavItem[] {
-  return navigationItems.filter(item => item.roles.includes(role));
+  return navigationItems
+    .filter(item => item.roles.includes(role))
+    .map(item => item.children ? { ...item, children: item.children.filter(c => c.roles.includes(role)) } : item);
 }
 
 export function getPortalTitle(role: UserRole): string {
