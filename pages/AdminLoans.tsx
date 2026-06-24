@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from '@/components/ui/responsive-table';
 import { adminApi, formatKES, formatDate, getFileUrl, Loan } from '../types/api';
 import { generateInvoiceHTML, getPdfLogoUrl } from '../utils/pdfTemplates';
+import { downloadLoanAgreementPDF } from '../utils/loanPdfGenerator';
+import { calculateAPR } from '../utils/aprCalculator';
 import { normalizeList } from '../utils/normalize';
 import { secureStorage } from '../utils/secureStorage';
 import { Loader2, Eye, Check, X, Wallet, Send, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle, RefreshCw, Calendar, FileText } from 'lucide-react';
@@ -64,6 +66,12 @@ export default function AdminLoans() {
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
   const [companyName, setCompanyName] = useState('LENDING PLATFORM');
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [companyAddress, setCompanyAddress] = useState('Nairobi, Kenya');
+  const [companyPhone, setCompanyPhone] = useState('+254 (0) 700 000 000');
+  const [companyEmail, setCompanyEmail] = useState('support@jecribureau.ke');
+  const [companyKraPin, setCompanyKraPin] = useState('');
+  const [companyRegNumber, setCompanyRegNumber] = useState('');
+  const [downloadingAgreementId, setDownloadingAgreementId] = useState<number | null>(null);
 
   const loadLoans = useCallback(async () => {
     setLoading(true);
@@ -138,6 +146,11 @@ export default function AdminLoans() {
         const settings = Object.fromEntries(configArray.map((item: any) => [item.key_name, item.key_value]));
         setCompanyName(settings.company_name || 'LENDING PLATFORM');
         setCompanyLogoUrl(getFileUrl(settings.company_logo) || null);
+        setCompanyAddress(settings.company_address || 'Nairobi, Kenya');
+        setCompanyPhone(settings.company_phone || '+254 (0) 700 000 000');
+        setCompanyEmail(settings.company_email || 'support@jecribureau.ke');
+        setCompanyKraPin(settings.company_kra_pin || '');
+        setCompanyRegNumber(settings.company_reg_number || '');
       }
     } catch (err) {
       console.warn('Could not load company settings:', err);
@@ -277,6 +290,59 @@ export default function AdminLoans() {
       toast.error(error.message || 'Failed to download invoice');
     } finally {
       setDownloadingInvoiceId(null);
+    }
+  };
+
+  const handleDownloadAgreement = async (loan: Loan) => {
+    setDownloadingAgreementId(loan.id);
+    try {
+      const aprResult = calculateAPR({
+        principalAmount: Number(loan.principal_amount),
+        interestRate: Number((loan as any).interest_rate) || 0,
+        loanTermMonths: Number(loan.term_months),
+        processingFeePercent: Number(loan.processing_fee) > 0 ? (Number(loan.processing_fee) / Number(loan.principal_amount)) * 100 : 0,
+        assetTransferFee: Number(loan.asset_transfer_fee || 0),
+        trackingSystemFee: Number(loan.tracking_system_fee || 0),
+      });
+      await downloadLoanAgreementPDF({
+        loanId: loan.id,
+        borrowerName: loan.borrower_name || 'N/A',
+        borrowerEmail: loan.borrower_email || 'N/A',
+        borrowerPhone: (loan as any).borrower_phone || '',
+        borrowerIdNumber: (loan as any).national_id || 'N/A',
+        borrowerAddress: (loan as any).address || 'N/A',
+        loanAmount: Number(loan.principal_amount),
+        principalAmount: Number(loan.principal_amount),
+        interestRate: Number((loan as any).interest_rate) || 0,
+        loanTermMonths: Number(loan.term_months),
+        monthlyPayment: Number(loan.total_amount) / Number(loan.term_months),
+        processingFee: Number(loan.processing_fee),
+        assetTransferFee: Number(loan.asset_transfer_fee || 0),
+        trackingSystemFee: Number(loan.tracking_system_fee || 0),
+        totalFees: Number(loan.processing_fee || 0) + Number(loan.asset_transfer_fee || 0) + Number(loan.tracking_system_fee || 0),
+        totalRepayableAmount: Number(loan.total_amount),
+        disbursementDate: formatDate(loan.disbursed_at || loan.approved_at),
+        maturityDate: loan.due_date,
+        firstPaymentDueDate: new Date(loan.disbursed_at || loan.approved_at || loan.created_at).toLocaleDateString('en-KE'),
+        apr: aprResult.apr || 0,
+        lateFeePenalty: 2.5,
+        loanProductName: (loan as any).product_name || 'Loan',
+        assetDescription: loan.asset_description || 'Asset(s)',
+        assetValue: loan.asset_value,
+        securityDetails: loan.security_details || 'As per agreement',
+        companyName,
+        companyAddress,
+        companyPhone,
+        companyEmail,
+        companyLogoUrl: getPdfLogoUrl(),
+        companyKraPin: companyKraPin || undefined,
+        companyRegNumber: companyRegNumber || undefined,
+      });
+      toast.success('Agreement downloaded successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to download agreement');
+    } finally {
+      setDownloadingAgreementId(null);
     }
   };
 
@@ -596,6 +662,21 @@ export default function AdminLoans() {
           )}
           <DialogFooter className="gap-2 flex-col sm:flex-row">
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto">Close</Button>
+            {selectedLoan && (
+              <Button
+                variant="outline"
+                onClick={() => handleDownloadAgreement(selectedLoan)}
+                disabled={downloadingAgreementId === selectedLoan.id}
+                className="w-full sm:w-auto"
+              >
+                {downloadingAgreementId === selectedLoan.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Agreement
+              </Button>
+            )}
             {(selectedLoan?.status === 'active' || selectedLoan?.status === 'completed') && (
               <Button
                 variant="secondary"

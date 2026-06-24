@@ -13,6 +13,12 @@ interface DashboardStats {
   total_loans: number;
   active_loans: number;
   pending_loans: number;
+  approved_loans?: number;
+  rejected_loans?: number;
+  released_loans?: number;
+  completed_loans?: number;
+  defaulted_loans?: number;
+  written_off_loans?: number;
   total_disbursed?: number;
   total_collected?: number;
   default_rate?: number;
@@ -191,9 +197,13 @@ export default function AdminDashboard() {
                 <CardContent className="p-3 pt-0">
                   <div className="flex flex-wrap gap-2">
                     <Badge className="bg-yellow-500">Pending: {stats?.pending_loans || 0}</Badge>
-                    <Badge className="bg-blue-500">Approved: {(stats?.total_loans || 0) - (stats?.pending_loans || 0) - (stats?.active_loans || 0)}</Badge>
+                    <Badge className="bg-blue-500">Approved: {stats?.approved_loans || 0}</Badge>
+                    <Badge className="bg-purple-500">Released: {stats?.released_loans || 0}</Badge>
                     <Badge className="bg-green-500">Active: {stats?.active_loans || 0}</Badge>
-                    <Badge className="bg-gray-500">Completed: {Math.max(0, (stats?.total_loans || 0) - (stats?.active_loans || 0) - (stats?.pending_loans || 0))}</Badge>
+                    <Badge className="bg-gray-500">Completed: {stats?.completed_loans || 0}</Badge>
+                    <Badge className="bg-red-500">Defaulted: {stats?.defaulted_loans || 0}</Badge>
+                    <Badge className="bg-orange-500">Written Off: {stats?.written_off_loans || 0}</Badge>
+                    <Badge variant="destructive">Rejected: {stats?.rejected_loans || 0}</Badge>
                   </div>
                 </CardContent>
               </Card>

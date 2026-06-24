@@ -1797,19 +1797,23 @@ try {
             $borrowers = one("SELECT COUNT(*) c FROM users WHERE role='borrower'");
             $loans = all("SELECT status, principal_amount, total_amount, created_at FROM loans");
             $tot = count($loans);
-            $active = $pending = $approved = $defaulted = 0; $disbursed = 0.0;
+            $active = $pending = $approved = $defaulted = $rejected = $released = $completed = $writtenOff = 0; $disbursed = 0.0;
             foreach ($loans as $l) {
-                if ($l['status'] === 'active')   $active++;
-                if ($l['status'] === 'pending')  $pending++;
-                if ($l['status'] === 'approved') $approved++;
-                if ($l['status'] === 'defaulted') $defaulted++;
-                if (in_array($l['status'], ['active','completed'])) $disbursed += floatval($l['principal_amount']);
+                if ($l['status'] === 'active')       $active++;
+                if ($l['status'] === 'pending')      $pending++;
+                if ($l['status'] === 'approved')     $approved++;
+                if ($l['status'] === 'defaulted')    $defaulted++;
+                if ($l['status'] === 'rejected')     $rejected++;
+                if ($l['status'] === 'released')     $released++;
+                if ($l['status'] === 'completed')    $completed++;
+                if ($l['status'] === 'written_off')  $writtenOff++;
+                if (in_array($l['status'], ['active','completed','defaulted','written_off'])) $disbursed += floatval($l['principal_amount']);
             }
             $collected = one("SELECT COALESCE(SUM(amount),0) t FROM repayments");
             $defaultRate  = $tot > 0 ? ($defaulted / $tot * 100) : 0;
             $approvalRate = ($tot - $pending) > 0 ? ($approved / ($tot - $pending) * 100) : 0;
             $monthly = all("SELECT DATE_FORMAT(created_at, '%Y-%m') month, COUNT(*) count, COALESCE(SUM(principal_amount),0) total
-                            FROM loans WHERE status IN ('active','completed') AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                            FROM loans WHERE status IN ('active','completed','defaulted','written_off') AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
                             GROUP BY DATE_FORMAT(created_at, '%Y-%m') ORDER BY month");
             $catDist = [];
             if ($tot > 0) {
@@ -1839,6 +1843,9 @@ try {
             echo json_encode(['success' => true, 'data' => [
                 'total_borrowers' => $borrowers['c'], 'total_loans' => $tot,
                 'active_loans' => $active, 'pending_loans' => $pending,
+                'approved_loans' => $approved, 'rejected_loans' => $rejected,
+                'released_loans' => $released, 'completed_loans' => $completed,
+                'defaulted_loans' => $defaulted, 'written_off_loans' => $writtenOff,
                 'total_disbursed' => $disbursed, 'total_collected' => $collected['t'],
                 'default_rate' => $defaultRate, 'approval_rate' => $approvalRate,
                 'monthly_disbursements' => $monthly, 'category_distribution' => $catDist,
