@@ -116,7 +116,7 @@ export default function AdminDashboard() {
             <h1 className="text-xl font-bold">Admin Dashboard</h1>
             <p className="text-xs text-muted-foreground">{user?.name}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="ghost" onClick={loadDashboard} disabled={isRefreshing} title="Refresh dashboard data" className="min-h-[44px]">
               <Activity className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}

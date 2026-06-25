@@ -92,7 +92,7 @@ export default function Login() {
           <img
             src={logoUrl || '/icons/icon-192.png'}
             alt="JECRI BUREAU"
-            className="h-28 sm:h-32 w-auto mx-auto mb-6 sm:mb-8 object-contain"
+            className="h-28 sm:h-32 w-auto mx-auto mb-6 sm:mb-8 object-contain rounded-lg"
           />
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">JECRI BUREAU</h1>
           <p className="text-slate-300 text-sm sm:text-base mt-2 font-500">Fast, transparent lending solutions</p>
