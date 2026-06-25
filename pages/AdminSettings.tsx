@@ -118,11 +118,14 @@ export default function AdminSettings() {
     smtp_user: '',
     smtp_pass: '',
     smtp_from: '',
+    email_provider: 'sendgrid',
+    sendgrid_api_key: '',
   });
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
   const [smtpPassChanged, setSmtpPassChanged] = useState(false);
   const [passwordRequired, setPasswordRequired] = useState(false);
+  const [sgKeyChanged, setSgKeyChanged] = useState(false);
   const [emailDiagnostics, setEmailDiagnostics] = useState<any>(null);
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
@@ -229,15 +232,19 @@ export default function AdminSettings() {
       const response: any = await emailApi.getEmailSettings();
       if (response.success && response.data) {
         const pass = response.data.smtp_pass || '';
+        const sgKey = response.data.sendgrid_api_key || '';
         setEmailSettings({
           smtp_host: response.data.smtp_host || '',
           smtp_port: response.data.smtp_port || '587',
           smtp_user: response.data.smtp_user || '',
           smtp_pass: pass === '********' ? '' : pass,
           smtp_from: response.data.smtp_from || '',
+          email_provider: response.data.email_provider || 'sendgrid',
+          sendgrid_api_key: sgKey === '********' ? '' : sgKey,
         });
         setSmtpPassChanged(false);
         setPasswordRequired(pass !== '********');
+        setSgKeyChanged(false);
       }
     } catch (error: any) {
       if (error.status === 404) {
@@ -356,28 +363,36 @@ export default function AdminSettings() {
   };
 
   const handleSaveEmailSettings = async () => {
-    if (!emailSettings.smtp_host || !emailSettings.smtp_port || !emailSettings.smtp_user || !emailSettings.smtp_from) {
-      showAlert({ type: 'warning', message: 'SMTP host, port, username, and from address are required' });
-      return;
-    }
-    if (passwordRequired && !emailSettings.smtp_pass) {
-      showAlert({ type: 'warning', message: 'SMTP password is required for initial setup' });
-      return;
+    const provider = emailSettings.email_provider;
+    if (provider === 'smtp') {
+      if (!emailSettings.smtp_host || !emailSettings.smtp_user || !emailSettings.smtp_from) {
+        showAlert({ type: 'warning', message: 'SMTP host, username, and from address are required' });
+        return;
+      }
+      if (passwordRequired && !emailSettings.smtp_pass) {
+        showAlert({ type: 'warning', message: 'SMTP password is required for initial setup' });
+        return;
+      }
+    } else if (provider === 'sendgrid' && !sgKeyChanged && !emailSettings.sendgrid_api_key) {
+      // Key might exist in DB from previous save
     }
 
     setEmailSaving(true);
     try {
-      // If user didn't modify the password field, send sentinel to keep existing
       const passToSend = smtpPassChanged ? emailSettings.smtp_pass : '********';
-      await emailApi.updateEmailSettings(
-        emailSettings.smtp_host,
-        parseInt(emailSettings.smtp_port),
-        emailSettings.smtp_user,
-        passToSend,
-        emailSettings.smtp_from
-      );
+      const sgKeyToSend = sgKeyChanged ? emailSettings.sendgrid_api_key : '********';
+      await emailApi.updateEmailSettings({
+        email_provider: provider,
+        smtp_host: emailSettings.smtp_host,
+        smtp_port: emailSettings.smtp_port,
+        smtp_user: emailSettings.smtp_user,
+        smtp_pass: passToSend,
+        smtp_from: emailSettings.smtp_from,
+        sendgrid_api_key: sgKeyToSend,
+      });
       setSmtpPassChanged(false);
       setPasswordRequired(false);
+      setSgKeyChanged(false);
       toast.success('Email settings saved successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to save email settings');
@@ -970,57 +985,104 @@ export default function AdminSettings() {
             <CardContent className="space-y-6">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-900">
-                  <strong>SMTP Setup:</strong> Configure your email settings to send receipts, invoices, and notifications to borrowers. Common providers: Gmail, Outlook, SendGrid.
+                  <strong>Email Setup:</strong> Choose <strong>SendGrid API</strong> for reliable delivery on shared hosting (port 443). SMTP direct is used when SendGrid is unavailable.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>SMTP Host *</Label>
-                  <Input
-                    value={emailSettings.smtp_host}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_host: e.target.value })}
-                    placeholder="e.g., smtp.gmail.com"
-                  />
-                </div>
-                <div>
-                  <Label>SMTP Port *</Label>
-                  <Input
-                    type="number"
-                    value={emailSettings.smtp_port}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_port: e.target.value })}
-                    placeholder="e.g., 587 or 465"
-                  />
+              {/* Provider Selection */}
+              <div>
+                <Label>Email Provider</Label>
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    type="button"
+                    variant={emailSettings.email_provider === 'sendgrid' ? 'default' : 'outline'}
+                    onClick={() => setEmailSettings({ ...emailSettings, email_provider: 'sendgrid' })}
+                    className="flex-1"
+                  >
+                    SendGrid API
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={emailSettings.email_provider === 'smtp' ? 'default' : 'outline'}
+                    onClick={() => setEmailSettings({ ...emailSettings, email_provider: 'smtp' })}
+                    className="flex-1"
+                  >
+                    SMTP (Direct)
+                  </Button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* SendGrid API Key (shown when provider is sendgrid) */}
+              {emailSettings.email_provider === 'sendgrid' && (
                 <div>
-                  <Label>Username/Email *</Label>
-                  <Input
-                    type="email"
-                    value={emailSettings.smtp_user}
-                    onChange={(e) => setEmailSettings({ ...emailSettings, smtp_user: e.target.value })}
-                    placeholder="e.g., your-email@gmail.com"
-                  />
-                </div>
-                <div>
-                  <Label>Password/App Password {passwordRequired && <span className="text-red-500">*</span>}</Label>
-                  <Input
-                    type="password"
-                    value={emailSettings.smtp_pass}
-                    onChange={(e) => { setEmailSettings({ ...emailSettings, smtp_pass: e.target.value }); setSmtpPassChanged(true); }}
-                    placeholder={passwordRequired ? 'SMTP password is required' : (smtpPassChanged ? '' : '(unchanged — enter new value to change)')}
-                    required={passwordRequired}
-                  />
-                  {!smtpPassChanged && emailSettings.smtp_host && !passwordRequired && (
-                    <p className="text-xs text-muted-foreground mt-1">Leave empty to keep existing password</p>
+                  <Label>SendGrid API Key</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      className="flex-1"
+                      value={emailSettings.sendgrid_api_key}
+                      onChange={(e) => { setEmailSettings({ ...emailSettings, sendgrid_api_key: e.target.value }); setSgKeyChanged(true); }}
+                      placeholder={sgKeyChanged ? '' : '(unchanged — enter new value to change)'}
+                    />
+                  </div>
+                  {!sgKeyChanged && emailSettings.sendgrid_api_key === '' && (
+                    <p className="text-xs text-muted-foreground mt-1">Leave empty to keep existing API key</p>
                   )}
                 </div>
-              </div>
+              )}
 
+              {/* SMTP Fields (shown when provider is smtp) */}
+              {emailSettings.email_provider === 'smtp' && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>SMTP Host</Label>
+                      <Input
+                        value={emailSettings.smtp_host}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, smtp_host: e.target.value })}
+                        placeholder="e.g., smtp.gmail.com"
+                      />
+                    </div>
+                    <div>
+                      <Label>SMTP Port</Label>
+                      <Input
+                        type="number"
+                        value={emailSettings.smtp_port}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, smtp_port: e.target.value })}
+                        placeholder="e.g., 587 or 465"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Username</Label>
+                      <Input
+                        type="email"
+                        value={emailSettings.smtp_user}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, smtp_user: e.target.value })}
+                        placeholder="e.g., your-email@gmail.com"
+                      />
+                    </div>
+                    <div>
+                      <Label>Password {passwordRequired && <span className="text-red-500">*</span>}</Label>
+                      <Input
+                        type="password"
+                        value={emailSettings.smtp_pass}
+                        onChange={(e) => { setEmailSettings({ ...emailSettings, smtp_pass: e.target.value }); setSmtpPassChanged(true); }}
+                        placeholder={passwordRequired ? 'SMTP password is required' : (smtpPassChanged ? '' : '(unchanged — enter new value to change)')}
+                        required={passwordRequired}
+                      />
+                      {!smtpPassChanged && emailSettings.smtp_host && !passwordRequired && (
+                        <p className="text-xs text-muted-foreground mt-1">Leave empty to keep existing password</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* From Address — always shown */}
               <div>
-                <Label>From Address *</Label>
+                <Label>From Address</Label>
                 <Input
                   type="email"
                   value={emailSettings.smtp_from}
@@ -1034,41 +1096,44 @@ export default function AdminSettings() {
                   {emailSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Email Settings
                 </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleTestEmailSettings}
-                    disabled={emailTesting || !emailSettings.smtp_host || !emailSettings.smtp_user || (!emailSettings.smtp_pass && passwordRequired)}
-                  >
-                    {emailTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                    Test Connection
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={handleEmailDiagnostics}
-                    disabled={diagnosticsLoading}
-                  >
-                    {diagnosticsLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <AlertTriangle className="h-4 w-4 mr-2" />}
-                    Run Diagnostics
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleTestEmailSettings}
+                  disabled={emailTesting}
+                >
+                  {emailTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                  Test Connection
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleEmailDiagnostics}
+                  disabled={diagnosticsLoading}
+                >
+                  {diagnosticsLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <AlertTriangle className="h-4 w-4 mr-2" />}
+                  Run Diagnostics
+                </Button>
+              </div>
 
-                {emailDiagnostics && (
-                  <div className="mt-4 p-4 bg-gray-50 border rounded-lg text-xs font-mono space-y-1">
-                    <div className="font-bold text-sm mb-2">Diagnostics Report</div>
-                    <div>PHP OpenSSL: <span className={emailDiagnostics.php_openssl ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_openssl ? 'available' : 'MISSING'}</span></div>
-                    <div>PHP fsockopen: <span className={emailDiagnostics.php_fsockopen ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_fsockopen ? 'available' : 'MISSING'}</span></div>
-                    <div>PHP mail(): <span className={emailDiagnostics.php_mail ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_mail ? 'available' : 'MISSING'}</span></div>
-                    <div>Config: {emailDiagnostics.config?.host}:{emailDiagnostics.config?.port} as {emailDiagnostics.config?.user}</div>
-                    <div>Password in DB: <span className={emailDiagnostics.config?.pass_exists_in_db ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.pass_exists_in_db ? 'yes' : 'no'}</span></div>
-                    <div>Password decrypts: <span className={emailDiagnostics.config?.pass_decrypts_ok ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.pass_decrypts_ok ? 'ok' : 'FAILED'}</span></div>
-                    <div className="font-bold mt-2 mb-1">Connection Tests:</div>
-                    {emailDiagnostics.connection_tests?.map((t: any, i: number) => (
-                      <div key={i}>
-                        Port {t.port} ({t.mode}{t.note ? ` — ${t.note}` : ''}): <span className={t.reachable ? 'text-green-600' : 'text-red-600'}>{t.reachable ? 'reachable' : `BLOCKED — ${t.error}`}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {emailDiagnostics && (
+                <div className="mt-4 p-4 bg-gray-50 border rounded-lg text-xs font-mono space-y-1">
+                  <div className="font-bold text-sm mb-2">Diagnostics Report</div>
+                  <div>Provider: <strong>{emailDiagnostics.provider || 'smtp'}</strong></div>
+                  <div>PHP cURL: <span className={emailDiagnostics.php_curl ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_curl ? 'available' : 'MISSING'}</span></div>
+                  <div>PHP OpenSSL: <span className={emailDiagnostics.php_openssl ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_openssl ? 'available' : 'MISSING'}</span></div>
+                  <div>PHP fsockopen: <span className={emailDiagnostics.php_fsockopen ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_fsockopen ? 'available' : 'MISSING'}</span></div>
+                  <div>PHP mail(): <span className={emailDiagnostics.php_mail ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_mail ? 'available' : 'MISSING'}</span></div>
+                  <div>SMTP: {emailDiagnostics.config?.host}:{emailDiagnostics.config?.port} as {emailDiagnostics.config?.user}</div>
+                  <div>SMTP pass: <span className={emailDiagnostics.config?.pass_decrypts_ok ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.pass_decrypts_ok ? 'decrypts ok' : 'DECRYPT FAILED'}</span></div>
+                  <div>SendGrid key: <span className={emailDiagnostics.config?.sendgrid_key_decrypts_ok ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.sendgrid_key_exists ? (emailDiagnostics.config?.sendgrid_key_decrypts_ok ? 'decrypts ok' : 'DECRYPT FAILED') : 'not set'}</span></div>
+                  <div>SendGrid API: <span className={emailDiagnostics.sendgrid_api_test === 'ok' ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.sendgrid_api_test || 'not tested'}</span></div>
+                  <div className="font-bold mt-2 mb-1">SMTP Port Tests:</div>
+                  {emailDiagnostics.connection_tests?.map((t: any, i: number) => (
+                    <div key={i}>
+                      Port {t.port} ({t.mode}): <span className={t.reachable ? 'text-green-600' : 'text-red-600'}>{t.reachable ? 'reachable' : `BLOCKED`}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -112,37 +112,42 @@ function decryptSmtpPass($encrypted) {
 
 function sendMail($to, $subject, $body, $isHtml = true) {
     try {
-        $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
+        $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('email_provider','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','sendgrid_api_key')");
         $config = [];
         foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
         $fromAddr = !empty($config['smtp_from'])
             ? $config['smtp_from']
             : (!empty($config['smtp_user']) ? $config['smtp_user'] : ('no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost')));
+        $provider = $config['email_provider'] ?? 'smtp';
 
-        $host = $config['smtp_host'] ?? '';
-        $port = $config['smtp_port'] ?? '587';
-        $user = $config['smtp_user'] ?? '';
-        $rawEncrypted = $config['smtp_pass'] ?? '';
-        $pass = !empty($rawEncrypted) ? decryptSmtpPass($rawEncrypted) : '';
-        $passOk = !empty($pass);
-        error_log("[smtp-debug] sendMail config: host=$host port=$port user=$user from=$fromAddr pass_decrypted=" . ($passOk ? 'yes' : 'no') . " to=$to subject=$subject");
-
-        // Try SMTP first (with 465→587 fallback built into sendMailSMTP)
-        if (!empty($host)) {
-            $smtpOk = sendMailSMTP($host, intval($port), $user, $pass, $fromAddr, $to, $subject, $body, $isHtml);
-            if ($smtpOk) return true;
-            error_log("[smtp-debug] sendMail: SMTP failed, falling back to mail()");
-        } else {
-            error_log("[smtp-debug] sendMail: no SMTP host configured, using mail()");
+        // 1) Try SendGrid API (port 443 — never blocked on shared hosting)
+        if ($provider === 'sendgrid' && !empty($config['sendgrid_api_key'])) {
+            error_log("[smtp-debug] sendMail: using SendGrid API to=$subject");
+            $apiOk = sendMailHttpApi($fromAddr, $to, $subject, $body, $isHtml);
+            if ($apiOk) return true;
+            error_log("[smtp-debug] sendMail: SendGrid failed, falling through");
         }
 
+        // 2) Try SMTP (with 465→587 fallback built into sendMailSMTP)
+        $host = $config['smtp_host'] ?? '';
+        if (!empty($host)) {
+            $port = $config['smtp_port'] ?? '587';
+            $user = $config['smtp_user'] ?? '';
+            $rawEncrypted = $config['smtp_pass'] ?? '';
+            $pass = !empty($rawEncrypted) ? decryptSmtpPass($rawEncrypted) : '';
+            $smtpOk = sendMailSMTP($host, intval($port), $user, $pass, $fromAddr, $to, $subject, $body, $isHtml);
+            if ($smtpOk) return true;
+            error_log("[smtp-debug] sendMail: SMTP failed");
+        }
+
+        // 3) Fallback to PHP mail()
+        error_log("[smtp-debug] sendMail: falling back to mail()");
         $headers   = [];
         $headers[] = 'MIME-Version: 1.0';
         $headers[] = 'Content-Type: ' . ($isHtml ? 'text/html' : 'text/plain') . '; charset=UTF-8';
         $headers[] = 'From: Lending System <' . $fromAddr . '>';
         $headers[] = 'Reply-To: ' . $fromAddr;
         $headers[] = 'X-Mailer: PHP/' . phpversion();
-
         $ok = @mail($to, $subject, $body, implode("\r\n", $headers));
         if (!$ok) log_error('sendMail failed', ['to' => $to, 'subject' => $subject]);
         return $ok;
@@ -249,6 +254,48 @@ function sendMailSMTP($host, $port, $user, $pass, $fromAddr, $to, $subject, $bod
     fgets($sock, 512);
     fclose($sock);
     return substr($resp, 0, 3) === '250';
+}
+
+function sendMailHttpApi($fromAddr, $to, $subject, $body, $isHtml) {
+    $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('sendgrid_api_key')");
+    $cfg = [];
+    foreach ($rows as $r) $cfg[$r['key_name']] = $r['key_value'];
+    $apiKey = !empty($cfg['sendgrid_api_key']) ? decryptSmtpPass($cfg['sendgrid_api_key']) : '';
+    if (empty($apiKey)) return false;
+    $url = 'https://api.sendgrid.com/v3/mail/send';
+    $payload = [
+        'personalizations' => [['to' => [['email' => $to]]]],
+        'from' => ['email' => $fromAddr],
+        'subject' => $subject,
+        'content' => [['type' => $isHtml ? 'text/html' : 'text/plain', 'value' => $body]],
+    ];
+    $json = json_encode($payload);
+    $ch = @curl_init();
+    if (!$ch) { error_log("[sendgrid] curl_init failed"); return false; }
+    @curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $json,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json',
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $resp = @curl_exec($ch);
+    $httpCode = @curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr = @curl_error($ch);
+    @curl_close($ch);
+    $ok = $httpCode >= 200 && $httpCode < 300;
+    if ($ok) {
+        error_log("[sendgrid] SUCCESS to=$subject code=$httpCode");
+    } else {
+        error_log("[sendgrid] FAILED to=$subject code=$httpCode err=$curlErr resp=" . substr($resp, 0, 500));
+    }
+    return $ok;
 }
 
 
@@ -927,6 +974,8 @@ function bootstrap() {
             $encrypted = encryptSmtpPass('Bureau@2026');
             q("INSERT INTO settings (key_name, key_value) VALUES ('smtp_pass', ?) ON DUPLICATE KEY UPDATE key_value = ?", [$encrypted, $encrypted]);
         }
+        // Seed email provider default (will use sendgrid when api_key is set)
+        q("INSERT IGNORE INTO settings (key_name, key_value) VALUES ('email_provider', 'sendgrid')");
 
         // Seed agreement sections
         $agreementSections = [
@@ -3241,7 +3290,7 @@ try {
             // Diagnostics endpoint — must come before generic GET handler
             if (strpos($uri, 'admin/email-settings/diagnostics') !== false) {
                 requireRole($user, 'admin');
-                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
+                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('email_provider','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','sendgrid_api_key')");
                 $cfg = [];
                 foreach ($rows as $r) $cfg[$r['key_name']] = $r['key_value'];
                 $host = $cfg['smtp_host'] ?? '';
@@ -3249,10 +3298,15 @@ try {
                 $user = $cfg['smtp_user'] ?? '';
                 $encPass = $cfg['smtp_pass'] ?? '';
                 $decPass = !empty($encPass) ? decryptSmtpPass($encPass) : '';
+                $encSgKey = $cfg['sendgrid_api_key'] ?? '';
+                $decSgKey = !empty($encSgKey) ? decryptSmtpPass($encSgKey) : '';
+                $provider = $cfg['email_provider'] ?? 'smtp';
                 $report = [
                     'php_openssl' => extension_loaded('openssl'),
                     'php_fsockopen' => function_exists('fsockopen'),
                     'php_mail' => function_exists('mail'),
+                    'php_curl' => function_exists('curl_init'),
+                    'provider' => $provider,
                     'config' => [
                         'host' => $host,
                         'port' => $port,
@@ -3260,10 +3314,12 @@ try {
                         'from' => $cfg['smtp_from'] ?? '',
                         'pass_exists_in_db' => !empty($encPass),
                         'pass_decrypts_ok' => !empty($decPass),
+                        'sendgrid_key_exists' => !empty($encSgKey),
+                        'sendgrid_key_decrypts_ok' => !empty($decSgKey),
                     ],
                     'connection_tests' => [],
                 ];
-                // Test connection to each port
+                // Test connection to SMTP ports
                 foreach ([[$port, $port === '465' ? 'ssl' : ($port === '587' ? 'tls' : 'plain')], ['465', 'ssl'], ['587', 'tls']] as [$testPort, $mode]) {
                     $prefix = $mode === 'ssl' ? 'ssl://' : ($mode === 'tls' ? 'tls://' : '');
                     $remote = $prefix . $host . ':' . $testPort;
@@ -3277,34 +3333,39 @@ try {
                         'reachable' => $ok,
                         'error' => $ok ? null : "errno=$eNo errstr=$eStr",
                     ];
-                    // If the configured port worked, also test the other common port
-                    if ($testPort === $port && $ok && $port === '465') {
-                        // Also test 587 as fallback option
-                        $remote2 = 'tls://' . $host . ':587';
-                        $eNo2 = 0; $eStr2 = '';
-                        $sock2 = @fsockopen($remote2, 587, $eNo2, $eStr2, 8);
-                        $ok2 = $sock2 !== false;
-                        if ($sock2) { fgets($sock2, 512); fputs($sock2, "QUIT\r\n"); fclose($sock2); }
-                        $report['connection_tests'][] = [
-                            'port' => 587,
-                            'mode' => 'tls',
-                            'reachable' => $ok2,
-                            'error' => $ok2 ? null : "errno=$eNo2 errstr=$eStr2",
-                            'note' => 'fallback (STARTTLS)',
-                        ];
+                }
+                // Test SendGrid API connectivity if key exists
+                if (!empty($decSgKey)) {
+                    $ch = @curl_init();
+                    if ($ch) {
+                        @curl_setopt_array($ch, [
+                            CURLOPT_URL => 'https://api.sendgrid.com/v3/scopes',
+                            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $decSgKey, 'Content-Type: application/json'],
+                            CURLOPT_RETURNTRANSFER => true,
+                            CURLOPT_TIMEOUT => 10,
+                            CURLOPT_SSL_VERIFYPEER => true,
+                        ]);
+                        $sgResp = @curl_exec($ch);
+                        $sgCode = @curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        @curl_close($ch);
+                        $report['sendgrid_api_test'] = $sgCode >= 200 && $sgCode < 300 ? 'ok' : "HTTP $sgCode";
+                    } else {
+                        $report['sendgrid_api_test'] = 'curl_init_failed';
                     }
+                } else {
+                    $report['sendgrid_api_test'] = 'no_key';
                 }
                 echo json_encode(['success' => true, 'data' => $report]);
                 exit;
             }
 
-            // Generic GET — return SMTP config (masked password)
+            // Generic GET — return email config (passwords masked)
             if ($method === 'GET') {
-                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
+                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('email_provider','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','sendgrid_api_key')");
                 $config = [];
                 foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
-                $hasPass = !empty($config['smtp_pass']);
-                if ($hasPass) $config['smtp_pass'] = '********';
+                if (!empty($config['smtp_pass'])) $config['smtp_pass'] = '********';
+                if (!empty($config['sendgrid_api_key'])) $config['sendgrid_api_key'] = '********';
                 echo json_encode(['success' => true, 'data' => $config]);
                 exit;
             }
@@ -3312,33 +3373,44 @@ try {
             if ($method === 'POST' && !strpos($uri, 'admin/email-settings/test')) {
                 requireRole($user, 'admin');
                 $d = input();
+                // Save provider
+                $provider = $d['email_provider'] ?? 'sendgrid';
+                q("INSERT INTO settings (key_name, key_value) VALUES ('email_provider', ?) ON DUPLICATE KEY UPDATE key_value = ?", [$provider, $provider]);
+                // Save SendGrid API key (encrypted at rest)
+                $sgKey = $d['sendgrid_api_key'] ?? '';
+                $existingSgKey = one("SELECT key_value FROM settings WHERE key_name = 'sendgrid_api_key'");
+                if ($sgKey !== '********' && !empty($sgKey)) {
+                    q("INSERT INTO settings (key_name, key_value) VALUES ('sendgrid_api_key', ?) ON DUPLICATE KEY UPDATE key_value = ?", [encryptSmtpPass($sgKey), encryptSmtpPass($sgKey)]);
+                }
+                // Save SMTP fields
                 $fields = ['smtp_host' => $d['smtp_host'] ?? '', 'smtp_port' => $d['smtp_port'] ?? '587', 'smtp_user' => $d['smtp_user'] ?? '', 'smtp_pass' => $d['smtp_pass'] ?? '', 'smtp_from' => $d['smtp_from'] ?? ''];
-                // Server-side validation — prevent wiping config with empty values
-                if (empty($fields['smtp_host']) || empty($fields['smtp_user']) || empty($fields['smtp_from'])) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'SMTP host, username, and from address are required']);
-                    exit;
-                }
-                $portVal = intval($fields['smtp_port']);
-                if ($portVal < 1 || $portVal > 65535) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'Invalid SMTP port']);
-                    exit;
-                }
-                $passChanged = $fields['smtp_pass'] !== '********' && !empty($fields['smtp_pass']);
-                error_log("[email-debug] POST email-settings: host={$fields['smtp_host']} port={$fields['smtp_port']} user={$fields['smtp_user']} from={$fields['smtp_from']} pass_changed=" . ($passChanged ? 'yes' : 'no'));
-                // If password sentinel sent, keep existing; otherwise encrypt
-                if ($fields['smtp_pass'] === '********') {
-                    // Check if a password was ever saved — reject if none exists
-                    $existing = one("SELECT key_value FROM settings WHERE key_name = 'smtp_pass' AND key_value != ''");
-                    if (!$existing) {
+                $hasSmtpHost = !empty($fields['smtp_host']);
+                if ($hasSmtpHost) {
+                    if (empty($fields['smtp_user']) || empty($fields['smtp_from'])) {
                         http_response_code(400);
-                        echo json_encode(['success' => false, 'error' => 'Password is required for initial SMTP setup']);
+                        echo json_encode(['success' => false, 'error' => 'SMTP username and from address are required']);
                         exit;
                     }
-                    unset($fields['smtp_pass']);
-                } elseif (!empty($fields['smtp_pass'])) {
-                    $fields['smtp_pass'] = encryptSmtpPass($fields['smtp_pass']);
+                    $portVal = intval($fields['smtp_port']);
+                    if ($portVal < 1 || $portVal > 65535) {
+                        http_response_code(400);
+                        echo json_encode(['success' => false, 'error' => 'Invalid SMTP port']);
+                        exit;
+                    }
+                    if ($fields['smtp_pass'] === '********') {
+                        $existing = one("SELECT key_value FROM settings WHERE key_name = 'smtp_pass' AND key_value != ''");
+                        if (!$existing) {
+                            http_response_code(400);
+                            echo json_encode(['success' => false, 'error' => 'Password is required for initial SMTP setup']);
+                            exit;
+                        }
+                        unset($fields['smtp_pass']);
+                    } elseif (!empty($fields['smtp_pass'])) {
+                        $fields['smtp_pass'] = encryptSmtpPass($fields['smtp_pass']);
+                    }
+                } else {
+                    // No SMTP host — don't save SMTP fields (only provider + SendGrid key)
+                    $fields = [];
                 }
                 foreach ($fields as $k => $v) {
                     $truncated = (strlen($k) > 10 ? substr($v, 0, 20) : $v);

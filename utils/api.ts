@@ -326,8 +326,8 @@ export const uploadCompanyLogo = async (file: File): Promise<{ success: boolean;
 // ==================== Email ====================
 export const emailApi = {
   getEmailSettings: () => get('/admin/email-settings'),
-  updateEmailSettings: (smtp_host: string, smtp_port: number, smtp_user: string, smtp_pass: string, smtp_from: string) =>
-    post('/admin/email-settings', { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from }),
+  updateEmailSettings: (data: { email_provider?: string; smtp_host?: string; smtp_port?: string; smtp_user?: string; smtp_pass?: string; smtp_from?: string; sendgrid_api_key?: string }) =>
+    post('/admin/email-settings', data),
   testEmailSettings: () => post('/admin/email-settings/test'),
   getEmailDiagnostics: () => get('/admin/email-settings/diagnostics'),
   sendReceipt: (loanId: number, repaymentId: number, recipientEmail: string) =>
