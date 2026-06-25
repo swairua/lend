@@ -2,16 +2,12 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # Skip rewrite processing for existing files and directories
+  # Skip rewrite for existing files and directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # API routing: route API requests to api.php
-  # Matches api/*, auth/*, admin/*, borrower/*, messages/*, public/*, loans/*, repayments/*, uploads/*
-  RewriteRule ^(api|auth|admin|borrower|messages|public|loans|repayments|uploads)(/|$) api.php [L]
-
-  # SPA Fallback: Route all other requests to index.html
+  # SPA fallback: serve index.html for all non-file routes
   RewriteRule ^ index.html [L]
 </IfModule>
 
