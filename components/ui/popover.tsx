@@ -80,7 +80,7 @@ const PopoverContent = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        `absolute z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none top-full mt-[${sideOffset}px] animate-in fade-in-0 zoom-in-95 ${alignClass}`,
+        `absolute z-50 w-72 max-w-[calc(100vw-1rem)] rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none top-full mt-[${sideOffset}px] animate-in fade-in-0 zoom-in-95 ${alignClass}`,
         className,
       )}
       style={{ marginTop: `${sideOffset}px` }}

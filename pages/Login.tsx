@@ -121,7 +121,7 @@ export default function Login() {
                   </div>
                   <div className="space-y-2.5">
                     <Label className="text-sm font-600 text-foreground">Client Type</Label>
-                    <div className="flex gap-6 pt-1">
+                    <div className="flex gap-4 sm:gap-6 pt-1 flex-wrap">
                       <label className="flex items-center gap-3 cursor-pointer text-sm font-500 hover:text-primary transition-colors">
                         <input
                           type="radio"
