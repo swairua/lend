@@ -91,7 +91,7 @@ const DialogOverlay = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "fixed inset-0 z-50 bg-black/80 animate-in fade-in-0",
+        "fixed inset-0 z-50 bg-red-950/80 animate-in fade-in-0",
         className,
       )}
       onClick={() => onOpenChange(false)}

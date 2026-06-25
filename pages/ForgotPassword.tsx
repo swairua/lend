@@ -28,7 +28,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 sm:p-6 pb-20 sm:pb-6 overflow-hidden relative">
+    <div className="min-h-screen bg-gradient-to-br from-red-950 via-red-900 to-red-950 flex items-center justify-center p-4 sm:p-6 pb-20 sm:pb-6 overflow-hidden relative">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -39,7 +39,7 @@ export default function ForgotPassword() {
         <div className="text-center mb-8 sm:mb-12 animate-fade-in">
           <img src="/icons/icon-192.png" alt="JECRI BUREAU" className="h-20 sm:h-24 w-auto mx-auto mb-4 sm:mb-6 object-contain rounded-lg backdrop-blur-sm" />
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">JECRI BUREAU</h1>
-          <p className="text-slate-300 text-xs sm:text-sm mt-2 font-500">Reset your password</p>
+          <p className="text-red-200 text-xs sm:text-sm mt-2 font-500">Reset your password</p>
         </div>
 
         {/* Glassmorphic Card */}
@@ -106,7 +106,7 @@ export default function ForgotPassword() {
           )}
         </div>
 
-        <p className="text-center text-slate-500 text-xs mt-8 font-500">
+        <p className="text-center text-red-300 text-xs mt-8 font-500">
           © 2026 JECRI BUREAU. All rights reserved.
         </p>
       </div>
