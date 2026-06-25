@@ -141,7 +141,44 @@
     }
   }
 
+  @keyframes glassGlow {
+    0%, 100% {
+      box-shadow: 0 8px 32px rgba(0, 100, 208, 0.1);
+    }
+    50% {
+      box-shadow: 0 8px 32px rgba(0, 100, 208, 0.2);
+    }
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.4s ease-out;
+  }
+
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl;
+  }
+
+  .glass-card-primary {
+    @apply bg-gradient-to-br from-white/15 via-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl shadow-xl;
+  }
+
+  .glass-input {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-white placeholder-white/50 focus:bg-white/15 focus:border-white/40 transition-all duration-300;
+  }
+
+  .glass-input::placeholder {
+    @apply text-white/50;
+  }
+
+  .glass-button {
+    @apply bg-gradient-to-r from-red-500 via-red-600 to-red-700 hover:from-red-600 hover:via-red-700 hover:to-red-800 text-white font-semibold shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95;
+  }
+
+  .glass-button-secondary {
+    @apply bg-white/15 hover:bg-white/25 border border-white/30 text-white font-semibold shadow-lg transition-all duration-300;
+  }
+
+  .glass-glow {
+    animation: glassGlow 3s ease-in-out infinite;
   }
 }
