@@ -26,7 +26,7 @@ function tsPlugin() {
 }
 
 // Frontend SPA only. API calls go directly to the PHP backend
-// (VITE_API_BASE, defaulting to https://lending.wayrus.co.ke/api.php)
+// (VITE_API_BASE, defaulting to https://bureau.jecrilogistics.com/api.php)
 // in both dev and production — no local proxy, no mock Node server.
 export default defineConfig({
   optimizeDeps: {

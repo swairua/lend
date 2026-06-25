@@ -219,8 +219,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // MySQL Production Database Configuration
 $DB_TYPE = 'mysql';
 $DB_HOST = 'localhost';
-$DB_NAME = 'wayrusc1_lending';
-$DB_USER = 'wayrusc1_lending';
+$DB_NAME = 'jecrilog_bureau';
+$DB_USER = 'jecrilog_jecrilog';
 $DB_PASS = 'Sirgeorge.12';
 $DB_FILE = __DIR__ . '/lending.db'; // Used only if DB_TYPE is 'sqlite'
 
@@ -1019,7 +1019,7 @@ try {
             $token = bin2hex(random_bytes(32));
             $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
             q("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [$token, $expires, $user['id']]);
-            $resetLink = "https://lending.wayrus.co.ke/reset-password/$token";
+            $resetLink = "https://bureau.jecrilogistics.com/reset-password/$token";
             $subject = "Password Reset - Lending System";
             $body = "<h2>Password Reset</h2><p>Dear {$user['name']},</p><p>We received a request to reset your password.</p>";
             $body .= "<p>Click the link below to reset your password (valid for 1 hour):</p>";

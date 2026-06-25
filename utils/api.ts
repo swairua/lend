@@ -1,7 +1,7 @@
 import { secureStorage } from './secureStorage';
 
 // Direct calls to PHP backend in BOTH dev and production.
-const API_BASE = (import.meta.env.VITE_API_BASE || 'https://lending.wayrus.co.ke/api.php').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_API_BASE || 'https://bureau.jecrilogistics.com/api.php').replace(/\/$/, '');
 const API_ORIGIN = API_BASE.replace(/\/api\.php.*$/, '');
 const UPLOADS_URL = (import.meta.env.VITE_UPLOADS_URL || API_ORIGIN + '/uploads').replace(/\/$/, '');
 
