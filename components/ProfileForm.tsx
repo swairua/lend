@@ -115,13 +115,14 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
             />
           </FieldGroup>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FieldGroup label="Business Type" id="profile_business_type">
               <Input
                 id="profile_business_type"
                 value={form.business_type}
                 onChange={(e) => handleChange('business_type', e.target.value)}
                 placeholder="e.g., Retail, Services"
+                className="min-h-[44px]"
               />
             </FieldGroup>
 
@@ -132,6 +133,7 @@ export function ProfileForm({ form, onChange, onSubmit, saving = false, userEmai
                 value={form.monthly_income}
                 onChange={(e) => handleChange('monthly_income', e.target.value)}
                 placeholder="50000"
+                className="min-h-[44px]"
               />
             </FieldGroup>
           </div>
