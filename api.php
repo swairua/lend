@@ -149,14 +149,16 @@ function sendMail($to, $subject, $body, $isHtml = true) {
 
 function sendMailSMTP($host, $port, $user, $pass, $fromAddr, $to, $subject, $body, $isHtml) {
     $errno = 0; $errstr = '';
-    $useTLS = $port === '587';
-    $remote = ($useTLS ? 'tls://' : '') . $host . ':' . $port;
+    $useSSL = $port === 465;
+    $useTLS = $port === 587;
+    $prefix = $useSSL ? 'ssl://' : ($useTLS ? 'tls://' : '');
+    $remote = $prefix . $host . ':' . $port;
     $sock = @fsockopen($remote, $port, $errno, $errstr, 15);
     if (!$sock) {
-        // Try without TLS prefix
+        // Try without SSL/TLS prefix
         $sock = @fsockopen($host, $port, $errno, $errstr, 15);
         if (!$sock) return false;
-        $useTLS = false;
+        $useSSL = $useTLS = false;
     }
     $response = fgets($sock, 512);
     fputs($sock, "EHLO lending-system\r\n"); $response = fgets($sock, 512);
@@ -839,6 +841,22 @@ function bootstrap() {
         ];
         foreach ($defaults as $k => $v) {
             q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
+        }
+
+        // Seed SMTP settings
+        $smtpDefaults = [
+            'smtp_host' => 'mail.jecrilogistics.com',
+            'smtp_port' => '465',
+            'smtp_user' => 'bureau@jecrilogistics.com',
+            'smtp_from' => 'bureau@jecrilogistics.com',
+        ];
+        foreach ($smtpDefaults as $k => $v) {
+            q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
+        }
+        $existingPass = one("SELECT key_value FROM settings WHERE key_name = 'smtp_pass'");
+        if (!$existingPass || empty($existingPass['key_value'])) {
+            $encrypted = encryptSmtpPass('Bureau@2026');
+            q("INSERT INTO settings (key_name, key_value) VALUES ('smtp_pass', ?) ON DUPLICATE KEY UPDATE key_value = ?", [$encrypted, $encrypted]);
         }
 
         // Seed agreement sections
