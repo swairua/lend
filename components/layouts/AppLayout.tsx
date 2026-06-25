@@ -211,49 +211,47 @@ export function AppLayout({ children, user, unreadMessages }: AppLayoutProps) {
         </div>
       </aside>
 
+      {/* Mobile Sidebar */}
+      <div className="md:hidden">
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" aria-label="Open menu" className="fixed top-4 left-4 z-30 min-h-[44px] min-w-[44px]">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72 flex flex-col">
+            <div className="p-4 border-b flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto" />
+                <h1 className="font-bold text-lg">{portalTitle}</h1>
+              </div>
+              {user?.role !== 'borrower' && (
+                <Link to="/admin/profile" className="text-xs text-muted-foreground hover:text-primary mt-1 block" onClick={() => setMobileMenuOpen(false)}>
+                  {user?.name || 'Profile'}
+                </Link>
+              )}
+            </div>
+            <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+              {navItems.map(navLink)}
+            </nav>
+            <div className="p-2 border-t flex-shrink-0">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-5 w-5 mr-2" />
+                Logout
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
       {/* Main Content */}
       <main className={cn('flex-1 transition-all duration-300', sidebarOpen && 'md:ml-64', !sidebarOpen && 'md:ml-20')}>
-        {/* Mobile Header */}
-        <header className="md:hidden fixed top-0 left-0 right-0 w-full z-40 bg-background border-b">
-          <div className="flex items-center justify-between p-3">
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" aria-label="Open menu" className="min-h-[44px] min-w-[44px]">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72">
-                <div className="p-4 border-b">
-                  <div className="flex items-center gap-2">
-                    <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto" />
-                    <h1 className="font-bold text-lg">{portalTitle}</h1>
-                  </div>
-                  {user?.role !== 'borrower' && (
-                    <Link to="/admin/profile" className="text-xs text-muted-foreground hover:text-primary mt-1 block" onClick={() => setMobileMenuOpen(false)}>
-                      {user?.name || 'Profile'}
-                    </Link>
-                  )}
-                </div>
-                <nav className="p-2 space-y-1">
-                  {navItems.map(navLink)}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 mt-4"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-5 w-5 mr-2" />
-                    Logout
-                  </Button>
-                </nav>
-              </SheetContent>
-            </Sheet>
-            <h1 className="font-bold">{portalTitle}</h1>
-            <div className="w-8" />
-          </div>
-        </header>
-
         {/* Page Content */}
-        <div className="p-4 pt-14 md:pt-4">{children}</div>
+        <div className="p-4 pt-20 md:pt-4">{children}</div>
       </main>
     </div>
   );
