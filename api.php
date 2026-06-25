@@ -3370,7 +3370,7 @@ try {
                 exit;
             }
 
-            if ($method === 'POST' && !strpos($uri, 'admin/email-settings/test')) {
+            if ($method === 'POST' && strpos($uri, 'admin/email-settings/test') === false) {
                 requireRole($user, 'admin');
                 $d = input();
                 // Save provider
@@ -3423,10 +3423,13 @@ try {
             }
 
             if ($method === 'POST' && strpos($uri, 'admin/email-settings/test') !== false) {
-                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
+                error_log("[test-email] ENTERED test endpoint");
+                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('email_provider','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','sendgrid_api_key')");
                 $config = [];
                 foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
-                error_log("[email-debug] TEST email-settings: from={$config['smtp_from']} host={$config['smtp_host']} port={$config['smtp_port']} user={$config['smtp_user']} pass_exists=" . (!empty($config['smtp_pass']) ? 'yes' : 'no'));
+                $provider = $config['email_provider'] ?? 'smtp';
+                $sgKeyExists = !empty($config['sendgrid_api_key']);
+                error_log("[test-email] config: provider=$provider from={$config['smtp_from']} host={$config['smtp_host']} port={$config['smtp_port']} user={$config['smtp_user']} pass_exists=" . (!empty($config['smtp_pass']) ? 'yes' : 'no') . " sendgrid_key_exists=" . ($sgKeyExists ? 'yes' : 'no'));
                 if (empty($config['smtp_from'])) {
                     error_log("[email-debug] TEST email-settings: smtp_from empty, aborting");
                     echo json_encode(['success' => false, 'message' => 'Email settings not configured']);
