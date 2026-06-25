@@ -85,24 +85,30 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8 p-0">
-          <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-32 w-auto mx-auto mb-6" />
-          <h1 className="text-4xl font-bold text-white">JECRI BUREAU</h1>
-          <p className="text-slate-400 text-sm mt-1">Fast, transparent lending solutions</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 sm:p-6 pb-20 sm:pb-6 animate-fade-in">
+      <div className="w-full max-w-md">
+        {/* Logo & Header */}
+        <div className="text-center mb-8 sm:mb-10 p-0 animate-fade-in">
+          <img
+            src={logoUrl || '/icons/icon-192.png'}
+            alt="JECRI BUREAU"
+            className="h-28 sm:h-32 w-auto mx-auto mb-6 sm:mb-8 object-contain"
+          />
+          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">JECRI BUREAU</h1>
+          <p className="text-slate-300 text-sm sm:text-base mt-2 font-500">Fast, transparent lending solutions</p>
         </div>
 
-        <Card className="border-0 shadow-2xl">
-          <CardContent className="p-4 sm:p-6">
-            <h2 className="text-xl font-bold mb-4">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-3">
+        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm transition-all duration-300 hover:shadow-3xl">
+          <CardContent className="p-6 sm:p-8">
+            <h2 className="text-2xl sm:text-2xl font-bold mb-6 text-foreground tracking-tight">
+              {isLogin ? 'Welcome Back' : 'Create Account'}
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
               {!isLogin && (
                 <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="name" className="text-sm">Full Name</Label>
+                  <div className="space-y-2.5">
+                    <Label htmlFor="name" className="text-sm font-600 text-foreground">Full Name</Label>
                     <Input
                       id="name"
                       type="text"
@@ -110,36 +116,52 @@ export default function Login() {
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       required={!isLogin}
-                      className="h-10"
+                      className="h-11 sm:h-12 transition-all duration-200 focus:ring-2 focus:ring-offset-0"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm">Client Type</Label>
-                    <div className="flex gap-4 pt-1">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input type="radio" name="client_type" value="individual" checked={form.client_type==="individual"} onChange={()=>setForm({...form,client_type:"individual"})} className="accent-primary" /> Individual
+                  <div className="space-y-2.5">
+                    <Label className="text-sm font-600 text-foreground">Client Type</Label>
+                    <div className="flex gap-6 pt-1">
+                      <label className="flex items-center gap-3 cursor-pointer text-sm font-500 hover:text-primary transition-colors">
+                        <input
+                          type="radio"
+                          name="client_type"
+                          value="individual"
+                          checked={form.client_type==="individual"}
+                          onChange={()=>setForm({...form,client_type:"individual"})}
+                          className="w-5 h-5 accent-primary cursor-pointer"
+                        />
+                        Individual
                       </label>
-                      <label className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input type="radio" name="client_type" value="corporate" checked={form.client_type==="corporate"} onChange={()=>setForm({...form,client_type:"corporate"})} className="accent-primary" /> Corporate
+                      <label className="flex items-center gap-3 cursor-pointer text-sm font-500 hover:text-primary transition-colors">
+                        <input
+                          type="radio"
+                          name="client_type"
+                          value="corporate"
+                          checked={form.client_type==="corporate"}
+                          onChange={()=>setForm({...form,client_type:"corporate"})}
+                          className="w-5 h-5 accent-primary cursor-pointer"
+                        />
+                        Corporate
                       </label>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone" className="text-sm">Phone Number</Label>
+                  <div className="space-y-2.5">
+                    <Label htmlFor="phone" className="text-sm font-600 text-foreground">Phone Number</Label>
                     <Input
                       id="phone"
                       type="tel"
                       placeholder="+254700000000"
                       value={form.phone}
                       onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      className="h-10"
+                      className="h-11 sm:h-12 transition-all duration-200 focus:ring-2 focus:ring-offset-0"
                     />
                   </div>
                 </>
               )}
 
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-sm">Email</Label>
+              <div className="space-y-2.5">
+                <Label htmlFor="email" className="text-sm font-600 text-foreground">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -147,12 +169,12 @@ export default function Login() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   required
-                  className="h-10"
+                  className="h-11 sm:h-12 transition-all duration-200 focus:ring-2 focus:ring-offset-0"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-sm">Password</Label>
+              <div className="space-y-2.5">
+                <Label htmlFor="password" className="text-sm font-600 text-foreground">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -161,38 +183,48 @@ export default function Login() {
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     required
-                    className="h-10 pr-10"
+                    className="h-11 sm:h-12 pr-12 transition-all duration-200 focus:ring-2 focus:ring-offset-0"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-slate-100 rounded-md"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
 
               {isLogin && (
-                <div className="text-right text-sm">
-                  <Link to="/forgot-password" className="text-muted-foreground hover:text-primary">Forgot Password?</Link>
+                <div className="text-right pt-1">
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm font-500 text-muted-foreground hover:text-primary transition-colors duration-200"
+                  >
+                    Forgot Password?
+                  </Link>
                 </div>
               )}
 
-              <Button type="submit" className="w-full h-10" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full min-h-[44px] sm:min-h-[48px] text-base font-600 transition-all duration-200 mt-6"
+                disabled={loading}
+              >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isLogin ? 'Sign In' : 'Create Account'}
               </Button>
             </form>
 
-            <div className="mt-4 text-center text-sm">
-              <span className="text-muted-foreground">
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground font-500">
                 {isLogin ? "Don't have an account?" : 'Already have an account?'}
               </span>
               <button
                 type="button"
                 onClick={() => setIsLogin(!isLogin)}
-                className="ml-1 text-primary font-medium hover:underline"
+                className="ml-2 text-primary font-600 hover:underline transition-colors duration-200"
               >
                 {isLogin ? 'Sign up' : 'Sign in'}
               </button>
@@ -201,13 +233,13 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-slate-500 text-xs mt-6">
+        <p className="text-center text-slate-400 text-xs mt-8 font-500">
           © 2026 JECRI BUREAU. All rights reserved.
         </p>
         </div>
-        
+
         {/* Custom Alert */}
         {AlertComponent}
-      </div>   
+      </div>
   );
 }
