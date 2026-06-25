@@ -127,13 +127,14 @@ function sendMail($to, $subject, $body, $isHtml = true) {
         $passOk = !empty($pass);
         error_log("[smtp-debug] sendMail config: host=$host port=$port user=$user from=$fromAddr pass_decrypted=" . ($passOk ? 'yes' : 'no') . " to=$to subject=$subject");
 
-        // If SMTP host is configured, use SMTP via fsockopen; otherwise fall back to mail()
+        // Try SMTP first (with 465→587 fallback built into sendMailSMTP)
         if (!empty($host)) {
             $smtpOk = sendMailSMTP($host, intval($port), $user, $pass, $fromAddr, $to, $subject, $body, $isHtml);
-            if (!$smtpOk) log_error('sendMail SMTP failed', ['host' => $host, 'port' => $port, 'to' => $to]);
-            return $smtpOk;
+            if ($smtpOk) return true;
+            error_log("[smtp-debug] sendMail: SMTP failed, falling back to mail()");
+        } else {
+            error_log("[smtp-debug] sendMail: no SMTP host configured, using mail()");
         }
-        error_log("[smtp-debug] sendMail: no SMTP host configured, falling back to mail()");
 
         $headers   = [];
         $headers[] = 'MIME-Version: 1.0';
@@ -3251,6 +3252,7 @@ try {
                 $report = [
                     'php_openssl' => extension_loaded('openssl'),
                     'php_fsockopen' => function_exists('fsockopen'),
+                    'php_mail' => function_exists('mail'),
                     'config' => [
                         'host' => $host,
                         'port' => $port,

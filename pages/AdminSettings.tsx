@@ -1057,6 +1057,7 @@ export default function AdminSettings() {
                     <div className="font-bold text-sm mb-2">Diagnostics Report</div>
                     <div>PHP OpenSSL: <span className={emailDiagnostics.php_openssl ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_openssl ? 'available' : 'MISSING'}</span></div>
                     <div>PHP fsockopen: <span className={emailDiagnostics.php_fsockopen ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_fsockopen ? 'available' : 'MISSING'}</span></div>
+                    <div>PHP mail(): <span className={emailDiagnostics.php_mail ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_mail ? 'available' : 'MISSING'}</span></div>
                     <div>Config: {emailDiagnostics.config?.host}:{emailDiagnostics.config?.port} as {emailDiagnostics.config?.user}</div>
                     <div>Password in DB: <span className={emailDiagnostics.config?.pass_exists_in_db ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.pass_exists_in_db ? 'yes' : 'no'}</span></div>
                     <div>Password decrypts: <span className={emailDiagnostics.config?.pass_decrypts_ok ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.pass_decrypts_ok ? 'ok' : 'FAILED'}</span></div>
