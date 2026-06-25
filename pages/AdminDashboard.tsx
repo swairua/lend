@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { adminApi, formatKES, formatDate, getStatusColor, getStatusLabel } from '../types/api';
 import { secureStorage } from '../utils/secureStorage';
-import { Loader2, Users, DollarSign, TrendingUp, FileText, CreditCard, AlertTriangle, LogOut, Home, Settings, BarChart3, Calendar, Activity, PieChart, Wallet, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Loader2, Users, DollarSign, TrendingUp, FileText, CreditCard, AlertTriangle, Home, Settings, BarChart3, Calendar, Activity, PieChart, Wallet, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 interface DashboardStats {
   total_borrowers: number;
@@ -86,11 +86,6 @@ export default function AdminDashboard() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const handleLogout = async () => {
-    await secureStorage.clear();
-    navigate('/login');
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -120,10 +115,6 @@ export default function AdminDashboard() {
             <Button variant="ghost" onClick={loadDashboard} disabled={isRefreshing} title="Refresh dashboard data" className="min-h-[44px]">
               <Activity className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
-            <Button variant="ghost" onClick={handleLogout} className="min-h-[44px]">
-              <LogOut className="h-4 w-4 text-red-500 mr-2" />
-              Logout
             </Button>
           </div>
         </div>
