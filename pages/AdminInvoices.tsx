@@ -300,7 +300,7 @@ export default function AdminInvoices() {
           {selected && (<div className="space-y-4">
             <div className="flex justify-between items-center">
               <Badge className={statusColors[selected.status] || ''}>{selected.status}</Badge>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {selected.status !== 'cancelled' && selected.status !== 'paid' && <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); openEdit(selected); }}><Pencil className="w-3 h-3 mr-1" />Edit</Button>}
                 {selected.status === 'draft' && <Button size="sm" onClick={() => handleStatus(selected.id, 'sent')}>Mark Sent</Button>}
                 {selected.status === 'sent' && (<><Button size="sm" variant="outline" onClick={() => handleStatus(selected.id, 'paid')}>Mark Paid</Button><Button size="sm" variant="outline" onClick={() => handleStatus(selected.id, 'overdue')}>Mark Overdue</Button></>)}
