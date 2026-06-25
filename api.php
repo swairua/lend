@@ -843,7 +843,7 @@ function bootstrap() {
             q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
         }
 
-        // Seed SMTP settings
+        // Seed SMTP settings — repair empty values that may have been written by old frontend
         $smtpDefaults = [
             'smtp_host' => 'mail.jecrilogistics.com',
             'smtp_port' => '465',
@@ -851,7 +851,10 @@ function bootstrap() {
             'smtp_from' => 'bureau@jecrilogistics.com',
         ];
         foreach ($smtpDefaults as $k => $v) {
-            q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
+            $existing = one("SELECT key_value FROM settings WHERE key_name = ?", [$k]);
+            if (!$existing || empty($existing['key_value'])) {
+                q("INSERT INTO settings (key_name, key_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE key_value = ?", [$k, $v, $v]);
+            }
         }
         $existingPass = one("SELECT key_value FROM settings WHERE key_name = 'smtp_pass'");
         if (!$existingPass || empty($existingPass['key_value'])) {
@@ -3186,6 +3189,18 @@ try {
                 requireRole($user, 'admin');
                 $d = input();
                 $fields = ['smtp_host' => $d['smtp_host'] ?? '', 'smtp_port' => $d['smtp_port'] ?? '587', 'smtp_user' => $d['smtp_user'] ?? '', 'smtp_pass' => $d['smtp_pass'] ?? '', 'smtp_from' => $d['smtp_from'] ?? ''];
+                // Server-side validation — prevent wiping config with empty values
+                if (empty($fields['smtp_host']) || empty($fields['smtp_user']) || empty($fields['smtp_from'])) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'SMTP host, username, and from address are required']);
+                    exit;
+                }
+                $portVal = intval($fields['smtp_port']);
+                if ($portVal < 1 || $portVal > 65535) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Invalid SMTP port']);
+                    exit;
+                }
                 $passChanged = $fields['smtp_pass'] !== '********' && !empty($fields['smtp_pass']);
                 error_log("[email-debug] POST email-settings: host={$fields['smtp_host']} port={$fields['smtp_port']} user={$fields['smtp_user']} from={$fields['smtp_from']} pass_changed=" . ($passChanged ? 'yes' : 'no'));
                 // If password sentinel sent, keep existing; otherwise encrypt
