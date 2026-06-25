@@ -214,7 +214,7 @@ export function AppLayout({ children, user, unreadMessages }: AppLayoutProps) {
       {/* Main Content */}
       <main className={cn('flex-1 transition-all duration-300', sidebarOpen && 'md:ml-64', !sidebarOpen && 'md:ml-20')}>
         {/* Mobile Header */}
-        <header className="md:hidden sticky top-0 z-30 bg-background border-b">
+        <header className="md:hidden fixed top-0 left-0 right-0 w-full z-40 bg-background border-b">
           <div className="flex items-center justify-between p-3">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
