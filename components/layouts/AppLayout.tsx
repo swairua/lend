@@ -164,10 +164,19 @@ export function AppLayout({ children, user, unreadMessages }: AppLayoutProps) {
         )}
       >
         <div className="p-4 border-b flex items-center justify-between gap-2">
-          <Link to="/" className="flex items-center gap-2 flex-1">
-            <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto" />
-            {sidebarOpen && <h1 className="font-bold text-lg">{portalTitle}</h1>}
-          </Link>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto flex-shrink-0" />
+            {sidebarOpen && (
+              <div className="min-w-0">
+                <h1 className="font-bold text-lg leading-tight truncate">{portalTitle}</h1>
+                {user?.role !== 'borrower' && (
+                  <Link to="/admin/profile" className="text-xs text-muted-foreground hover:text-primary truncate block">
+                    {user?.name || 'Profile'}
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -214,9 +223,16 @@ export function AppLayout({ children, user, unreadMessages }: AppLayoutProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72">
-                <div className="p-4 border-b flex items-center gap-2">
-                  <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto" />
-                  <h1 className="font-bold text-lg">{portalTitle}</h1>
+                <div className="p-4 border-b">
+                  <div className="flex items-center gap-2">
+                    <img src={logoUrl || '/icons/icon-192.png'} alt="JECRI BUREAU" className="h-8 w-auto" />
+                    <h1 className="font-bold text-lg">{portalTitle}</h1>
+                  </div>
+                  {user?.role !== 'borrower' && (
+                    <Link to="/admin/profile" className="text-xs text-muted-foreground hover:text-primary mt-1 block" onClick={() => setMobileMenuOpen(false)}>
+                      {user?.name || 'Profile'}
+                    </Link>
+                  )}
                 </div>
                 <nav className="p-2 space-y-1">
                   {navItems.map(navLink)}

@@ -37,7 +37,7 @@ export const navigationItems: NavItem[] = [
   { label: 'Messages', href: '/messages', icon: MessageSquare, roles: ['borrower'], badge: 'messages' },
 
   // Admin - Profile
-  { label: 'My Profile', href: '/admin/profile', icon: User, roles: ['admin', 'releaser', 'manager', 'agent'] },
+  { label: 'Profile', href: '/admin/profile', icon: User, roles: ['admin', 'releaser', 'manager', 'agent'] },
 
   // Admin Dashboards
   { label: 'Dashboard', href: '/admin', icon: Home, roles: ['admin', 'releaser', 'manager', 'agent'] },
