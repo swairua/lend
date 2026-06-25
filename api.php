@@ -122,7 +122,10 @@ function sendMail($to, $subject, $body, $isHtml = true) {
         $host = $config['smtp_host'] ?? '';
         $port = $config['smtp_port'] ?? '587';
         $user = $config['smtp_user'] ?? '';
-        $pass = !empty($config['smtp_pass']) ? decryptSmtpPass($config['smtp_pass']) : '';
+        $rawEncrypted = $config['smtp_pass'] ?? '';
+        $pass = !empty($rawEncrypted) ? decryptSmtpPass($rawEncrypted) : '';
+        $passOk = !empty($pass);
+        error_log("[smtp-debug] sendMail config: host=$host port=$port user=$user from=$fromAddr pass_decrypted=" . ($passOk ? 'yes' : 'no') . " to=$to subject=$subject");
 
         // If SMTP host is configured, use SMTP via fsockopen; otherwise fall back to mail()
         if (!empty($host)) {
@@ -130,6 +133,7 @@ function sendMail($to, $subject, $body, $isHtml = true) {
             if (!$smtpOk) log_error('sendMail SMTP failed', ['host' => $host, 'port' => $port, 'to' => $to]);
             return $smtpOk;
         }
+        error_log("[smtp-debug] sendMail: no SMTP host configured, falling back to mail()");
 
         $headers   = [];
         $headers[] = 'MIME-Version: 1.0';
@@ -153,34 +157,81 @@ function sendMailSMTP($host, $port, $user, $pass, $fromAddr, $to, $subject, $bod
     $useTLS = $port === 587;
     $prefix = $useSSL ? 'ssl://' : ($useTLS ? 'tls://' : '');
     $remote = $prefix . $host . ':' . $port;
+    $log = function($msg, $resp = '') use ($host, $port) {
+        $r = $resp !== '' ? " => $resp" : '';
+        error_log("[smtp-debug] $host:$port $msg$r");
+    };
     $sock = @fsockopen($remote, $port, $errno, $errstr, 15);
     if (!$sock) {
-        // Try without SSL/TLS prefix
+        $log("fsockopen FAILED ($remote) errno=$errno errstr=$errstr");
         $sock = @fsockopen($host, $port, $errno, $errstr, 15);
-        if (!$sock) return false;
+        if (!$sock) {
+            $log("fsockopen FAILED (fallback $host:$port) errno=$errno errstr=$errstr");
+            return false;
+        }
         $useSSL = $useTLS = false;
+        $log("fsockopen OK (fallback plain)");
+    } else {
+        $log("fsockopen OK ($remote)");
     }
-    $response = fgets($sock, 512);
-    fputs($sock, "EHLO lending-system\r\n"); $response = fgets($sock, 512);
+    $resp = trim(fgets($sock, 512));
+    $log("banner", $resp);
+    fputs($sock, "EHLO lending-system\r\n");
+    $resp = trim(fgets($sock, 512));
+    $log("EHLO", $resp);
+    // Read multi-line EHLO response
+    while (substr($resp, 3, 1) === '-') { $resp = trim(fgets($sock, 512)); $log("EHLO cont", $resp); }
     if ($useTLS) {
-        fputs($sock, "STARTTLS\r\n"); fgets($sock, 512);
-        stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-        fputs($sock, "EHLO lending-system\r\n"); fgets($sock, 512);
+        fputs($sock, "STARTTLS\r\n");
+        $resp = trim(fgets($sock, 512));
+        $log("STARTTLS", $resp);
+        $ok = @stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+        $log("crypto_enable", $ok ? 'OK' : 'FAILED');
+        if (!$ok) { fclose($sock); return false; }
+        fputs($sock, "EHLO lending-system\r\n");
+        $resp = trim(fgets($sock, 512));
+        $log("EHLO (after TLS)", $resp);
+        while (substr($resp, 3, 1) === '-') { $resp = trim(fgets($sock, 512)); $log("EHLO cont", $resp); }
     }
     if (!empty($user) && !empty($pass)) {
-        fputs($sock, "AUTH LOGIN\r\n"); fgets($sock, 512);
-        fputs($sock, base64_encode($user) . "\r\n"); fgets($sock, 512);
-        fputs($sock, base64_encode($pass) . "\r\n"); fgets($sock, 512);
+        fputs($sock, "AUTH LOGIN\r\n");
+        $resp = trim(fgets($sock, 512));
+        $log("AUTH LOGIN", $resp);
+        fputs($sock, base64_encode($user) . "\r\n");
+        $resp = trim(fgets($sock, 512));
+        $log("AUTH user", $resp);
+        fputs($sock, base64_encode($pass) . "\r\n");
+        $resp = trim(fgets($sock, 512));
+        $log("AUTH pass", $resp);
+        if (substr($resp, 0, 3) !== '235') {
+            $log("AUTH FAILED — wrong credentials or server rejected");
+            fclose($sock);
+            return false;
+        }
+    } else {
+        $log("AUTH skipped (no credentials)");
     }
     $contentType = $isHtml ? 'text/html' : 'text/plain';
-    fputs($sock, "MAIL FROM:<$fromAddr>\r\n"); fgets($sock, 512);
-    fputs($sock, "RCPT TO:<$to>\r\n"); fgets($sock, 512);
-    fputs($sock, "DATA\r\n"); fgets($sock, 512);
+    fputs($sock, "MAIL FROM:<$fromAddr>\r\n");
+    $resp = trim(fgets($sock, 512));
+    $log("MAIL FROM", $resp);
+    if (substr($resp, 0, 3) !== '250') { fclose($sock); return false; }
+    fputs($sock, "RCPT TO:<$to>\r\n");
+    $resp = trim(fgets($sock, 512));
+    $log("RCPT TO", $resp);
+    if (substr($resp, 0, 3) !== '250') { fclose($sock); return false; }
+    fputs($sock, "DATA\r\n");
+    $resp = trim(fgets($sock, 512));
+    $log("DATA", $resp);
+    if (substr($resp, 0, 3) !== '354') { fclose($sock); return false; }
     $headers = "From: $fromAddr\r\nReply-To: $fromAddr\r\nMIME-Version: 1.0\r\nContent-Type: $contentType; charset=UTF-8\r\nX-Mailer: PHP/SMTP";
-    fputs($sock, "$headers\r\n\r\n$body\r\n.\r\n"); fgets($sock, 512);
+    fputs($sock, "$headers\r\n\r\n$body\r\n.\r\n");
+    $resp = trim(fgets($sock, 512));
+    $log("mail sent", $resp);
     fputs($sock, "QUIT\r\n");
+    fgets($sock, 512);
     fclose($sock);
-    return true;
+    return substr($resp, 0, 3) === '250';
 }
 
 
