@@ -329,6 +329,7 @@ export const emailApi = {
   updateEmailSettings: (smtp_host: string, smtp_port: number, smtp_user: string, smtp_pass: string, smtp_from: string) =>
     post('/admin/email-settings', { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from }),
   testEmailSettings: () => post('/admin/email-settings/test'),
+  getEmailDiagnostics: () => get('/admin/email-settings/diagnostics'),
   sendReceipt: (loanId: number, repaymentId: number, recipientEmail: string) =>
     post('/admin/send-receipt', { loan_id: loanId, repayment_id: repaymentId, recipient_email: recipientEmail }),
   sendInvoice: (loanId: number, recipientEmail: string) =>

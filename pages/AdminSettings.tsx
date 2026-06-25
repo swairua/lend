@@ -123,6 +123,8 @@ export default function AdminSettings() {
   const [emailTesting, setEmailTesting] = useState(false);
   const [smtpPassChanged, setSmtpPassChanged] = useState(false);
   const [passwordRequired, setPasswordRequired] = useState(false);
+  const [emailDiagnostics, setEmailDiagnostics] = useState<any>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const { showAlert, confirm, AlertComponent } = useAlert();
   const [config, setConfig] = useState<SystemConfig>({
     company_name: '',
@@ -397,6 +399,19 @@ export default function AdminSettings() {
       toast.error(error.message || 'Failed to test email settings');
     } finally {
       setEmailTesting(false);
+    }
+  };
+
+  const handleEmailDiagnostics = async () => {
+    setDiagnosticsLoading(true);
+    setEmailDiagnostics(null);
+    try {
+      const result: any = await emailApi.getEmailDiagnostics();
+      setEmailDiagnostics(result.data || result);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to run diagnostics');
+    } finally {
+      setDiagnosticsLoading(false);
     }
   };
 
@@ -1019,18 +1034,43 @@ export default function AdminSettings() {
                   {emailSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Email Settings
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleTestEmailSettings}
-                  disabled={emailTesting || !emailSettings.smtp_host || !emailSettings.smtp_user || !emailSettings.smtp_pass}
-                >
-                  {emailTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                  Test Connection
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  <Button
+                    variant="outline"
+                    onClick={handleTestEmailSettings}
+                    disabled={emailTesting || !emailSettings.smtp_host || !emailSettings.smtp_user || (!emailSettings.smtp_pass && passwordRequired)}
+                  >
+                    {emailTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                    Test Connection
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleEmailDiagnostics}
+                    disabled={diagnosticsLoading}
+                  >
+                    {diagnosticsLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <AlertTriangle className="h-4 w-4 mr-2" />}
+                    Run Diagnostics
+                  </Button>
+                </div>
+
+                {emailDiagnostics && (
+                  <div className="mt-4 p-4 bg-gray-50 border rounded-lg text-xs font-mono space-y-1">
+                    <div className="font-bold text-sm mb-2">Diagnostics Report</div>
+                    <div>PHP OpenSSL: <span className={emailDiagnostics.php_openssl ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_openssl ? 'available' : 'MISSING'}</span></div>
+                    <div>PHP fsockopen: <span className={emailDiagnostics.php_fsockopen ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.php_fsockopen ? 'available' : 'MISSING'}</span></div>
+                    <div>Config: {emailDiagnostics.config?.host}:{emailDiagnostics.config?.port} as {emailDiagnostics.config?.user}</div>
+                    <div>Password in DB: <span className={emailDiagnostics.config?.pass_exists_in_db ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.pass_exists_in_db ? 'yes' : 'no'}</span></div>
+                    <div>Password decrypts: <span className={emailDiagnostics.config?.pass_decrypts_ok ? 'text-green-600' : 'text-red-600'}>{emailDiagnostics.config?.pass_decrypts_ok ? 'ok' : 'FAILED'}</span></div>
+                    <div className="font-bold mt-2 mb-1">Connection Tests:</div>
+                    {emailDiagnostics.connection_tests?.map((t: any, i: number) => (
+                      <div key={i}>
+                        Port {t.port} ({t.mode}{t.note ? ` — ${t.note}` : ''}): <span className={t.reachable ? 'text-green-600' : 'text-red-600'}>{t.reachable ? 'reachable' : `BLOCKED — ${t.error}`}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
         <TabsContent value="mpesa" className="mt-4">
           <Card>

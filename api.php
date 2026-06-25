@@ -164,13 +164,29 @@ function sendMailSMTP($host, $port, $user, $pass, $fromAddr, $to, $subject, $bod
     $sock = @fsockopen($remote, $port, $errno, $errstr, 15);
     if (!$sock) {
         $log("fsockopen FAILED ($remote) errno=$errno errstr=$errstr");
-        $sock = @fsockopen($host, $port, $errno, $errstr, 15);
-        if (!$sock) {
-            $log("fsockopen FAILED (fallback $host:$port) errno=$errno errstr=$errstr");
-            return false;
+        // Fallback: if port 465 SSL fails, try port 587 STARTTLS
+        if ($useSSL) {
+            $log("port 465 SSL failed — trying 587 STARTTLS fallback");
+            $port = 587;
+            $useSSL = false;
+            $useTLS = true;
+            $remote = 'tls://' . $host . ':' . $port;
+            $sock = @fsockopen($remote, $port, $errno, $errstr, 15);
+            if ($sock) {
+                $log("fsockopen OK (587 STARTTLS fallback)");
+            } else {
+                $log("fsockopen FAILED (587 fallback) errno=$errno errstr=$errstr");
+                return false;
+            }
+        } else {
+            $sock = @fsockopen($host, $port, $errno, $errstr, 15);
+            if (!$sock) {
+                $log("fsockopen FAILED (fallback $host:$port) errno=$errno errstr=$errstr");
+                return false;
+            }
+            $useSSL = $useTLS = false;
+            $log("fsockopen OK (fallback plain)");
         }
-        $useSSL = $useTLS = false;
-        $log("fsockopen OK (fallback plain)");
     } else {
         $log("fsockopen OK ($remote)");
     }
@@ -3221,15 +3237,72 @@ try {
 
         // Email Settings
         if (strpos($uri, 'admin/email-settings') !== false) {
+            // Diagnostics endpoint — must come before generic GET handler
+            if (strpos($uri, 'admin/email-settings/diagnostics') !== false) {
+                requireRole($user, 'admin');
+                $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
+                $cfg = [];
+                foreach ($rows as $r) $cfg[$r['key_name']] = $r['key_value'];
+                $host = $cfg['smtp_host'] ?? '';
+                $port = $cfg['smtp_port'] ?? '587';
+                $user = $cfg['smtp_user'] ?? '';
+                $encPass = $cfg['smtp_pass'] ?? '';
+                $decPass = !empty($encPass) ? decryptSmtpPass($encPass) : '';
+                $report = [
+                    'php_openssl' => extension_loaded('openssl'),
+                    'php_fsockopen' => function_exists('fsockopen'),
+                    'config' => [
+                        'host' => $host,
+                        'port' => $port,
+                        'user' => $user,
+                        'from' => $cfg['smtp_from'] ?? '',
+                        'pass_exists_in_db' => !empty($encPass),
+                        'pass_decrypts_ok' => !empty($decPass),
+                    ],
+                    'connection_tests' => [],
+                ];
+                // Test connection to each port
+                foreach ([[$port, $port === '465' ? 'ssl' : ($port === '587' ? 'tls' : 'plain')], ['465', 'ssl'], ['587', 'tls']] as [$testPort, $mode]) {
+                    $prefix = $mode === 'ssl' ? 'ssl://' : ($mode === 'tls' ? 'tls://' : '');
+                    $remote = $prefix . $host . ':' . $testPort;
+                    $eNo = 0; $eStr = '';
+                    $sock = @fsockopen($remote, $testPort, $eNo, $eStr, 8);
+                    $ok = $sock !== false;
+                    if ($sock) { fgets($sock, 512); fputs($sock, "QUIT\r\n"); fclose($sock); }
+                    $report['connection_tests'][] = [
+                        'port' => (int)$testPort,
+                        'mode' => $mode,
+                        'reachable' => $ok,
+                        'error' => $ok ? null : "errno=$eNo errstr=$eStr",
+                    ];
+                    // If the configured port worked, also test the other common port
+                    if ($testPort === $port && $ok && $port === '465') {
+                        // Also test 587 as fallback option
+                        $remote2 = 'tls://' . $host . ':587';
+                        $eNo2 = 0; $eStr2 = '';
+                        $sock2 = @fsockopen($remote2, 587, $eNo2, $eStr2, 8);
+                        $ok2 = $sock2 !== false;
+                        if ($sock2) { fgets($sock2, 512); fputs($sock2, "QUIT\r\n"); fclose($sock2); }
+                        $report['connection_tests'][] = [
+                            'port' => 587,
+                            'mode' => 'tls',
+                            'reachable' => $ok2,
+                            'error' => $ok2 ? null : "errno=$eNo2 errstr=$eStr2",
+                            'note' => 'fallback (STARTTLS)',
+                        ];
+                    }
+                }
+                echo json_encode(['success' => true, 'data' => $report]);
+                exit;
+            }
+
+            // Generic GET — return SMTP config (masked password)
             if ($method === 'GET') {
                 $rows = all("SELECT key_name, key_value FROM settings WHERE key_name IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from')");
                 $config = [];
                 foreach ($rows as $r) $config[$r['key_name']] = $r['key_value'];
                 $hasPass = !empty($config['smtp_pass']);
-                error_log("[email-debug] GET email-settings: returned " . count($config) . " keys, smtp_pass_exists=" . ($hasPass ? 'yes' : 'no'));
-                // Mask the password — never expose the real encrypted value
                 if ($hasPass) $config['smtp_pass'] = '********';
-                log_access('GET', 'admin/email-settings', 200);
                 echo json_encode(['success' => true, 'data' => $config]);
                 exit;
             }
