@@ -407,7 +407,7 @@ export default function AdminCreateLoan() {
                 {estimate && !calculating && (
                   <Card className="bg-muted/50">
                     <CardContent className="pt-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
                           <p className="text-muted-foreground">Principal</p>
                           <p className="font-semibold">{formatKES(estimate.principal)}</p>
@@ -454,7 +454,7 @@ export default function AdminCreateLoan() {
               <CardTitle>Loan Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Borrower</p>
                   <p className="font-semibold">{selectedBorrower?.name || selectedBorrower?.email}</p>
@@ -664,7 +664,7 @@ export default function AdminCreateLoan() {
             <CardDescription>The loan has been submitted and is pending review</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-muted-foreground">Loan ID</p>
                 <p className="font-semibold">#{createdLoan.id}</p>

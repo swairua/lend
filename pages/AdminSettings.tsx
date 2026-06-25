@@ -764,7 +764,7 @@ export default function AdminSettings() {
               </div>
               <div>
                 <Label>Early Repayment Penalty (%)</Label>
-                <Input type="number" step="0.1" value={config.early_repayment_penalty} onChange={(e) => handleChange('early_repayment_penalty', e.target.value)} className="w-48" />
+                <Input type="number" step="0.1" value={config.early_repayment_penalty} onChange={(e) => handleChange('early_repayment_penalty', e.target.value)} className="w-full sm:w-48" />
               </div>
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
@@ -1091,7 +1091,7 @@ export default function AdminSettings() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-2 flex-wrap">
                 <Button onClick={handleSaveEmailSettings} disabled={emailSaving}>
                   {emailSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Email Settings
@@ -1431,7 +1431,7 @@ export default function AdminSettings() {
             <DialogTitle>{editingProduct ? 'Edit Product' : 'Add Loan Product'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Category</Label>
                 <select className="w-full p-2 border rounded-md" value={productForm.category_id} onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })}>
@@ -1446,7 +1446,7 @@ export default function AdminSettings() {
                 <Input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} placeholder="e.g., Quick Loan" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Code</Label>
                 <Input value={productForm.code} onChange={(e) => setProductForm({ ...productForm, code: e.target.value })} placeholder="e.g., QUICK" />
@@ -1463,7 +1463,7 @@ export default function AdminSettings() {
               <Label>Description</Label>
               <Input value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} placeholder="Optional description" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Min Amount *</Label>
                 <Input type="number" value={productForm.min_amount} onChange={(e) => setProductForm({ ...productForm, min_amount: e.target.value })} />
@@ -1473,7 +1473,7 @@ export default function AdminSettings() {
                 <Input type="number" value={productForm.max_amount} onChange={(e) => setProductForm({ ...productForm, max_amount: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Min Term (months)</Label>
                 <Input type="number" value={productForm.min_term_months} onChange={(e) => setProductForm({ ...productForm, min_term_months: e.target.value })} />
@@ -1483,7 +1483,7 @@ export default function AdminSettings() {
                 <Input type="number" value={productForm.max_term_months} onChange={(e) => setProductForm({ ...productForm, max_term_months: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Interest Rate (%)</Label>
                 <Input type="number" step="0.1" value={productForm.interest_rate} onChange={(e) => setProductForm({ ...productForm, interest_rate: e.target.value })} />
