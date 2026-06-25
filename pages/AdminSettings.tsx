@@ -1494,7 +1494,7 @@ export default function AdminSettings() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap">
             <Button variant="outline" onClick={() => setProductDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveProduct} disabled={productSaving}>
               {productSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (editingProduct ? 'Update' : 'Create')}

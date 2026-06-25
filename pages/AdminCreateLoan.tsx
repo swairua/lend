@@ -534,7 +534,7 @@ export default function AdminCreateLoan() {
             </CardContent>
           </Card>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <Button variant="outline" className="flex-1" onClick={() => setStep(1)} disabled={submitting}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
@@ -634,7 +634,7 @@ export default function AdminCreateLoan() {
             </CardContent>
           </Card>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <Button variant="outline" className="flex-1" onClick={() => setStep(2)} disabled={submitting}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
