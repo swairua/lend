@@ -843,7 +843,7 @@ function bootstrap() {
             q("INSERT IGNORE INTO settings (key_name, key_value) VALUES (?, ?)", [$k, $v]);
         }
 
-        // Seed SMTP settings — repair empty values that may have been written by old frontend
+        // Seed SMTP settings — always enforce correct host/port/user/from (non-sensitive)
         $smtpDefaults = [
             'smtp_host' => 'mail.jecrilogistics.com',
             'smtp_port' => '465',
@@ -851,11 +851,9 @@ function bootstrap() {
             'smtp_from' => 'bureau@jecrilogistics.com',
         ];
         foreach ($smtpDefaults as $k => $v) {
-            $existing = one("SELECT key_value FROM settings WHERE key_name = ?", [$k]);
-            if (!$existing || empty($existing['key_value'])) {
-                q("INSERT INTO settings (key_name, key_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE key_value = ?", [$k, $v, $v]);
-            }
+            q("INSERT INTO settings (key_name, key_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE key_value = ?", [$k, $v, $v]);
         }
+        // Only re-seed password if it's missing (encrypted — unique per installation)
         $existingPass = one("SELECT key_value FROM settings WHERE key_name = 'smtp_pass'");
         if (!$existingPass || empty($existingPass['key_value'])) {
             $encrypted = encryptSmtpPass('Bureau@2026');
